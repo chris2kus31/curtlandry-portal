@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Box,
   Card,
@@ -751,7 +751,7 @@ export default function TimeOffPage() {
   const activeTabBg = useColorModeValue("white", "gray.900");
 
   // Fetch types and balances (needed for Request tab)
-  const fetchTypesAndBalances = async () => {
+  const fetchTypesAndBalances = useCallback(async () => {
     if (!typesLoaded && !isLoadingTypes) {
       setIsLoadingTypes(true);
       try {
@@ -773,10 +773,10 @@ export default function TimeOffPage() {
         setIsLoadingBalances(false);
       }
     }
-  };
+  }, [typesLoaded, balancesLoaded, isLoadingTypes, isLoadingBalances]);
 
   // Fetch requests (needed for My Requests tab)
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     if (isLoadingRequests) return;
     setIsLoadingRequests(true);
     try {
@@ -787,7 +787,7 @@ export default function TimeOffPage() {
     } finally {
       setIsLoadingRequests(false);
     }
-  };
+  }, [isLoadingRequests]);
 
   // Fetch data based on active tab
   useEffect(() => {
@@ -798,7 +798,7 @@ export default function TimeOffPage() {
     } else if (activeTab === "balances" && !balancesLoaded) {
       fetchTypesAndBalances();
     }
-  }, [activeTab, typesLoaded, balancesLoaded, requestsLoaded]);
+  }, [activeTab, typesLoaded, balancesLoaded, requestsLoaded, fetchTypesAndBalances, fetchRequests]);
 
   // Refresh all data after creating a request
   const refreshData = () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Box,
   Card,
@@ -352,8 +352,7 @@ export default function TeamPage() {
     cancelHoverBg,
   };
 
-  const fetchPending = async () => {
-    if (isLoadingPending) return;
+  const fetchPending = useCallback(async () => {
     setIsLoadingPending(true);
     try {
       const res = await httpClient.get<{ data: TimeOffRequest[] }>(
@@ -367,10 +366,9 @@ export default function TeamPage() {
     } finally {
       setIsLoadingPending(false);
     }
-  };
+  }, []);
 
-  const fetchHistory = async () => {
-    if (isLoadingHistory) return;
+  const fetchHistory = useCallback(async () => {
     setIsLoadingHistory(true);
     try {
       const res = await httpClient.get<{ data: TimeOffRequest[] }>(
@@ -384,16 +382,16 @@ export default function TeamPage() {
     } finally {
       setIsLoadingHistory(false);
     }
-  };
+  }, []);
 
   // Fetch data based on active tab
   useEffect(() => {
-    if (activeTab === "pending" && !pendingLoaded) {
+    if (activeTab === "pending" && !pendingLoaded && !isLoadingPending) {
       fetchPending();
-    } else if (activeTab === "history" && !historyLoaded) {
+    } else if (activeTab === "history" && !historyLoaded && !isLoadingHistory) {
       fetchHistory();
     }
-  }, [activeTab, pendingLoaded, historyLoaded]);
+  }, [activeTab, pendingLoaded, historyLoaded, isLoadingPending, isLoadingHistory, fetchPending, fetchHistory]);
 
   // Refresh data after approval/denial
   const refreshData = () => {

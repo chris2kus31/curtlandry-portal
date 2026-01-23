@@ -1,16 +1,20 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useSyncExternalStore } from "react";
 import { useAuthStore } from "@/store/auth-store";
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [isClient, setIsClient] = useState(false);
-  const { initializeAuth, isInitialized, _hasHydrated } = useAuthStore();
+// Hydration-safe client detection
+const emptySubscribe = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
-  // Ensure we're on the client
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+function useIsClient() {
+  return useSyncExternalStore(emptySubscribe, getClientSnapshot, getServerSnapshot);
+}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const isClient = useIsClient();
+  const { initializeAuth, isInitialized, _hasHydrated } = useAuthStore();
 
   // Initialize auth after hydration
   useEffect(() => {

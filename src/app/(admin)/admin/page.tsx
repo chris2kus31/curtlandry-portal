@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Box,
   Card,
@@ -261,8 +261,7 @@ export default function AdminPage() {
     hoverBg,
   };
 
-  const fetchUsers = async () => {
-    if (isLoadingUsers) return;
+  const fetchUsers = useCallback(async () => {
     setIsLoadingUsers(true);
     try {
       const res = await httpClient.get<{ data: User[] }>("/portal/admin/users");
@@ -274,10 +273,9 @@ export default function AdminPage() {
     } finally {
       setIsLoadingUsers(false);
     }
-  };
+  }, []);
 
-  const fetchRoles = async () => {
-    if (isLoadingRoles) return;
+  const fetchRoles = useCallback(async () => {
     setIsLoadingRoles(true);
     try {
       const res = await httpClient.get<{ data: Role[] }>("/portal/admin/roles");
@@ -289,16 +287,16 @@ export default function AdminPage() {
     } finally {
       setIsLoadingRoles(false);
     }
-  };
+  }, []);
 
   // Fetch data based on active tab
   useEffect(() => {
-    if (activeTab === "users" && !usersLoaded) {
+    if (activeTab === "users" && !usersLoaded && !isLoadingUsers) {
       fetchUsers();
-    } else if (activeTab === "roles" && !rolesLoaded) {
+    } else if (activeTab === "roles" && !rolesLoaded && !isLoadingRoles) {
       fetchRoles();
     }
-  }, [activeTab, usersLoaded, rolesLoaded]);
+  }, [activeTab, usersLoaded, rolesLoaded, isLoadingUsers, isLoadingRoles, fetchUsers, fetchRoles]);
 
   const handleEditUser = (user: User) => {
     setEditingUser(user);
