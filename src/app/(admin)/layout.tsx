@@ -1,6 +1,6 @@
 // src/app/(admin)/layout.tsx
 import { AppLayout } from "@/components/layouts";
-import { ProtectedRoute } from "@/components/auth/protected-route";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 export default function AdminLayout({
   children,

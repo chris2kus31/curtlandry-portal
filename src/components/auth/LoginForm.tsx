@@ -2,7 +2,7 @@
 
 import { Box, Card, VStack, Text, HStack } from "@chakra-ui/react";
 import Image from "next/image";
-import { GoogleLoginButton } from "@/components/auth/google-login-button";
+import { GoogleLoginButton } from "@/components/auth/GoogleLoginButton";
 import { ColorModeButton, useColorModeValue } from "@/components/ui/color-mode";
 
 export function LoginForm() {

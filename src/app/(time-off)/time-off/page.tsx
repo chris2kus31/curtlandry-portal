@@ -37,7 +37,7 @@ import {
   type TimeOffRequest,
   type TimeOffType,
 } from "@/lib/api";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { DateRangePicker } from "@/components/ui/DateRangePicker";
 
 // ============================================================================
 // Helper Functions

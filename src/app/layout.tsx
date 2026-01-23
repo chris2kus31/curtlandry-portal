@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { DM_Sans, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Provider } from "@/components/ui/provider";
-import { AuthProvider } from "@/components/auth/auth-provider";
+import { AuthProvider } from "@/components/auth/AuthProvider";
 import React from "react";
 
 export const metadata: Metadata = {
