@@ -238,6 +238,8 @@ function RequestTab({
                 rows={2}
                 resize="none"
                 _focus={{ bg: inputBg, boxShadow: "inset 0 0 0 1px var(--chakra-colors-brand-500)" }}
+                px={2}
+                py={2}
               />
             </Box>
 

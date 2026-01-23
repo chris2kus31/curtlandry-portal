@@ -203,7 +203,7 @@ function RoleCard({ role, colors }: { role: Role; colors: ColorProps }) {
                 <Text fontWeight="semibold" fontSize="md" color={colors.textPrimary}>
                   {role.display_name}
                 </Text>
-                <Badge colorPalette="gray" variant="outline" fontSize="xs" borderRadius="full">
+                <Badge colorPalette="gray" variant="outline" fontSize="xs" borderRadius="full" px={4}>
                   {role.name}
                 </Badge>
               </HStack>
@@ -430,7 +430,7 @@ export default function AdminPage() {
             <HStack gap={2}>
               <LuUsers size={16} />
               <Text>Users</Text>
-              <Badge bg="brand.500" color="white" borderRadius="full" fontSize="xs" px={1.5} minW="20px">
+              <Badge bg="brand.500" color="white" borderRadius="full" fontSize="xs" px={2} minW="20px">
                 {users.length}
               </Badge>
             </HStack>
