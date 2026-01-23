@@ -1,13 +1,12 @@
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* src/app/globals.css */
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* CSS Reset and Base Styles */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
 }
 
 html,
@@ -17,17 +16,10 @@ body {
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-dm-sans), -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
 }
 
 a {
@@ -35,8 +27,126 @@ a {
   text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
+/* Light Theme Variables */
+:root,
+.light {
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --card-bg: #ffffff;
+  --border-color: #e2e8f0;
+  --muted: #64748b;
+  color-scheme: light;
+}
+
+/* Dark Theme Variables */
+.dark {
+  --background: #020617;
+  --foreground: #f8fafc;
+  --card-bg: #0f172a;
+  --border-color: #334155;
+  --muted: #94a3b8;
+  color-scheme: dark;
+}
+
+/* Smooth transitions for theme changes */
+html {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Custom scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Selection styling with brand colors */
+::selection {
+  background-color: rgba(0, 188, 139, 0.3);
+  color: inherit;
+}
+
+/* Focus outline styling */
+:focus-visible {
+  outline: 2px solid #00bc8b;
+  outline-offset: 2px;
+}
+
+/* Gradient text utility */
+.gradient-text {
+  background: linear-gradient(135deg, #00bc8b 0%, #0095c1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Gradient background utility */
+.gradient-bg {
+  background: linear-gradient(135deg, #00bc8b 0%, #0095c1 100%);
+}
+
+/* Glass effect utility */
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.dark .glass {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* Animation utilities */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
   }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(0, 188, 139, 0.3), 0 0 40px rgba(0, 149, 193, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(0, 188, 139, 0.5), 0 0 60px rgba(0, 149, 193, 0.3);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s ease-out;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
 }
