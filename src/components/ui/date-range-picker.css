@@ -3,8 +3,21 @@
   width: 100%;
 }
 
+/* Ensure datepicker portal appears above everything */
+#datepicker-portal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 99999;
+  pointer-events: none;
+}
+
+#datepicker-portal .react-datepicker-popper {
+  pointer-events: auto;
+}
+
 .react-datepicker-popper {
-  z-index: 9999 !important;
+  z-index: 99999 !important;
 }
 
 .react-datepicker {

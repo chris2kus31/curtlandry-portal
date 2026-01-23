@@ -16,6 +16,7 @@ import {
   Progress,
   IconButton,
   SimpleGrid,
+  Flex,
 } from "@chakra-ui/react";
 import { useColorModeValue } from "@/components/ui/color-mode";
 import { toaster } from "@/components/ui/toaster";
@@ -29,7 +30,11 @@ import {
   LuSend,
   LuX,
   LuCalendarDays,
-  LuSparkles,
+  LuTrendingUp,
+  LuCalendarPlus,
+  LuHistory,
+  LuWallet,
+  LuRotateCcw,
 } from "react-icons/lu";
 import {
   timeOffService,
@@ -106,12 +111,12 @@ function getRelativeTime(dateStr: string) {
 function RequestTab({
   types,
   balances,
-  isLoadingBalances,
+  isLoading,
   onRequestCreated,
 }: {
   types: TimeOffType[];
   balances: TimeOffBalance[];
-  isLoadingBalances: boolean;
+  isLoading: boolean;
   onRequestCreated: () => void;
 }) {
   const [startDate, setStartDate] = useState<Date | null>(null);
@@ -119,11 +124,23 @@ function RequestTab({
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const cardBg = useColorModeValue("white", "gray.900");
+  const cardBg = useColorModeValue("white", "gray.800");
+  const borderColor = useColorModeValue("gray.100", "gray.700");
   const textPrimary = useColorModeValue("gray.900", "gray.50");
   const textSecondary = useColorModeValue("gray.500", "gray.400");
-  const inputBg = useColorModeValue("gray.50", "gray.800");
-  const progressTrackBg = useColorModeValue("gray.100", "gray.800");
+  const inputBg = useColorModeValue("gray.50", "gray.900");
+  const progressTrackBg = useColorModeValue("gray.100", "gray.700");
+  const statBg = useColorModeValue("gray.50", "gray.750");
+  const summaryBg = useColorModeValue("brand.50", "brand.950");
+  const summaryBorder = useColorModeValue("brand.100", "brand.900");
+  const inputHoverBorder = useColorModeValue("gray.300", "gray.600");
+  const disabledBg = useColorModeValue("gray.100", "gray.800");
+  const disabledColor = useColorModeValue("gray.400", "gray.500");
+  const accrualInfoBg = useColorModeValue("brand.50", "brand.950");
+  const accrualInfoBorder = useColorModeValue("brand.100", "brand.900");
+  const amberBorderColor = useColorModeValue("amber.200", "amber.800");
+  const trendingColor = useColorModeValue("#00bc8b", "#4ade80");
+  const cancelHoverBg = useColorModeValue("red.50", "red.950");
 
   const ptoType = types.find((t) => t.code === "PTO") || types[0];
   const ptoBalance = balances.find((b) => b.type.code === "PTO");
@@ -150,6 +167,12 @@ function RequestTab({
     return date.toISOString().split("T")[0];
   };
 
+  const handleReset = () => {
+    setStartDate(null);
+    setEndDate(null);
+    setNotes("");
+  };
+
   const handleSubmit = async () => {
     if (!ptoType || !isFormValid || !startDate || !endDate) return;
 
@@ -170,9 +193,7 @@ function RequestTab({
         type: "success",
       });
 
-      setStartDate(null);
-      setEndDate(null);
-      setNotes("");
+      handleReset();
       onRequestCreated();
     } catch (error) {
       toaster.create({
@@ -186,33 +207,59 @@ function RequestTab({
   };
 
   return (
-    <Grid templateColumns={{ base: "1fr", lg: "1fr 1fr" }} gap={6}>
+    <Grid templateColumns={{ base: "1fr", lg: "1fr 380px" }} gap={6}>
       {/* Left: Request Form */}
-      <Card.Root bg={cardBg} borderRadius="2xl" shadow="sm" overflow="visible">
-        <Box h="2px" bg="linear-gradient(90deg, #00bc8b, #0095c1, #6d2891)" />
-        <Card.Body p={6}>
+      <Card.Root 
+        bg={cardBg} 
+        borderRadius="2xl" 
+        border="1px solid"
+        borderColor={borderColor}
+        overflow="hidden"
+      >
+        <Box h="3px" bgGradient="to-r" gradientFrom="brand.500" gradientTo="cyan.500" />
+        <Card.Body p={{ base: 5, md: 6 }}>
           <VStack gap={6} align="stretch">
             {/* Header */}
-            <HStack gap={3}>
-              <Box
-                p={2.5}
-                borderRadius="xl"
-                bg="linear-gradient(135deg, #00bc8b, #0095c1)"
-              >
-                <LuCalendarDays size={22} color="white" />
-              </Box>
-              <Box>
-                <Text fontWeight="semibold" color={textPrimary} fontSize="lg">
-                  New Request
-                </Text>
-                <Text fontSize="sm" color={textSecondary}>
-                  Select your dates below
-                </Text>
-              </Box>
+            <HStack justify="space-between">
+              <HStack gap={3}>
+                <Flex
+                  p={2.5}
+                  borderRadius="xl"
+                  bgGradient="to-br"
+                  gradientFrom="brand.500"
+                  gradientTo="cyan.500"
+                  align="center"
+                  justify="center"
+                >
+                  <LuCalendarPlus size={22} color="white" />
+                </Flex>
+                <Box>
+                  <Text fontWeight="semibold" color={textPrimary} fontSize="lg">
+                    New Request
+                  </Text>
+                  <Text fontSize="sm" color={textSecondary}>
+                    Select your dates below
+                  </Text>
+                </Box>
+              </HStack>
+              {(startDate || endDate || notes) && (
+                <IconButton
+                  aria-label="Reset form"
+                  onClick={handleReset}
+                  variant="ghost"
+                  size="sm"
+                  color={textSecondary}
+                  _hover={{ color: "red.500", bg: cancelHoverBg }}
+                  borderRadius="lg"
+                  disabled={isSubmitting}
+                >
+                  <LuRotateCcw size={18} />
+                </IconButton>
+              )}
             </HStack>
 
             {/* Date Selection */}
-            <Box p={5} bg={inputBg} borderRadius="xl">
+            <Box p={{ base: 4, md: 5 }} bg={inputBg} borderRadius="xl">
               <DateRangePicker
                 startDate={startDate}
                 endDate={endDate}
@@ -223,9 +270,41 @@ function RequestTab({
               />
             </Box>
 
+            {/* Summary */}
+            {isFormValid && (
+              <Box 
+                p={4} 
+                bg={summaryBg}
+                borderRadius="xl"
+                border="1px solid"
+                borderColor={summaryBorder}
+              >
+                <HStack justify="space-between">
+                  <Text fontSize="sm" color={textSecondary}>
+                    Total Time
+                  </Text>
+                  <HStack gap={2}>
+                    <Badge colorPalette="brand" variant="subtle" px={2} py={1} borderRadius="md">
+                      {totalDays} day{totalDays !== 1 ? "s" : ""}
+                    </Badge>
+                    <Badge colorPalette="gray" variant="subtle" px={2} py={1} borderRadius="md">
+                      {totalHours} hours
+                    </Badge>
+                  </HStack>
+                </HStack>
+              </Box>
+            )}
+
             {/* Notes */}
             <Box>
-              <Text fontSize="xs" color={textSecondary} mb={2} fontWeight="semibold" textTransform="uppercase" letterSpacing="wide">
+              <Text 
+                fontSize="xs" 
+                color={textSecondary} 
+                mb={2} 
+                fontWeight="semibold" 
+                textTransform="uppercase" 
+                letterSpacing="wide"
+              >
                 Notes <Text as="span" fontWeight="normal" textTransform="none">(optional)</Text>
               </Text>
               <Textarea
@@ -233,13 +312,18 @@ function RequestTab({
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Any details for your manager..."
                 bg={inputBg}
-                border="none"
-                borderRadius="lg"
-                rows={2}
+                border="1px solid"
+                borderColor={borderColor}
+                borderRadius="xl"
+                rows={3}
                 resize="none"
-                _focus={{ bg: inputBg, boxShadow: "inset 0 0 0 1px var(--chakra-colors-brand-500)" }}
-                px={2}
-                py={2}
+                _focus={{ 
+                  borderColor: "brand.500",
+                  boxShadow: "0 0 0 1px var(--chakra-colors-brand-500)"
+                }}
+                _hover={{ borderColor: inputHoverBorder }}
+                px={4}
+                py={3}
               />
             </Box>
 
@@ -250,8 +334,11 @@ function RequestTab({
               aria-disabled={!isFormValid || isSubmitting}
               w="full"
               py={4}
-              bg={!isFormValid ? "gray.200" : "linear-gradient(135deg, #00bc8b 0%, #0095c1 100%)"}
-              color={!isFormValid ? "gray.500" : "white"}
+              bgGradient={!isFormValid ? undefined : "to-r"}
+              gradientFrom={!isFormValid ? undefined : "brand.500"}
+              gradientTo={!isFormValid ? undefined : "cyan.500"}
+              bg={!isFormValid ? disabledBg : undefined}
+              color={!isFormValid ? disabledColor : "white"}
               fontWeight="semibold"
               borderRadius="xl"
               display="flex"
@@ -260,7 +347,10 @@ function RequestTab({
               gap={2}
               cursor={!isFormValid || isSubmitting ? "not-allowed" : "pointer"}
               opacity={isSubmitting ? 0.7 : 1}
-              _hover={{ opacity: isFormValid && !isSubmitting ? 0.9 : 1 }}
+              _hover={{ 
+                opacity: isFormValid && !isSubmitting ? 0.9 : 1,
+                transform: isFormValid && !isSubmitting ? "translateY(-1px)" : "none",
+              }}
               transition="all 0.2s"
               shadow={isFormValid ? "lg" : "none"}
             >
@@ -273,89 +363,218 @@ function RequestTab({
 
       {/* Right: Balance Overview */}
       <VStack gap={4} align="stretch">
-        {isLoadingBalances ? (
-          <Skeleton height="280px" borderRadius="2xl" />
+        {isLoading ? (
+          <Card.Root bg={cardBg} borderRadius="2xl" border="1px solid" borderColor={borderColor} overflow="hidden">
+            <Skeleton height="60px" />
+            <Card.Body p={6}>
+              <VStack gap={4}>
+                <Skeleton height="80px" width="100%" borderRadius="lg" />
+                <Skeleton height="60px" width="100%" borderRadius="lg" />
+                <Grid templateColumns="repeat(2, 1fr)" gap={3} w="full">
+                  <Skeleton height="70px" borderRadius="lg" />
+                  <Skeleton height="70px" borderRadius="lg" />
+                  <Skeleton height="70px" borderRadius="lg" />
+                  <Skeleton height="70px" borderRadius="lg" />
+                </Grid>
+              </VStack>
+            </Card.Body>
+          </Card.Root>
         ) : ptoBalance ? (
-          <Card.Root bg={cardBg} borderRadius="2xl" shadow="sm" overflow="hidden">
+          <Card.Root 
+            bg={cardBg} 
+            borderRadius="2xl" 
+            border="1px solid"
+            borderColor={borderColor}
+            overflow="hidden"
+          >
             <Box
-              p={6}
-              bg="linear-gradient(135deg, rgba(0, 188, 139, 0.08), rgba(0, 149, 193, 0.08))"
+              px={5}
+              py={4}
+              bgGradient="to-r"
+              gradientFrom="brand.500"
+              gradientTo="teal.400"
             >
-              <HStack justify="space-between" mb={6}>
+              <HStack justify="space-between">
                 <HStack gap={2}>
-                  <LuSparkles size={18} color="#00bc8b" />
-                  <Text fontWeight="semibold" color={textPrimary}>
-                    Your Balance
+                  <LuWallet size={18} color="white" />
+                  <Text fontWeight="semibold" color="white" fontSize="sm">
+                    Your PTO Balance
                   </Text>
                 </HStack>
-                <Badge colorPalette="gray" variant="subtle" borderRadius="full">
+                <Badge 
+                  bg="whiteAlpha.200" 
+                  color="white" 
+                  borderRadius="full"
+                  px={2}
+                >
                   {ptoBalance.year}
                 </Badge>
               </HStack>
-
-              <VStack gap={1}>
-                <Text fontSize="6xl" fontWeight="bold" color="brand.500" lineHeight={1}>
-                  {ptoBalance.available}
-                </Text>
-                <Text fontSize="sm" color={textSecondary}>
-                  hours available
-                </Text>
-                <Text fontSize="xs" color={textSecondary}>
-                  ({Math.floor(ptoBalance.available / 8)} days)
-                </Text>
-              </VStack>
             </Box>
 
-            <Card.Body p={6} pt={4}>
-              <Box mb={4}>
-                <Progress.Root
-                  value={ptoBalance.balance > 0 ? ((ptoBalance.used + ptoBalance.pending) / ptoBalance.balance) * 100 : 0}
-                  size="sm"
-                >
-                  <Progress.Track bg={progressTrackBg} borderRadius="full" h="6px">
-                    <Progress.Range bg="brand.500" borderRadius="full" />
-                  </Progress.Track>
-                </Progress.Root>
-                <HStack justify="space-between" mt={2}>
-                  <Text fontSize="xs" color={textSecondary}>
-                    {ptoBalance.used + ptoBalance.pending} used
+            <Card.Body p={5}>
+              <VStack gap={5} align="stretch">
+                {/* Main Balance Display */}
+                <Box textAlign="center" py={3}>
+                  <Text 
+                    fontSize="5xl" 
+                    fontWeight="bold" 
+                    bgGradient="to-r"
+                    gradientFrom="brand.500"
+                    gradientTo="cyan.500"
+                    bgClip="text"
+                    lineHeight={1}
+                  >
+                    {ptoBalance.available}
                   </Text>
-                  <Text fontSize="xs" color={textSecondary}>
-                    {ptoBalance.balance} total
+                  <Text fontSize="sm" color={textSecondary} mt={2}>
+                    hours available
                   </Text>
-                </HStack>
-              </Box>
+                  <Badge 
+                    colorPalette="gray" 
+                    variant="subtle" 
+                    mt={1}
+                    px={3}
+                    py={1}
+                    borderRadius="full"
+                  >
+                    {Math.floor(ptoBalance.available / 8)} days
+                  </Badge>
+                </Box>
 
-              <SimpleGrid columns={2} gap={3}>
-                <Box p={3} bg={inputBg} borderRadius="lg" textAlign="center">
-                  <Text fontSize="lg" fontWeight="bold" color={textPrimary}>{ptoBalance.used}</Text>
-                  <Text fontSize="xs" color={textSecondary}>Used</Text>
+                {/* Progress Bar */}
+                <Box>
+                  <Progress.Root
+                    value={ptoBalance.balance > 0 ? ((ptoBalance.used + ptoBalance.pending) / ptoBalance.balance) * 100 : 0}
+                    size="sm"
+                  >
+                    <Progress.Track bg={progressTrackBg} borderRadius="full" h="8px">
+                      <Progress.Range 
+                        bgGradient="to-r"
+                        gradientFrom="brand.500"
+                        gradientTo="cyan.500"
+                        borderRadius="full" 
+                      />
+                    </Progress.Track>
+                  </Progress.Root>
+                  <HStack justify="space-between" mt={2}>
+                    <Text fontSize="xs" color={textSecondary}>
+                      {ptoBalance.used + ptoBalance.pending} hrs used
+                    </Text>
+                    <Text fontSize="xs" color={textSecondary}>
+                      {ptoBalance.balance} hrs total
+                    </Text>
+                  </HStack>
                 </Box>
-                <Box p={3} bg={inputBg} borderRadius="lg" textAlign="center">
-                  <Text fontSize="lg" fontWeight="bold" color="amber.500">{ptoBalance.pending}</Text>
-                  <Text fontSize="xs" color={textSecondary}>Pending</Text>
-                </Box>
-                <Box p={3} bg={inputBg} borderRadius="lg" textAlign="center">
-                  <Text fontSize="lg" fontWeight="bold" color={textPrimary}>{ptoBalance.accrued_ytd}</Text>
-                  <Text fontSize="xs" color={textSecondary}>Accrued</Text>
-                </Box>
-                <Box p={3} bg={inputBg} borderRadius="lg" textAlign="center">
-                  <Text fontSize="lg" fontWeight="bold" color={textPrimary}>{ptoBalance.carry_over}</Text>
-                  <Text fontSize="xs" color={textSecondary}>Carried</Text>
-                </Box>
-              </SimpleGrid>
+
+                {/* Stats Grid */}
+                <SimpleGrid columns={2} gap={3}>
+                  <Box 
+                    p={3} 
+                    bg={statBg} 
+                    borderRadius="xl" 
+                    textAlign="center"
+                    border="1px solid"
+                    borderColor={borderColor}
+                  >
+                    <Text fontSize="xl" fontWeight="bold" color={textPrimary}>
+                      {ptoBalance.used}
+                    </Text>
+                    <Text fontSize="xs" color={textSecondary}>Used</Text>
+                  </Box>
+                  <Box 
+                    p={3} 
+                    bg={statBg} 
+                    borderRadius="xl" 
+                    textAlign="center"
+                    border="1px solid"
+                    borderColor={amberBorderColor}
+                  >
+                    <Text fontSize="xl" fontWeight="bold" color="amber.500">
+                      {ptoBalance.pending}
+                    </Text>
+                    <Text fontSize="xs" color={textSecondary}>Pending</Text>
+                  </Box>
+                  <Box 
+                    p={3} 
+                    bg={statBg} 
+                    borderRadius="xl" 
+                    textAlign="center"
+                    border="1px solid"
+                    borderColor={borderColor}
+                  >
+                    <HStack justify="center" gap={1}>
+                      <LuTrendingUp size={14} color={trendingColor} />
+                      <Text fontSize="xl" fontWeight="bold" color={textPrimary}>
+                        {ptoBalance.accrued_ytd}
+                      </Text>
+                    </HStack>
+                    <Text fontSize="xs" color={textSecondary}>Accrued</Text>
+                  </Box>
+                  <Box 
+                    p={3} 
+                    bg={statBg} 
+                    borderRadius="xl" 
+                    textAlign="center"
+                    border="1px solid"
+                    borderColor={borderColor}
+                  >
+                    <Text fontSize="xl" fontWeight="bold" color={textPrimary}>
+                      {ptoBalance.carry_over}
+                    </Text>
+                    <Text fontSize="xs" color={textSecondary}>Carried Over</Text>
+                  </Box>
+                </SimpleGrid>
+
+                {/* Accrual Rate Info */}
+                {ptoBalance.tier && (
+                  <Box 
+                    p={3} 
+                    bg={accrualInfoBg} 
+                    borderRadius="xl"
+                    border="1px solid"
+                    borderColor={accrualInfoBorder}
+                  >
+                    <HStack justify="space-between">
+                      <Text fontSize="xs" color={textSecondary}>
+                        Accrual Rate
+                      </Text>
+                      <Text fontSize="sm" fontWeight="semibold" color={textPrimary}>
+                        {ptoBalance.tier.accrual_rate} hrs/period
+                      </Text>
+                    </HStack>
+                  </Box>
+                )}
+              </VStack>
             </Card.Body>
           </Card.Root>
         ) : (
-          <Card.Root bg={cardBg} borderRadius="2xl" shadow="sm" p={8}>
+          <Card.Root 
+            bg={cardBg} 
+            borderRadius="2xl" 
+            border="1px solid"
+            borderColor={borderColor}
+            p={8}
+          >
             <Card.Body p={0}>
-              <VStack gap={3}>
-                <Box p={4} borderRadius="full" bg={inputBg}>
+              <VStack gap={4}>
+                <Flex
+                  p={4}
+                  borderRadius="full"
+                  bg={statBg}
+                  align="center"
+                  justify="center"
+                >
                   <LuClock size={32} color="var(--chakra-colors-gray-400)" />
-                </Box>
-                <Text color={textSecondary} textAlign="center">
-                  No balance configured yet
-                </Text>
+                </Flex>
+                <VStack gap={1}>
+                  <Text fontWeight="medium" color={textPrimary}>
+                    No balance configured
+                  </Text>
+                  <Text fontSize="sm" color={textSecondary} textAlign="center">
+                    Contact HR to set up your PTO balance
+                  </Text>
+                </VStack>
               </VStack>
             </Card.Body>
           </Card.Root>
@@ -369,14 +588,15 @@ function RequestTab({
 // My Requests Tab Component
 // ============================================================================
 
-// Section component for grouping requests
 function RequestSection({
   title,
+  icon,
   count,
   children,
   textSecondary,
 }: {
   title: string;
+  icon: React.ReactNode;
   count: number;
   children: React.ReactNode;
   textSecondary: string;
@@ -384,6 +604,7 @@ function RequestSection({
   return (
     <Box>
       <HStack gap={2} mb={3}>
+        {icon}
         <Text fontSize="sm" fontWeight="semibold" color={textSecondary} textTransform="uppercase" letterSpacing="wide">
           {title}
         </Text>
@@ -398,7 +619,6 @@ function RequestSection({
   );
 }
 
-// Extracted outside to avoid hooks order issues
 function RequestRow({
   request,
   onCancel,
@@ -408,6 +628,7 @@ function RequestRow({
   textPrimary,
   textSecondary,
   hoverBg,
+  cancelHoverBg,
 }: {
   request: TimeOffRequest;
   onCancel: (id: number) => void;
@@ -417,6 +638,7 @@ function RequestRow({
   textPrimary: string;
   textSecondary: string;
   hoverBg: string;
+  cancelHoverBg: string;
 }) {
   const status = getStatusStyles(request.status);
   const canCancel = request.status === "pending" || request.status === "draft";
@@ -432,24 +654,24 @@ function RequestRow({
       borderColor={borderColor}
       justify="space-between"
       transition="all 0.15s"
-      _hover={{ bg: hoverBg, borderColor: hoverBorderColor }}
+      _hover={{ bg: hoverBg, borderColor: hoverBorderColor, transform: "translateY(-1px)" }}
     >
       <HStack gap={4} flex={1}>
-        <Box w="4px" h="40px" borderRadius="full" bg={status.bg} />
+        <Box w="4px" h="44px" borderRadius="full" bg={status.bg} />
         <VStack align="start" gap={0.5} flex={1}>
-          <HStack gap={2}>
+          <HStack gap={2} flexWrap="wrap">
             <Text fontWeight="medium" color={textPrimary}>
               {formatDateRange(request.start_date, request.end_date)}
             </Text>
             {isUpcoming && (
-              <Badge colorPalette="green" variant="subtle" fontSize="xs" borderRadius="full">
+              <Badge colorPalette="green" variant="subtle" fontSize="xs" borderRadius="full" px={2}>
                 {getRelativeTime(request.start_date)}
               </Badge>
             )}
           </HStack>
-          <HStack gap={3} fontSize="sm" color={textSecondary}>
+          <HStack gap={3} fontSize="sm" color={textSecondary} flexWrap="wrap">
             <Text>{request.total_hours} hours</Text>
-            <Text>•</Text>
+            <Text display={{ base: "none", sm: "block" }}>•</Text>
             <HStack gap={1} color={statusTextColor}>
               {getStatusIcon(request.status, 14)}
               <Text textTransform="capitalize">{request.status}</Text>
@@ -465,7 +687,7 @@ function RequestRow({
           variant="ghost"
           size="sm"
           color="gray.400"
-          _hover={{ color: "red.500", bg: "red.50" }}
+          _hover={{ color: "red.500", bg: cancelHoverBg }}
           borderRadius="lg"
         >
           <LuX size={16} />
@@ -484,13 +706,14 @@ function MyRequestsTab({
   isLoading: boolean;
   onCancelRequest: (id: number) => void;
 }) {
-  const cardBg = useColorModeValue("white", "gray.900");
-  const borderColor = useColorModeValue("gray.100", "gray.800");
-  const hoverBorderColor = useColorModeValue("gray.200", "gray.700");
+  const cardBg = useColorModeValue("white", "gray.800");
+  const borderColor = useColorModeValue("gray.100", "gray.700");
+  const hoverBorderColor = useColorModeValue("gray.200", "gray.600");
   const textPrimary = useColorModeValue("gray.900", "gray.50");
   const textSecondary = useColorModeValue("gray.500", "gray.400");
-  const hoverBg = useColorModeValue("gray.50", "gray.800");
+  const hoverBg = useColorModeValue("gray.50", "gray.750");
   const emptyBg = useColorModeValue("gray.50", "gray.800");
+  const cancelHoverBg = useColorModeValue("red.50", "red.950");
 
   const pendingRequests = requests.filter((r) => r.status === "pending");
   const upcomingApproved = requests.filter(
@@ -512,12 +735,12 @@ function MyRequestsTab({
 
   if (requests.length === 0) {
     return (
-      <Card.Root bg={cardBg} borderRadius="2xl" shadow="sm">
+      <Card.Root bg={cardBg} borderRadius="2xl" border="1px solid" borderColor={borderColor}>
         <Card.Body p={12}>
           <VStack gap={4}>
-            <Box p={5} borderRadius="full" bg={emptyBg}>
+            <Flex p={5} borderRadius="full" bg={emptyBg} align="center" justify="center">
               <LuCalendarDays size={40} color="var(--chakra-colors-gray-400)" />
-            </Box>
+            </Flex>
             <VStack gap={1}>
               <Text fontWeight="semibold" color={textPrimary}>
                 No requests yet
@@ -535,7 +758,12 @@ function MyRequestsTab({
   return (
     <VStack gap={8} align="stretch">
       {pendingRequests.length > 0 && (
-        <RequestSection title="Pending" count={pendingRequests.length} textSecondary={textSecondary}>
+        <RequestSection 
+          title="Pending" 
+          icon={<LuCircleDashed size={16} color="var(--chakra-colors-amber-500)" />}
+          count={pendingRequests.length} 
+          textSecondary={textSecondary}
+        >
           {pendingRequests.map((r) => (
             <RequestRow
               key={r.id}
@@ -547,12 +775,18 @@ function MyRequestsTab({
               textPrimary={textPrimary}
               textSecondary={textSecondary}
               hoverBg={hoverBg}
+              cancelHoverBg={cancelHoverBg}
             />
           ))}
         </RequestSection>
       )}
       {upcomingApproved.length > 0 && (
-        <RequestSection title="Upcoming" count={upcomingApproved.length} textSecondary={textSecondary}>
+        <RequestSection 
+          title="Upcoming" 
+          icon={<LuCalendar size={16} color="var(--chakra-colors-green-500)" />}
+          count={upcomingApproved.length} 
+          textSecondary={textSecondary}
+        >
           {upcomingApproved.map((r) => (
             <RequestRow
               key={r.id}
@@ -564,12 +798,18 @@ function MyRequestsTab({
               textPrimary={textPrimary}
               textSecondary={textSecondary}
               hoverBg={hoverBg}
+              cancelHoverBg={cancelHoverBg}
             />
           ))}
         </RequestSection>
       )}
       {pastRequests.length > 0 && (
-        <RequestSection title="History" count={pastRequests.length} textSecondary={textSecondary}>
+        <RequestSection 
+          title="History" 
+          icon={<LuHistory size={16} color="var(--chakra-colors-gray-400)" />}
+          count={pastRequests.length} 
+          textSecondary={textSecondary}
+        >
           {pastRequests.map((r) => (
             <RequestRow
               key={r.id}
@@ -581,6 +821,7 @@ function MyRequestsTab({
               textPrimary={textPrimary}
               textSecondary={textSecondary}
               hoverBg={hoverBg}
+              cancelHoverBg={cancelHoverBg}
             />
           ))}
         </RequestSection>
@@ -600,16 +841,17 @@ function BalancesTab({
   balances: TimeOffBalance[];
   isLoading: boolean;
 }) {
-  const cardBg = useColorModeValue("white", "gray.900");
+  const cardBg = useColorModeValue("white", "gray.800");
+  const borderColor = useColorModeValue("gray.100", "gray.700");
   const textPrimary = useColorModeValue("gray.900", "gray.50");
   const textSecondary = useColorModeValue("gray.500", "gray.400");
-  const statBg = useColorModeValue("gray.50", "gray.800");
+  const statBg = useColorModeValue("gray.50", "gray.750");
 
   if (isLoading) {
     return (
       <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)" }} gap={6}>
         {[1, 2].map((i) => (
-          <Skeleton key={i} height="300px" borderRadius="2xl" />
+          <Skeleton key={i} height="350px" borderRadius="2xl" />
         ))}
       </Grid>
     );
@@ -617,12 +859,12 @@ function BalancesTab({
 
   if (balances.length === 0) {
     return (
-      <Card.Root bg={cardBg} borderRadius="2xl" shadow="sm">
+      <Card.Root bg={cardBg} borderRadius="2xl" border="1px solid" borderColor={borderColor}>
         <Card.Body p={12}>
           <VStack gap={4}>
-            <Box p={5} borderRadius="full" bg={statBg}>
+            <Flex p={5} borderRadius="full" bg={statBg} align="center" justify="center">
               <LuClock size={40} color="var(--chakra-colors-gray-400)" />
-            </Box>
+            </Flex>
             <VStack gap={1}>
               <Text fontWeight="semibold" color={textPrimary}>
                 No balances configured
@@ -647,10 +889,11 @@ function BalancesTab({
             key={balance.type.id}
             bg={cardBg}
             borderRadius="2xl"
-            shadow="sm"
+            border="1px solid"
+            borderColor={borderColor}
             overflow="hidden"
           >
-            <Box h="3px" bg={balance.type.color} />
+            <Box h="4px" bg={balance.type.color} />
             <Card.Body p={6}>
               <VStack align="stretch" gap={5}>
                 <HStack justify="space-between">
@@ -669,14 +912,14 @@ function BalancesTab({
                   <Text fontSize="5xl" fontWeight="bold" color="brand.500" lineHeight={1}>
                     {balance.available}
                   </Text>
-                  <Text fontSize="sm" color={textSecondary} mt={1}>
+                  <Text fontSize="sm" color={textSecondary} mt={2}>
                     hours available ({Math.floor(balance.available / 8)} days)
                   </Text>
                 </Box>
 
                 <Box>
                   <Progress.Root value={usagePercent} size="sm">
-                    <Progress.Track bg={statBg} borderRadius="full" h="6px">
+                    <Progress.Track bg={statBg} borderRadius="full" h="8px">
                       <Progress.Range bg={balance.type.color} borderRadius="full" />
                     </Progress.Track>
                   </Progress.Root>
@@ -725,11 +968,8 @@ export default function TimeOffPage() {
   const [types, setTypes] = useState<TimeOffType[]>([]);
   const [balances, setBalances] = useState<TimeOffBalance[]>([]);
   const [requests, setRequests] = useState<TimeOffRequest[]>([]);
-  const [isLoadingTypes, setIsLoadingTypes] = useState(false);
-  const [isLoadingBalances, setIsLoadingBalances] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
-  const [typesLoaded, setTypesLoaded] = useState(false);
-  const [balancesLoaded, setBalancesLoaded] = useState(false);
   const [requestsLoaded, setRequestsLoaded] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [activeTab, setActiveTab] = useState("request");
@@ -737,36 +977,25 @@ export default function TimeOffPage() {
   const textPrimary = useColorModeValue("gray.900", "gray.50");
   const textSecondary = useColorModeValue("gray.500", "gray.400");
   const tabBg = useColorModeValue("gray.100", "gray.800");
-  const activeTabBg = useColorModeValue("white", "gray.900");
+  const activeTabBg = useColorModeValue("white", "gray.700");
 
-  // Fetch types and balances (needed for Request tab)
+  // Fetch types and balances
   const fetchTypesAndBalances = useCallback(async () => {
-    if (!typesLoaded && !isLoadingTypes) {
-      setIsLoadingTypes(true);
-      try {
-        const typesData = await timeOffService.getTypes().catch(() => []);
-        setTypes(typesData);
-        setTypesLoaded(true);
-      } finally {
-        setIsLoadingTypes(false);
-      }
+    setIsLoading(true);
+    try {
+      const [typesData, balancesData] = await Promise.all([
+        timeOffService.getTypes().catch(() => []),
+        timeOffService.getBalances().catch(() => []),
+      ]);
+      setTypes(typesData);
+      setBalances(balancesData);
+    } finally {
+      setIsLoading(false);
     }
+  }, []);
 
-    if (!balancesLoaded && !isLoadingBalances) {
-      setIsLoadingBalances(true);
-      try {
-        const balancesData = await timeOffService.getBalances().catch(() => []);
-        setBalances(balancesData);
-        setBalancesLoaded(true);
-      } finally {
-        setIsLoadingBalances(false);
-      }
-    }
-  }, [typesLoaded, balancesLoaded, isLoadingTypes, isLoadingBalances]);
-
-  // Fetch requests (needed for My Requests tab)
+  // Fetch requests
   const fetchRequests = useCallback(async () => {
-    if (isLoadingRequests) return;
     setIsLoadingRequests(true);
     try {
       const requestsData = await timeOffService.getRequests({ per_page: 50 }).catch(() => ({ data: [] }));
@@ -776,26 +1005,26 @@ export default function TimeOffPage() {
     } finally {
       setIsLoadingRequests(false);
     }
-  }, [isLoadingRequests]);
+  }, []);
 
-  // Fetch data based on active tab
+  // Initial load
   useEffect(() => {
-    if (activeTab === "request") {
-      fetchTypesAndBalances();
-    } else if (activeTab === "requests" && !requestsLoaded) {
-      fetchRequests();
-    } else if (activeTab === "balances" && !balancesLoaded) {
-      fetchTypesAndBalances();
-    }
-  }, [activeTab, typesLoaded, balancesLoaded, requestsLoaded, fetchTypesAndBalances, fetchRequests]);
+    fetchTypesAndBalances();
+  }, [fetchTypesAndBalances]);
 
-  // Refresh all data after creating a request
-  const refreshData = () => {
-    setTypesLoaded(false);
-    setBalancesLoaded(false);
+  // Load requests when switching to that tab
+  useEffect(() => {
+    if (activeTab === "requests" && !requestsLoaded && !isLoadingRequests) {
+      fetchRequests();
+    }
+  }, [activeTab, requestsLoaded, isLoadingRequests, fetchRequests]);
+
+  // Refresh all data
+  const refreshData = useCallback(() => {
     setRequestsLoaded(false);
     fetchTypesAndBalances();
-  };
+    fetchRequests();
+  }, [fetchTypesAndBalances, fetchRequests]);
 
   const handleCancelRequest = async (id: number) => {
     try {
@@ -815,90 +1044,116 @@ export default function TimeOffPage() {
   };
 
   return (
-    <VStack gap={8} align="stretch">
-      {/* Header */}
-      <Box>
-        <Heading as="h1" size="2xl" color={textPrimary} fontWeight="bold">
-          Time Off
-        </Heading>
-        <Text color={textSecondary} mt={1}>
-          Request, track, and manage your time off
-        </Text>
-      </Box>
-
-      {/* Tabs */}
-      <Tabs.Root value={activeTab} onValueChange={(e) => setActiveTab(e.value)} variant="enclosed">
-        <Tabs.List bg={tabBg} p={1} borderRadius="xl" gap={1}>
-          <Tabs.Trigger
-            value="request"
-            px={6}
-            py={2.5}
-            borderRadius="lg"
-            fontWeight="medium"
-            fontSize="sm"
-            _selected={{ bg: activeTabBg, shadow: "sm" }}
-          >
-            <HStack gap={2}>
-              <LuCalendar size={16} />
-              <Text>Request</Text>
-            </HStack>
-          </Tabs.Trigger>
-          <Tabs.Trigger
-            value="requests"
-            px={6}
-            py={2.5}
-            borderRadius="lg"
-            fontWeight="medium"
-            fontSize="sm"
-            _selected={{ bg: activeTabBg, shadow: "sm" }}
-          >
-            <HStack gap={2}>
-              <LuFileText size={16} />
-              <Text>My Requests</Text>
-              {pendingCount > 0 && (
-                <Badge bg="amber.500" color="white" borderRadius="full" fontSize="xs" px={1.5} minW="18px">
-                  {pendingCount}
-                </Badge>
-              )}
-            </HStack>
-          </Tabs.Trigger>
-          <Tabs.Trigger
-            value="balances"
-            px={6}
-            py={2.5}
-            borderRadius="lg"
-            fontWeight="medium"
-            fontSize="sm"
-            _selected={{ bg: activeTabBg, shadow: "sm" }}
-          >
-            <HStack gap={2}>
-              <LuClock size={16} />
-              <Text>Balances</Text>
-            </HStack>
-          </Tabs.Trigger>
-        </Tabs.List>
-
-        <Box mt={6}>
-          <Tabs.Content value="request">
-            <RequestTab
-              types={types}
-              balances={balances}
-              isLoadingBalances={isLoadingBalances}
-              onRequestCreated={refreshData}
-            />
-          </Tabs.Content>
-          <Tabs.Content value="requests">
-            <MyRequestsTab
-              requests={requests}
-              isLoading={isLoadingRequests}
-              onCancelRequest={handleCancelRequest}
-            />
-          </Tabs.Content>
-          <Tabs.Content value="balances">
-            <BalancesTab balances={balances} isLoading={isLoadingBalances} />
-          </Tabs.Content>
+    <Box maxW="1400px" mx="auto">
+      <VStack gap={6} align="stretch">
+        {/* Header */}
+        <Box>
+          <HStack gap={3} mb={1}>
+            <Flex
+              p={2}
+              borderRadius="lg"
+              bgGradient="to-br"
+              gradientFrom="brand.500"
+              gradientTo="cyan.500"
+              align="center"
+              justify="center"
+              display={{ base: "none", md: "flex" }}
+            >
+              <LuCalendarDays size={24} color="white" />
+            </Flex>
+            <Heading as="h1" size={{ base: "xl", md: "2xl" }} color={textPrimary} fontWeight="bold">
+              Time Off
+            </Heading>
+          </HStack>
+          <Text color={textSecondary} fontSize={{ base: "sm", md: "md" }}>
+            Request, track, and manage your time off
+          </Text>
         </Box>
-      </Tabs.Root>
-    </VStack>
+
+        {/* Tabs */}
+        <Tabs.Root value={activeTab} onValueChange={(e) => setActiveTab(e.value)} variant="enclosed">
+          <Tabs.List 
+            bg={tabBg} 
+            p={1} 
+            borderRadius="xl" 
+            gap={1}
+            overflowX="auto"
+            css={{ '&::-webkit-scrollbar': { display: 'none' } }}
+          >
+            <Tabs.Trigger
+              value="request"
+              px={{ base: 4, md: 6 }}
+              py={2.5}
+              borderRadius="lg"
+              fontWeight="medium"
+              fontSize="sm"
+              _selected={{ bg: activeTabBg, shadow: "sm" }}
+              whiteSpace="nowrap"
+            >
+              <HStack gap={2}>
+                <LuCalendarPlus size={16} />
+                <Text>Request</Text>
+              </HStack>
+            </Tabs.Trigger>
+            <Tabs.Trigger
+              value="requests"
+              px={{ base: 4, md: 6 }}
+              py={2.5}
+              borderRadius="lg"
+              fontWeight="medium"
+              fontSize="sm"
+              _selected={{ bg: activeTabBg, shadow: "sm" }}
+              whiteSpace="nowrap"
+            >
+              <HStack gap={2}>
+                <LuFileText size={16} />
+                <Text>My Requests</Text>
+                {pendingCount > 0 && (
+                  <Badge bg="amber.500" color="white" borderRadius="full" fontSize="xs" px={1.5} minW="18px">
+                    {pendingCount}
+                  </Badge>
+                )}
+              </HStack>
+            </Tabs.Trigger>
+            <Tabs.Trigger
+              value="balances"
+              px={{ base: 4, md: 6 }}
+              py={2.5}
+              borderRadius="lg"
+              fontWeight="medium"
+              fontSize="sm"
+              _selected={{ bg: activeTabBg, shadow: "sm" }}
+              whiteSpace="nowrap"
+            >
+              <HStack gap={2}>
+                <LuWallet size={16} />
+                <Text>Balances</Text>
+              </HStack>
+            </Tabs.Trigger>
+          </Tabs.List>
+
+          <Box mt={6}>
+            <Tabs.Content value="request">
+              <RequestTab
+                types={types}
+                balances={balances}
+                isLoading={isLoading}
+                onRequestCreated={refreshData}
+              />
+            </Tabs.Content>
+            <Tabs.Content value="requests">
+              <MyRequestsTab
+                requests={requests}
+                isLoading={isLoadingRequests}
+                onCancelRequest={handleCancelRequest}
+              />
+            </Tabs.Content>
+            <Tabs.Content value="balances">
+              <BalancesTab balances={balances} isLoading={isLoading} />
+            </Tabs.Content>
+          </Box>
+        </Tabs.Root>
+      </VStack>
+    </Box>
   );
 }

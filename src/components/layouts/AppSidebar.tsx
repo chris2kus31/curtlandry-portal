@@ -79,6 +79,7 @@ export function SidebarContent({
   const textSecondary = useColorModeValue("gray.600", "gray.400");
   const hoverBg = useColorModeValue("gray.100", "gray.800");
   const activeBg = useColorModeValue("brand.500", "brand.600");
+  const logoSrc = useColorModeValue("/curtlandrylogo.svg", "/curtlandrylogo-light.svg");
 
   const canAccess = (link: LinkItemProps) => {
     if (!link.requiredRoles && !link.requiredPermissions) return true;
@@ -117,60 +118,28 @@ export function SidebarContent({
       borderRight="1px solid"
       borderColor={borderColor}
     >
-      {/* Logo and Collapse Button */}
+      {/* Logo Only */}
       <Flex
-        h="72px"
+        h="64px"
         align="center"
         position="relative"
-        px={collapsed ? 0 : 4}
-        justify={collapsed ? "center" : "flex-start"}
+        justify="center"
       >
-        <HStack gap={3}>
-          {collapsed ? (
-            <Box p={1}>
-              <Image
-                src="/curtlandrylogo.svg"
-                alt="CLM"
-                width={40}
-                height={40}
-                priority
-              />
-            </Box>
-          ) : (
-            <HStack gap={3} pl={2}>
-              <Image
-                src="/curtlandrylogo.svg"
-                alt="Curt Landry Ministries"
-                width={40}
-                height={40}
-                priority
-              />
-              <Box>
-                <Text
-                  fontWeight={700}
-                  fontSize="md"
-                  color={textPrimary}
-                  letterSpacing="tight"
-                  lineHeight={1.2}
-                >
-                  CLM Portal
-                </Text>
-                <Text
-                  fontSize="xs"
-                  color={textSecondary}
-                  fontWeight={500}
-                >
-                  Staff Access
-                </Text>
-              </Box>
-            </HStack>
-          )}
-        </HStack>
+        <Box p={2}>
+          <Image
+            src={logoSrc}
+            alt="Curt Landry Ministries"
+            width={collapsed ? 40 : 140}
+            height={collapsed ? 40 : 50}
+            priority
+            style={{ objectFit: "contain" }}
+          />
+        </Box>
 
         {/* Collapse/Expand Button */}
         <Box
           position="absolute"
-          right={collapsed ? "-14px" : "-14px"}
+          right="-14px"
           top="50%"
           transform="translateY(-50%)"
           zIndex={2}
@@ -276,7 +245,7 @@ export function SidebarContent({
       {/* Footer */}
       <Box px={collapsed ? 2 : 4} py={4} borderTop="1px solid" borderColor={borderColor}>
         <Text fontSize="xs" color={textSecondary} textAlign="center">
-          {collapsed ? "©" : "© 2026 Curt Landry Ministries"}
+          {collapsed ? "©" : "© 2025 Curt Landry Ministries"}
         </Text>
       </Box>
     </Box>

@@ -3,7 +3,7 @@
 
 import { Menu, Portal } from "@chakra-ui/react";
 import { Box, HStack, Text, Avatar } from "@chakra-ui/react";
-import { LuUser, LuSettings, LuLogOut } from "react-icons/lu";
+import { LuLogOut } from "react-icons/lu";
 import { useColorModeValue } from "@/components/ui/color-mode";
 import { useRouter } from "next/navigation";
 
@@ -31,7 +31,7 @@ type UserMenuAction = {
 };
 
 export function UserMenu({ user, handleLogout }: UserMenuProps) {
-  const router = useRouter();
+  // const router = useRouter();
 
   // Theming helpers
   const menuBg = useColorModeValue("white", "gray.800");
