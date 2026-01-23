@@ -46,26 +46,26 @@ export function UserMenu({ user, handleLogout }: UserMenuProps) {
   const secondaryTextColor = useColorModeValue("gray.500", "gray.400");
 
   const MENU_ITEMS: UserMenuAction[] = [
-    {
-      key: "profile",
-      label: "Profile",
-      icon: <LuUser size={18} />,
-      onClick: () => router.push("/settings/profile"),
-      disabled: false,
-    },
-    {
-      key: "settings",
-      label: "Settings",
-      icon: <LuSettings size={18} />,
-      onClick: () => router.push("/settings"),
-      disabled: false,
-    },
-    {
-      key: "divider-1",
-      label: "",
-      icon: null,
-      isDivider: true,
-    },
+    // {
+    //   key: "profile",
+    //   label: "Profile",
+    //   icon: <LuUser size={18} />,
+    //   onClick: () => router.push("/settings/profile"),
+    //   disabled: false,
+    // },
+    // {
+    //   key: "settings",
+    //   label: "Settings",
+    //   icon: <LuSettings size={18} />,
+    //   onClick: () => router.push("/settings"),
+    //   disabled: false,
+    // },
+    // {
+    //   key: "divider-1",
+    //   label: "",
+    //   icon: null,
+    //   isDivider: true,
+    // },
     {
       key: "logout",
       label: "Logout",
