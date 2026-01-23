@@ -50,7 +50,11 @@ export const authService = {
    * Get the Google OAuth redirect URL (Laravel handles the OAuth flow)
    */
   getGoogleLoginUrl(): string {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001/api";
+    let baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001/api";
+    // Ensure baseUrl ends with /api
+    if (!baseUrl.endsWith("/api")) {
+      baseUrl = `${baseUrl}/api`;
+    }
     return `${baseUrl}/portal/auth/google/redirect`;
   },
 
