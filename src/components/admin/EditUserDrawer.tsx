@@ -9,7 +9,6 @@ import {
   HStack,
   Text,
   Input,
-  Badge,
   Flex,
   Spinner,
 } from "@chakra-ui/react";
@@ -18,7 +17,6 @@ import { toaster } from "@/components/ui/toaster";
 import {
   LuX,
   LuUser,
-  LuMail,
   LuBuilding,
   LuBriefcase,
   LuShieldCheck,

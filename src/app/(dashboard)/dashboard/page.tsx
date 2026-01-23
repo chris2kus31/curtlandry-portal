@@ -9,7 +9,6 @@ import {
   HStack,
   Text,
   VStack,
-  Spinner,
   Skeleton,
 } from "@chakra-ui/react";
 import { useRouter } from "next/navigation";
