@@ -87,19 +87,6 @@ function formatDateRange(startDate: string, endDate: string) {
   return `${formatDateShort(startDate)} – ${formatDateShort(endDate)}`;
 }
 
-function calculateBusinessDays(startDate: string, endDate: string): number {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  let count = 0;
-  const current = new Date(start);
-  while (current <= end) {
-    const day = current.getDay();
-    if (day !== 0 && day !== 6) count++;
-    current.setDate(current.getDate() + 1);
-  }
-  return count;
-}
-
 function getRelativeTime(dateStr: string) {
   const date = new Date(dateStr);
   const now = new Date();

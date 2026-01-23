@@ -1,5 +1,5 @@
 // src/lib/api/time-off-service.ts
-import { httpClient } from "./http-client";
+import {httpClient} from "./http-client";
 
 export interface TimeOffType {
   id: number;
@@ -106,10 +106,9 @@ export const timeOffService = {
     if (filters?.per_page) params.append("per_page", String(filters.per_page));
 
     const queryString = params.toString();
-    const response = await httpClient.get<{ data: TimeOffRequest[]; meta?: unknown }>(
-      `/portal/time-off/requests${queryString ? `?${queryString}` : ""}`
+    return await httpClient.get<{ data: TimeOffRequest[]; meta?: unknown }>(
+        `/portal/time-off/requests${queryString ? `?${queryString}` : ""}`
     );
-    return response;
   },
 
   /**

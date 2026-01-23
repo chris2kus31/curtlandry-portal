@@ -23,25 +23,52 @@ function AuthCallbackContent() {
   const textSecondary = useColorModeValue("gray.600", "gray.400");
 
   useEffect(() => {
+    const handleError = (message: string) => {
+      console.error("Google OAuth callback error:", message);
+      setStatus("error");
+
+      // Clear any stored tokens
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("refresh_token");
+      
+      // Clear Zustand persisted state
+      localStorage.removeItem("clm-auth");
+
+      // Show error message
+      toaster.create({
+        title: "Sign in failed",
+        description: message,
+        type: "error",
+        duration: 5000,
+      });
+
+      // Redirect to login after delay
+      setTimeout(() => {
+        router.push("/login");
+      }, 2000);
+    };
+
     const handleCallback = async () => {
+      // Get token from URL params
+      const token = searchParams.get("token");
+      const error = searchParams.get("error");
+
+      if (error) {
+        handleError(error);
+        return;
+      }
+
+      if (!token) {
+        handleError("No authentication token received");
+        return;
+      }
+
+      setStatus("loading");
+
+      // Store the token in localStorage first (for http-client to use)
+      localStorage.setItem("auth_token", token);
+
       try {
-        // Get token from URL params
-        const token = searchParams.get("token");
-        const error = searchParams.get("error");
-
-        if (error) {
-          throw new Error(error);
-        }
-
-        if (!token) {
-          throw new Error("No authentication token received");
-        }
-
-        setStatus("loading");
-
-        // Store the token in localStorage first (for http-client to use)
-        localStorage.setItem("auth_token", token);
-
         // Fetch user profile with the token
         const resp = await authService.getProfile();
         
@@ -94,32 +121,9 @@ function AuthCallbackContent() {
         setTimeout(() => {
           router.push("/dashboard");
         }, 100);
-      } catch (error) {
-        console.error("Google OAuth callback error:", error);
-        setStatus("error");
-
-        // Clear any stored tokens
-        localStorage.removeItem("auth_token");
-        localStorage.removeItem("refresh_token");
-        
-        // Clear Zustand persisted state
-        localStorage.removeItem("clm-auth");
-
-        // Show error message
-        toaster.create({
-          title: "Sign in failed",
-          description:
-            error instanceof Error
-              ? error.message
-              : "Google authentication failed",
-          type: "error",
-          duration: 5000,
-        });
-
-        // Redirect to login after delay
-        setTimeout(() => {
-          router.push("/login");
-        }, 2000);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Google authentication failed";
+        handleError(message);
       }
     };
 
