@@ -250,7 +250,6 @@ export default function AdminPage() {
   const tabBg = useColorModeValue("gray.100", "gray.800");
   const activeTabBg = useColorModeValue("white", "gray.900");
   const hoverBg = useColorModeValue("gray.100", "gray.800");
-  const pageBg = useColorModeValue("gray.50", "gray.950");
 
   const colors: ColorProps = {
     cardBg,

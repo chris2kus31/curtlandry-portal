@@ -64,14 +64,14 @@ const CustomInput = forwardRef<
           transition: "all 0.2s",
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.borderColor = "var(--chakra-colors-brand-400)";
+          e.currentTarget.style.borderColor = "#38a169";
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.borderColor = borderColor;
         }}
         onFocus={(e) => {
-          e.currentTarget.style.borderColor = "var(--chakra-colors-brand-500)";
-          e.currentTarget.style.boxShadow = "0 0 0 1px var(--chakra-colors-brand-500)";
+          e.currentTarget.style.borderColor = "#00bc8b";
+          e.currentTarget.style.boxShadow = "0 0 0 1px #00bc8b";
           e.currentTarget.style.outline = "none";
         }}
         onBlur={(e) => {
@@ -79,7 +79,7 @@ const CustomInput = forwardRef<
           e.currentTarget.style.boxShadow = "none";
         }}
       >
-        <LuCalendar size={18} color="var(--chakra-colors-brand-500)" />
+        <LuCalendar size={18} color="#00bc8b" />
         <span
           style={{
             color: value ? textPrimary : textPlaceholder,
@@ -222,7 +222,7 @@ export function DateRangePicker({
         
         .react-datepicker {
           font-family: inherit;
-          border: 1px solid var(--chakra-colors-gray-200);
+          border: 1px solid #e2e8f0;
           border-radius: 16px;
           box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
           overflow: hidden;
@@ -230,8 +230,8 @@ export function DateRangePicker({
         }
         
         .dark .react-datepicker {
-          background: var(--chakra-colors-gray-800);
-          border-color: var(--chakra-colors-gray-600);
+          background: #1a202c;
+          border-color: #4a5568;
         }
         
         .react-datepicker__header {
@@ -276,16 +276,16 @@ export function DateRangePicker({
         }
         
         .dark .react-datepicker__day {
-          color: var(--chakra-colors-gray-100);
+          color: #f7fafc;
         }
         
         .react-datepicker__day:hover {
-          background: var(--chakra-colors-brand-100);
+          background: #c6f6d5;
           border-radius: 10px;
         }
         
         .dark .react-datepicker__day:hover {
-          background: var(--chakra-colors-brand-900);
+          background: #1c4532;
         }
         
         .react-datepicker__day--selected,
@@ -297,19 +297,19 @@ export function DateRangePicker({
         }
         
         .react-datepicker__day--in-range {
-          background: var(--chakra-colors-brand-100);
-          color: var(--chakra-colors-brand-700);
+          background: #c6f6d5;
+          color: #22543d;
           border-radius: 0;
         }
         
         .dark .react-datepicker__day--in-range {
-          background: var(--chakra-colors-brand-900);
-          color: var(--chakra-colors-brand-200);
+          background: #1c4532;
+          color: #9ae6b4;
         }
         
         .react-datepicker__day--in-selecting-range {
-          background: var(--chakra-colors-brand-100) !important;
-          color: var(--chakra-colors-brand-700);
+          background: #c6f6d5 !important;
+          color: #22543d;
         }
         
         .react-datepicker__day--range-start {
@@ -325,20 +325,20 @@ export function DateRangePicker({
         }
         
         .react-datepicker__day--disabled {
-          color: var(--chakra-colors-gray-300) !important;
+          color: #cbd5e0 !important;
           cursor: not-allowed;
         }
         
         .dark .react-datepicker__day--disabled {
-          color: var(--chakra-colors-gray-600) !important;
+          color: #4a5568 !important;
         }
         
         .react-datepicker__day--outside-month {
-          color: var(--chakra-colors-gray-300);
+          color: #cbd5e0;
         }
         
         .dark .react-datepicker__day--outside-month {
-          color: var(--chakra-colors-gray-600);
+          color: #4a5568;
         }
         
         .react-datepicker__navigation {
@@ -373,23 +373,23 @@ export function DateRangePicker({
         }
         
         .dark .react-datepicker__month-container {
-          background: var(--chakra-colors-gray-800);
+          background: #1a202c;
         }
         
         .react-datepicker__day--keyboard-selected {
-          background: var(--chakra-colors-brand-200);
+          background: #9ae6b4;
           border-radius: 10px;
         }
         
         .react-datepicker__day--today {
           font-weight: 700;
-          background: var(--chakra-colors-brand-50);
-          color: var(--chakra-colors-brand-600);
+          background: #f0fff4;
+          color: #276749;
         }
         
         .dark .react-datepicker__day--today {
-          background: var(--chakra-colors-brand-900);
-          color: var(--chakra-colors-brand-300);
+          background: #1c4532;
+          color: #68d391;
         }
         
         .react-datepicker__day--today.react-datepicker__day--selected,
