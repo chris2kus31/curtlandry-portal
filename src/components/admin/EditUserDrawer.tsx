@@ -266,6 +266,7 @@ export function EditUserDrawer({
                         borderColor={borderColor}
                         borderRadius="lg"
                         _focus={{ borderColor: "brand.500" }}
+                        px={4}
                       />
                     </Box>
                     <Box w="full">
@@ -280,6 +281,7 @@ export function EditUserDrawer({
                         borderColor={borderColor}
                         borderRadius="lg"
                         _focus={{ borderColor: "brand.500" }}
+                        px={4}
                       />
                     </Box>
                   </VStack>
@@ -307,6 +309,7 @@ export function EditUserDrawer({
                         borderColor={borderColor}
                         borderRadius="lg"
                         _focus={{ borderColor: "brand.500" }}
+                        px={4}
                       />
                     </Box>
                     <Box w="full">
@@ -325,6 +328,7 @@ export function EditUserDrawer({
                         borderColor={borderColor}
                         borderRadius="lg"
                         _focus={{ borderColor: "brand.500" }}
+                        px={4}
                       />
                     </Box>
                   </VStack>
