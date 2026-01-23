@@ -13,6 +13,7 @@ export interface TimeOffType {
 }
 
 export interface TimeOffBalance {
+  id: number;
   type: {
     id: number;
     code: string;
@@ -20,6 +21,25 @@ export interface TimeOffBalance {
     color: string;
   };
   year: number;
+  accrued_hours: number;
+  used_hours: number;
+  pending_hours: number;
+  adjustment_hours: number;
+  carry_over_hours: number;
+  available_hours: number;
+  available_days: number;
+  tier: {
+    name: string;
+    accrual_rate: number;
+    annual_days: number;
+  } | null;
+  current_accrual_rate: number;
+  proration_factor: number;
+  next_accrual_date: string | null;
+  max_balance: number;
+  max_carry_over: number;
+  min_allowed: number;
+  // Aliases for backward compatibility
   balance: number;
   used: number;
   pending: number;
@@ -78,10 +98,19 @@ export const timeOffService = {
    */
   async getBalances(year?: number): Promise<TimeOffBalance[]> {
     const params = year ? `?year=${year}` : "";
-    const response = await httpClient.get<ApiResponse<TimeOffBalance[]>>(
+    const response = await httpClient.get<ApiResponse<Omit<TimeOffBalance, 'balance' | 'used' | 'pending' | 'available' | 'accrued_ytd' | 'carry_over'>[]>>(
       `/portal/time-off/balances${params}`
     );
-    return response.data;
+    // Add aliases for backward compatibility
+    return response.data.map(b => ({
+      ...b,
+      balance: b.accrued_hours + b.carry_over_hours + b.adjustment_hours,
+      used: b.used_hours,
+      pending: b.pending_hours,
+      available: b.available_hours,
+      accrued_ytd: b.accrued_hours,
+      carry_over: b.carry_over_hours,
+    }));
   },
 
   /**
