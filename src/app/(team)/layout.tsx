@@ -8,7 +8,7 @@ export default function TeamLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ProtectedRoute requiredRoles={["manager", "admin", "super_admin"]}>
+    <ProtectedRoute requiresDirectReports>
       <AppLayout>{children}</AppLayout>
     </ProtectedRoute>
   );

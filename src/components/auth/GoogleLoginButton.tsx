@@ -9,9 +9,7 @@ interface GoogleLoginButtonProps {
   size?: "sm" | "md" | "lg";
 }
 
-export function GoogleLoginButton({
-  size = "lg",
-}: GoogleLoginButtonProps) {
+export function GoogleLoginButton({ size = "lg" }: GoogleLoginButtonProps) {
   const { loginWithGoogle, isLoading } = useAuthStore();
 
   if (isLoading) {

@@ -1,5 +1,5 @@
 // src/lib/api/time-off-service.ts
-import {httpClient} from "./http-client";
+import { httpClient } from "./http-client";
 
 export interface TimeOffType {
   id: number;
@@ -88,7 +88,7 @@ export const timeOffService = {
    */
   async getTypes(): Promise<TimeOffType[]> {
     const response = await httpClient.get<ApiResponse<TimeOffType[]>>(
-      "/portal/time-off/types"
+      "/portal/time-off/types",
     );
     return response.data;
   },
@@ -98,11 +98,21 @@ export const timeOffService = {
    */
   async getBalances(year?: number): Promise<TimeOffBalance[]> {
     const params = year ? `?year=${year}` : "";
-    const response = await httpClient.get<ApiResponse<Omit<TimeOffBalance, 'balance' | 'used' | 'pending' | 'available' | 'accrued_ytd' | 'carry_over'>[]>>(
-      `/portal/time-off/balances${params}`
-    );
+    const response = await httpClient.get<
+      ApiResponse<
+        Omit<
+          TimeOffBalance,
+          | "balance"
+          | "used"
+          | "pending"
+          | "available"
+          | "accrued_ytd"
+          | "carry_over"
+        >[]
+      >
+    >(`/portal/time-off/balances${params}`);
     // Add aliases for backward compatibility
-    return response.data.map(b => ({
+    return response.data.map((b) => ({
       ...b,
       balance: b.accrued_hours + b.carry_over_hours + b.adjustment_hours,
       used: b.used_hours,
@@ -136,7 +146,7 @@ export const timeOffService = {
 
     const queryString = params.toString();
     return await httpClient.get<{ data: TimeOffRequest[]; meta?: unknown }>(
-        `/portal/time-off/requests${queryString ? `?${queryString}` : ""}`
+      `/portal/time-off/requests${queryString ? `?${queryString}` : ""}`,
     );
   },
 
@@ -146,7 +156,7 @@ export const timeOffService = {
   async getUpcoming(limit?: number): Promise<TimeOffRequest[]> {
     const params = limit ? `?limit=${limit}` : "";
     const response = await httpClient.get<ApiResponse<TimeOffRequest[]>>(
-      `/portal/time-off/upcoming${params}`
+      `/portal/time-off/upcoming${params}`,
     );
     return response.data;
   },
@@ -158,13 +168,15 @@ export const timeOffService = {
     time_off_type_id: number;
     start_date: string;
     end_date: string;
-    total_hours: number;
+    start_time?: string; // HH:mm format for partial day
+    end_time?: string; // HH:mm format for partial day
+    total_hours?: number;
     notes?: string;
     submit?: boolean;
   }): Promise<TimeOffRequest> {
     const response = await httpClient.post<ApiResponse<TimeOffRequest>>(
       "/portal/time-off/requests",
-      data
+      data,
     );
     return response.data;
   },
@@ -175,7 +187,7 @@ export const timeOffService = {
   async cancelRequest(id: number, reason?: string): Promise<TimeOffRequest> {
     const response = await httpClient.post<ApiResponse<TimeOffRequest>>(
       `/portal/time-off/requests/${id}/cancel`,
-      { reason }
+      { reason },
     );
     return response.data;
   },

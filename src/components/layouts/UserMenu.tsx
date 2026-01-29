@@ -85,7 +85,11 @@ export function UserMenu({ user, handleLogout }: UserMenuProps) {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
 
-  const displayName = user?.full_name || user?.name || `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || "User";
+  const displayName =
+    user?.full_name ||
+    user?.name ||
+    `${user?.first_name || ""} ${user?.last_name || ""}`.trim() ||
+    "User";
 
   return (
     <Menu.Root>
@@ -156,7 +160,7 @@ export function UserMenu({ user, handleLogout }: UserMenuProps) {
                     <Text>{item.label}</Text>
                   </HStack>
                 </Menu.Item>
-              )
+              ),
             )}
           </Menu.Content>
         </Menu.Positioner>

@@ -2,6 +2,9 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from "axios";
 import type { ApiError } from "@/types/api";
 
+// Constants
+const MAX_QUEUE_SIZE = 100; // Prevent unbounded queue growth
+
 class HttpClient {
   private axiosInstance: AxiosInstance;
   private isRefreshing = false;
@@ -11,12 +14,13 @@ class HttpClient {
   }> = [];
 
   constructor() {
-    let baseURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001/api";
+    let baseURL =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001/api";
     // Ensure baseURL ends with /api
     if (!baseURL.endsWith("/api")) {
       baseURL = `${baseURL}/api`;
     }
-    
+
     this.axiosInstance = axios.create({
       baseURL,
       timeout: 30000,
@@ -42,7 +46,7 @@ class HttpClient {
       },
       (error) => {
         return Promise.reject(error);
-      }
+      },
     );
 
     // Response interceptor - Handle auth and errors
@@ -56,6 +60,11 @@ class HttpClient {
         // Handle 401 Unauthorized
         if (error.response?.status === 401 && !originalRequest._retry) {
           if (this.isRefreshing) {
+            // Prevent unbounded queue growth
+            if (this.failedQueue.length >= MAX_QUEUE_SIZE) {
+              return Promise.reject(this.normalizeError(error));
+            }
+
             // Queue the request
             return new Promise((resolve, reject) => {
               this.failedQueue.push({ resolve, reject });
@@ -86,7 +95,7 @@ class HttpClient {
 
         // Handle other errors
         return Promise.reject(this.normalizeError(error));
-      }
+      },
     );
   }
 
@@ -96,16 +105,26 @@ class HttpClient {
   }
 
   private async refreshToken(): Promise<void> {
+    // SSR guard
+    if (typeof window === "undefined") {
+      throw new Error("Cannot refresh token during SSR");
+    }
+
     const refreshToken = localStorage.getItem("refresh_token");
     if (!refreshToken) {
       throw new Error("No refresh token available");
     }
 
     try {
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/portal/auth/refresh`,
-        { refresh_token: refreshToken }
-      );
+      let baseURL =
+        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001/api";
+      if (!baseURL.endsWith("/api")) {
+        baseURL = `${baseURL}/api`;
+      }
+
+      const response = await axios.post(`${baseURL}/portal/auth/refresh`, {
+        refresh_token: refreshToken,
+      });
 
       const { token, refresh_token } = response.data;
       localStorage.setItem("auth_token", token);
@@ -131,14 +150,15 @@ class HttpClient {
   }
 
   private handleAuthError() {
+    // SSR guard
+    if (typeof window === "undefined") return;
+
     // Clear tokens
     localStorage.removeItem("auth_token");
     localStorage.removeItem("refresh_token");
 
     // Redirect to login
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
-    }
+    window.location.href = "/login";
   }
 
   private normalizeError(error: AxiosError): ApiError {
@@ -158,10 +178,12 @@ class HttpClient {
 
   // Public methods
   public setAuthToken(token: string) {
+    if (typeof window === "undefined") return;
     localStorage.setItem("auth_token", token);
   }
 
   public clearAuthToken() {
+    if (typeof window === "undefined") return;
     localStorage.removeItem("auth_token");
     localStorage.removeItem("refresh_token");
   }
@@ -175,7 +197,7 @@ class HttpClient {
   async post<T>(
     url: string,
     data?: unknown,
-    config?: AxiosRequestConfig
+    config?: AxiosRequestConfig,
   ): Promise<T> {
     const response = await this.axiosInstance.post<T>(url, data, config);
     return response.data;
@@ -184,7 +206,7 @@ class HttpClient {
   async put<T>(
     url: string,
     data?: unknown,
-    config?: AxiosRequestConfig
+    config?: AxiosRequestConfig,
   ): Promise<T> {
     const response = await this.axiosInstance.put<T>(url, data, config);
     return response.data;
@@ -193,7 +215,7 @@ class HttpClient {
   async patch<T>(
     url: string,
     data?: unknown,
-    config?: AxiosRequestConfig
+    config?: AxiosRequestConfig,
   ): Promise<T> {
     const response = await this.axiosInstance.patch<T>(url, data, config);
     return response.data;
@@ -208,7 +230,7 @@ class HttpClient {
   async uploadFile<T>(
     url: string,
     file: File,
-    onUploadProgress?: (progress: number) => void
+    onUploadProgress?: (progress: number) => void,
   ): Promise<T> {
     const formData = new FormData();
     formData.append("file", file);
@@ -220,7 +242,7 @@ class HttpClient {
       onUploadProgress: (progressEvent) => {
         if (onUploadProgress && progressEvent.total) {
           const progress = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
+            (progressEvent.loaded * 100) / progressEvent.total,
           );
           onUploadProgress(progress);
         }

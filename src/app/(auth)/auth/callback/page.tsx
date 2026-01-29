@@ -15,7 +15,7 @@ function AuthCallbackContent() {
   const searchParams = useSearchParams();
   const { setUser, setToken } = useAuthStore();
   const [status, setStatus] = useState<"loading" | "success" | "error">(
-    "loading"
+    "loading",
   );
 
   const bgPrimary = useColorModeValue("gray.50", "gray.950");
@@ -30,7 +30,7 @@ function AuthCallbackContent() {
       // Clear any stored tokens
       localStorage.removeItem("auth_token");
       localStorage.removeItem("refresh_token");
-      
+
       // Clear Zustand persisted state
       localStorage.removeItem("clm-auth");
 
@@ -71,16 +71,16 @@ function AuthCallbackContent() {
       try {
         // Fetch user profile with the token
         const resp = await authService.getProfile();
-        
+
         // Response structure: { success: true, data: { ...userFields, roles, permissions } }
         // Cast to a workable type
         type ProfileData = User & { roles?: string[]; permissions?: string[] };
         const profileData = (resp.data ?? resp) as ProfileData;
-        
+
         // Extract roles and permissions from the response
         const userRoles = profileData.roles ?? [];
         const userPermissions = profileData.permissions ?? [];
-        
+
         // Build user object (exclude roles/permissions which are stored separately)
         const user: User = {
           id: profileData.id,
@@ -101,8 +101,8 @@ function AuthCallbackContent() {
         // Update auth store - setToken will also sync to localStorage
         setToken(token);
         setUser(user);
-        useAuthStore.setState({ 
-          roles: userRoles, 
+        useAuthStore.setState({
+          roles: userRoles,
           permissions: userPermissions,
           isInitialized: true,
         });
@@ -122,7 +122,8 @@ function AuthCallbackContent() {
           router.push("/dashboard");
         }, 100);
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Google authentication failed";
+        const message =
+          err instanceof Error ? err.message : "Google authentication failed";
         handleError(message);
       }
     };

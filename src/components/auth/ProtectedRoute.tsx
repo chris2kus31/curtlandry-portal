@@ -10,21 +10,23 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredRoles?: string[];
   requiredPermissions?: string[];
+  requiresDirectReports?: boolean; // Only allow if user has direct reports
 }
 
 export function ProtectedRoute({
   children,
   requiredRoles,
   requiredPermissions,
+  requiresDirectReports,
 }: ProtectedRouteProps) {
   const router = useRouter();
-  const { 
-    user, 
-    isLoading, 
-    isInitialized, 
+  const {
+    user,
+    isLoading,
+    isInitialized,
     _hasHydrated,
-    hasPermission, 
-    hasAnyRole 
+    hasPermission,
+    hasAnyRole,
   } = useAuthStore();
 
   const bgColor = useColorModeValue("gray.50", "gray.950");
@@ -41,6 +43,12 @@ export function ProtectedRoute({
       return;
     }
 
+    // Check if requires direct reports (for Team page)
+    if (requiresDirectReports && !user.has_direct_reports) {
+      router.push("/dashboard");
+      return;
+    }
+
     // Check roles
     if (requiredRoles && requiredRoles.length > 0) {
       if (!hasAnyRole(requiredRoles)) {
@@ -52,7 +60,7 @@ export function ProtectedRoute({
     // Check permissions
     if (requiredPermissions && requiredPermissions.length > 0) {
       const hasAllPermissions = requiredPermissions.every((perm) =>
-        hasPermission(perm)
+        hasPermission(perm),
       );
       if (!hasAllPermissions) {
         router.push("/forbidden");
@@ -66,6 +74,7 @@ export function ProtectedRoute({
     _hasHydrated,
     requiredRoles,
     requiredPermissions,
+    requiresDirectReports,
     hasPermission,
     hasAnyRole,
     router,

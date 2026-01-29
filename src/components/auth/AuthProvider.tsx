@@ -9,7 +9,11 @@ const getClientSnapshot = () => true;
 const getServerSnapshot = () => false;
 
 function useIsClient() {
-  return useSyncExternalStore(emptySubscribe, getClientSnapshot, getServerSnapshot);
+  return useSyncExternalStore(
+    emptySubscribe,
+    getClientSnapshot,
+    getServerSnapshot,
+  );
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

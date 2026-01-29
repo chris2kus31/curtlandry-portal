@@ -14,6 +14,7 @@ export interface User {
   hire_date?: string;
   tenure_years?: number;
   is_manager?: boolean;
+  has_direct_reports?: boolean; // Actually has people reporting to them
   is_active: boolean;
   manager?: {
     id: number;

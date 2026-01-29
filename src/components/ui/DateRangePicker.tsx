@@ -16,6 +16,7 @@ interface DateRangePickerProps {
   onEndDateChange: (date: Date | null) => void;
   minDate?: Date;
   disabled?: boolean;
+  singleDate?: boolean;
 }
 
 // Custom input component for the date picker
@@ -105,7 +106,9 @@ function usePortalContainer() {
 
   useEffect(() => {
     // Create portal container if it doesn't exist
-    let portalDiv = document.getElementById("datepicker-portal") as HTMLDivElement | null;
+    let portalDiv = document.getElementById(
+      "datepicker-portal",
+    ) as HTMLDivElement | null;
     if (!portalDiv) {
       portalDiv = document.createElement("div");
       portalDiv.id = "datepicker-portal";
@@ -128,6 +131,7 @@ export function DateRangePicker({
   onEndDateChange,
   minDate = new Date(),
   disabled = false,
+  singleDate = false,
 }: DateRangePickerProps) {
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const textSecondary = useColorModeValue("gray.500", "gray.400");
@@ -147,93 +151,128 @@ export function DateRangePicker({
   };
 
   const duration = getDuration();
-  
+
   // Ensure portal container exists
   usePortalContainer();
 
+  // Single date mode - just show one date picker
+  if (singleDate) {
+    return (
+      <Box className="date-range-picker" position="relative">
+        <Box position="relative">
+          <DatePicker
+            selected={startDate}
+            onChange={(date: Date | null) => {
+              onStartDateChange(date);
+              onEndDateChange(date);
+            }}
+            minDate={minDate}
+            disabled={disabled}
+            dateFormat="MMM d, yyyy"
+            placeholderText="Select date"
+            customInput={<CustomInput placeholder="Select date" />}
+            popperPlacement="bottom-start"
+            showPopperArrow={false}
+            portalId="datepicker-portal"
+          />
+        </Box>
+      </Box>
+    );
+  }
+
   return (
     <Box className="date-range-picker" position="relative">
-        <HStack gap={4} align="end" flexWrap={{ base: "wrap", sm: "nowrap" }}>
-          <Box flex={1} minW="140px" position="relative">
-            <DatePicker
-              selected={startDate}
-              onChange={(date: Date | null) => {
-                onStartDateChange(date);
-                if (!endDate || (date && endDate < date)) {
-                  onEndDateChange(date);
-                }
-              }}
-              selectsStart
-              startDate={startDate}
-              endDate={endDate}
-              minDate={minDate}
-              disabled={disabled}
-              dateFormat="MMM d, yyyy"
-              placeholderText="Select start date"
-              customInput={<CustomInput label="From" placeholder="Select start date" />}
-              popperPlacement="bottom-start"
-              showPopperArrow={false}
-              portalId="datepicker-portal"
-            />
-          </Box>
-
-          <Box display={{ base: "none", sm: "flex" }} pb="24px" color={textSecondary}>
-            <LuArrowRight size={20} />
-          </Box>
-
-          <Box flex={1} minW="140px" position="relative">
-            <DatePicker
-              selected={endDate}
-              onChange={onEndDateChange}
-              selectsEnd
-              startDate={startDate}
-              endDate={endDate}
-              minDate={startDate || minDate}
-              disabled={disabled || !startDate}
-              dateFormat="MMM d, yyyy"
-              placeholderText={startDate ? "Select end date" : "Select start first"}
-              customInput={
-                <CustomInput 
-                  label="To" 
-                  placeholder={startDate ? "Select end date" : "Select start first"} 
-                />
+      <HStack gap={4} align="end" flexWrap={{ base: "wrap", sm: "nowrap" }}>
+        <Box flex={1} minW="140px" position="relative">
+          <DatePicker
+            selected={startDate}
+            onChange={(date: Date | null) => {
+              onStartDateChange(date);
+              if (!endDate || (date && endDate < date)) {
+                onEndDateChange(date);
               }
-              popperPlacement="bottom-end"
-              showPopperArrow={false}
-              portalId="datepicker-portal"
-            />
-          </Box>
-        </HStack>
+            }}
+            selectsStart
+            startDate={startDate}
+            endDate={endDate}
+            minDate={minDate}
+            disabled={disabled}
+            dateFormat="MMM d, yyyy"
+            placeholderText="Select start date"
+            customInput={
+              <CustomInput label="From" placeholder="Select start date" />
+            }
+            popperPlacement="bottom-start"
+            showPopperArrow={false}
+            portalId="datepicker-portal"
+          />
+        </Box>
 
-        {/* Duration Display */}
-        {duration !== null && duration > 0 && (
-          <HStack
-            mt={4}
-            p={3}
-            bg={durationBg}
-            borderRadius="lg"
-            justify="center"
-            gap={6}
-          >
-            <VStack gap={0}>
-              <Text fontSize="2xl" fontWeight="bold" color="brand.500">
-                {duration}
-              </Text>
-              <Text fontSize="xs" color={textSecondary}>
-                {duration === 1 ? "day" : "days"}
-              </Text>
-            </VStack>
-            <Box w="1px" h="40px" bg={borderColor} />
-            <VStack gap={0}>
-              <Text fontSize="2xl" fontWeight="bold" color="brand.500">
-                {duration * 8}
-              </Text>
-              <Text fontSize="xs" color={textSecondary}>
-                hours
-              </Text>
-            </VStack>
-          </HStack>
-        )}
-      </Box>
+        <Box
+          display={{ base: "none", sm: "flex" }}
+          pb="24px"
+          color={textSecondary}
+        >
+          <LuArrowRight size={20} />
+        </Box>
+
+        <Box flex={1} minW="140px" position="relative">
+          <DatePicker
+            selected={endDate}
+            onChange={onEndDateChange}
+            selectsEnd
+            startDate={startDate}
+            endDate={endDate}
+            minDate={startDate || minDate}
+            disabled={disabled || !startDate}
+            dateFormat="MMM d, yyyy"
+            placeholderText={
+              startDate ? "Select end date" : "Select start first"
+            }
+            customInput={
+              <CustomInput
+                label="To"
+                placeholder={
+                  startDate ? "Select end date" : "Select start first"
+                }
+              />
+            }
+            popperPlacement="bottom-end"
+            showPopperArrow={false}
+            portalId="datepicker-portal"
+          />
+        </Box>
+      </HStack>
+
+      {/* Duration Display */}
+      {duration !== null && duration > 0 && (
+        <HStack
+          mt={4}
+          p={3}
+          bg={durationBg}
+          borderRadius="lg"
+          justify="center"
+          gap={6}
+        >
+          <VStack gap={0}>
+            <Text fontSize="2xl" fontWeight="bold" color="brand.500">
+              {duration}
+            </Text>
+            <Text fontSize="xs" color={textSecondary}>
+              {duration === 1 ? "day" : "days"}
+            </Text>
+          </VStack>
+          <Box w="1px" h="40px" bg={borderColor} />
+          <VStack gap={0}>
+            <Text fontSize="2xl" fontWeight="bold" color="brand.500">
+              {duration * 8}
+            </Text>
+            <Text fontSize="xs" color={textSecondary}>
+              hours
+            </Text>
+          </VStack>
+        </HStack>
+      )}
+    </Box>
   );
 }

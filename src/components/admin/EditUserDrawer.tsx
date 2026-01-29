@@ -23,7 +23,7 @@ import {
   LuSave,
   LuPower,
 } from "react-icons/lu";
-import { httpClient } from "@/lib/api";
+import { adminService } from "@/lib/api";
 
 interface User {
   id: number;
@@ -115,7 +115,7 @@ export function EditUserDrawer({
     setSelectedRoles((prev) =>
       prev.includes(roleName)
         ? prev.filter((r) => r !== roleName)
-        : [...prev, roleName]
+        : [...prev, roleName],
     );
   };
 
@@ -125,11 +125,11 @@ export function EditUserDrawer({
     setIsSaving(true);
     try {
       // Update user details
-      await httpClient.patch(`/portal/admin/users/${user.id}`, {
+      await adminService.updateUser(user.id, {
         first_name: formData.first_name,
         last_name: formData.last_name,
-        department: formData.department || null,
-        job_title: formData.job_title || null,
+        department: formData.department || undefined,
+        job_title: formData.job_title || undefined,
       });
 
       // Update roles if changed
@@ -138,9 +138,7 @@ export function EditUserDrawer({
         JSON.stringify([...user.roles].sort());
 
       if (rolesChanged) {
-        await httpClient.put(`/portal/admin/users/${user.id}/roles`, {
-          roles: selectedRoles,
-        });
+        await adminService.updateUserRoles(user.id, selectedRoles);
       }
 
       toaster.create({
@@ -155,7 +153,8 @@ export function EditUserDrawer({
       console.error("Failed to update user:", error);
       toaster.create({
         title: "Update failed",
-        description: error instanceof Error ? error.message : "Please try again",
+        description:
+          error instanceof Error ? error.message : "Please try again",
         type: "error",
       });
     } finally {
@@ -168,11 +167,11 @@ export function EditUserDrawer({
 
     setIsTogglingStatus(true);
     try {
-      const endpoint = user.is_active
-        ? `/portal/admin/users/${user.id}/deactivate`
-        : `/portal/admin/users/${user.id}/reactivate`;
-
-      await httpClient.post(endpoint);
+      if (user.is_active) {
+        await adminService.deactivateUser(user.id);
+      } else {
+        await adminService.reactivateUser(user.id);
+      }
 
       toaster.create({
         title: user.is_active ? "User deactivated" : "User reactivated",
@@ -186,7 +185,8 @@ export function EditUserDrawer({
       console.error("Failed to toggle user status:", error);
       toaster.create({
         title: "Action failed",
-        description: error instanceof Error ? error.message : "Please try again",
+        description:
+          error instanceof Error ? error.message : "Please try again",
         type: "error",
       });
     } finally {
@@ -215,12 +215,7 @@ export function EditUserDrawer({
             >
               <Flex justify="space-between" align="center">
                 <HStack gap={3}>
-                  <Box
-                    p={2}
-                    borderRadius="lg"
-                    bg="brand.500"
-                    color="white"
-                  >
+                  <Box p={2} borderRadius="lg" bg="brand.500" color="white">
                     <LuUser size={18} />
                   </Box>
                   <Box>
@@ -250,7 +245,14 @@ export function EditUserDrawer({
               <VStack gap={5} align="stretch">
                 {/* Name Fields */}
                 <Box>
-                  <Text fontSize="xs" fontWeight="semibold" color={labelColor} mb={3} textTransform="uppercase" letterSpacing="wide">
+                  <Text
+                    fontSize="xs"
+                    fontWeight="semibold"
+                    color={labelColor}
+                    mb={3}
+                    textTransform="uppercase"
+                    letterSpacing="wide"
+                  >
                     Personal Information
                   </Text>
                   <VStack gap={3}>
@@ -260,7 +262,9 @@ export function EditUserDrawer({
                       </Text>
                       <Input
                         value={formData.first_name}
-                        onChange={(e) => handleInputChange("first_name", e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("first_name", e.target.value)
+                        }
                         bg={inputBg}
                         border="1px solid"
                         borderColor={borderColor}
@@ -275,7 +279,9 @@ export function EditUserDrawer({
                       </Text>
                       <Input
                         value={formData.last_name}
-                        onChange={(e) => handleInputChange("last_name", e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("last_name", e.target.value)
+                        }
                         bg={inputBg}
                         border="1px solid"
                         borderColor={borderColor}
@@ -289,20 +295,32 @@ export function EditUserDrawer({
 
                 {/* Work Info */}
                 <Box>
-                  <Text fontSize="xs" fontWeight="semibold" color={labelColor} mb={3} textTransform="uppercase" letterSpacing="wide">
+                  <Text
+                    fontSize="xs"
+                    fontWeight="semibold"
+                    color={labelColor}
+                    mb={3}
+                    textTransform="uppercase"
+                    letterSpacing="wide"
+                  >
                     Work Information
                   </Text>
                   <VStack gap={3}>
                     <Box w="full">
                       <HStack gap={2} mb={1.5}>
-                        <LuBuilding size={14} color="var(--chakra-colors-gray-400)" />
+                        <LuBuilding
+                          size={14}
+                          color="var(--chakra-colors-gray-400)"
+                        />
                         <Text fontSize="sm" color={textSecondary}>
                           Department
                         </Text>
                       </HStack>
                       <Input
                         value={formData.department}
-                        onChange={(e) => handleInputChange("department", e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("department", e.target.value)
+                        }
                         placeholder="e.g., Marketing, Finance"
                         bg={inputBg}
                         border="1px solid"
@@ -314,14 +332,19 @@ export function EditUserDrawer({
                     </Box>
                     <Box w="full">
                       <HStack gap={2} mb={1.5}>
-                        <LuBriefcase size={14} color="var(--chakra-colors-gray-400)" />
+                        <LuBriefcase
+                          size={14}
+                          color="var(--chakra-colors-gray-400)"
+                        />
                         <Text fontSize="sm" color={textSecondary}>
                           Job Title
                         </Text>
                       </HStack>
                       <Input
                         value={formData.job_title}
-                        onChange={(e) => handleInputChange("job_title", e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("job_title", e.target.value)
+                        }
                         placeholder="e.g., Software Engineer"
                         bg={inputBg}
                         border="1px solid"
@@ -337,8 +360,17 @@ export function EditUserDrawer({
                 {/* Roles */}
                 <Box>
                   <HStack gap={2} mb={3}>
-                    <LuShieldCheck size={14} color="var(--chakra-colors-gray-400)" />
-                    <Text fontSize="xs" fontWeight="semibold" color={labelColor} textTransform="uppercase" letterSpacing="wide">
+                    <LuShieldCheck
+                      size={14}
+                      color="var(--chakra-colors-gray-400)"
+                    />
+                    <Text
+                      fontSize="xs"
+                      fontWeight="semibold"
+                      color={labelColor}
+                      textTransform="uppercase"
+                      letterSpacing="wide"
+                    >
                       Roles
                     </Text>
                   </HStack>
@@ -346,7 +378,7 @@ export function EditUserDrawer({
                     {availableRoles.map((role) => {
                       const isSelected = selectedRoles.includes(role.name);
                       const colorScheme = getRoleColor(role.name);
-                      
+
                       return (
                         <Box
                           key={role.id}
@@ -357,14 +389,18 @@ export function EditUserDrawer({
                           fontSize="sm"
                           fontWeight="medium"
                           border="2px solid"
-                          borderColor={isSelected ? `${colorScheme}.500` : borderColor}
+                          borderColor={
+                            isSelected ? `${colorScheme}.500` : borderColor
+                          }
                           bg={isSelected ? `${colorScheme}.500` : "transparent"}
                           color={isSelected ? "white" : textSecondary}
                           onClick={() => toggleRole(role.name)}
                           transition="all 0.15s"
                           _hover={{
                             borderColor: `${colorScheme}.400`,
-                            bg: isSelected ? `${colorScheme}.600` : `${colorScheme}.50`,
+                            bg: isSelected
+                              ? `${colorScheme}.600`
+                              : `${colorScheme}.50`,
                           }}
                         >
                           {role.display_name}
@@ -381,7 +417,14 @@ export function EditUserDrawer({
 
                 {/* Status */}
                 <Box>
-                  <Text fontSize="xs" fontWeight="semibold" color={labelColor} mb={3} textTransform="uppercase" letterSpacing="wide">
+                  <Text
+                    fontSize="xs"
+                    fontWeight="semibold"
+                    color={labelColor}
+                    mb={3}
+                    textTransform="uppercase"
+                    letterSpacing="wide"
+                  >
                     Account Status
                   </Text>
                   <Flex
@@ -420,7 +463,9 @@ export function EditUserDrawer({
                       fontWeight="medium"
                       bg={user.is_active ? "red.500" : "green.500"}
                       color="white"
-                      onClick={isTogglingStatus ? undefined : handleToggleStatus}
+                      onClick={
+                        isTogglingStatus ? undefined : handleToggleStatus
+                      }
                       aria-disabled={isTogglingStatus}
                       opacity={isTogglingStatus ? 0.7 : 1}
                       cursor={isTogglingStatus ? "not-allowed" : "pointer"}

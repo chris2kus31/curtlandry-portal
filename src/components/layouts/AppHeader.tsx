@@ -1,7 +1,15 @@
 // src/components/layouts/AppHeader.tsx
 "use client";
 
-import { Box, BoxProps, Flex, HStack, IconButton, Text } from "@chakra-ui/react";
+import { useCallback } from "react";
+import {
+  Box,
+  BoxProps,
+  Flex,
+  HStack,
+  IconButton,
+  Text,
+} from "@chakra-ui/react";
 import { LuMenu, LuMoon, LuSun } from "react-icons/lu";
 import { useAuthStore } from "@/store/auth-store";
 import { useRouter } from "next/navigation";
@@ -18,14 +26,15 @@ export function AppHeader({ onMenuClick, ...props }: AppHeaderProps) {
   const { user, logout } = useAuthStore();
   const router = useRouter();
 
-  // Theme colors
+  // Theme colors - all hooks called at top level
   const bgSurface = useColorModeValue("white", "gray.900");
   const borderColor = useColorModeValue("gray.200", "gray.800");
   const iconColor = useColorModeValue("gray.600", "gray.400");
   const titleColor = useColorModeValue("gray.800", "white");
   const subtitleColor = useColorModeValue("gray.500", "gray.400");
+  const hoverBg = useColorModeValue("gray.100", "gray.800");
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       await logout();
       toaster.create({
@@ -43,7 +52,7 @@ export function AppHeader({ onMenuClick, ...props }: AppHeaderProps) {
         duration: 3000,
       });
     }
-  };
+  }, [logout, router]);
 
   return (
     <Box
@@ -101,7 +110,7 @@ export function AppHeader({ onMenuClick, ...props }: AppHeaderProps) {
             aria-label="Toggle color mode"
             color={iconColor}
             onClick={toggleColorMode}
-            _hover={{ bg: useColorModeValue("gray.100", "gray.800") }}
+            _hover={{ bg: hoverBg }}
           >
             {colorMode === "dark" ? <LuSun size={20} /> : <LuMoon size={20} />}
           </IconButton>

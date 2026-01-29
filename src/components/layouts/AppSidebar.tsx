@@ -35,6 +35,7 @@ interface LinkItemProps {
   badgeColor?: string;
   requiredRoles?: string[];
   requiredPermissions?: string[];
+  requiresDirectReports?: boolean; // Only show if user has direct reports
 }
 
 const LinkItems: LinkItemProps[] = [
@@ -48,7 +49,7 @@ const LinkItems: LinkItemProps[] = [
     name: "Team",
     icon: LuUsers,
     href: "/team",
-    requiredRoles: ["manager", "admin", "super_admin"],
+    requiresDirectReports: true, // Only show if user has people reporting to them
   },
   {
     name: "Admin",
@@ -70,7 +71,7 @@ export function SidebarContent({
   setCollapsed,
 }: SidebarContentProps) {
   const pathname = usePathname();
-  const { roles, permissions } = useAuthStore();
+  const { user, roles, permissions } = useAuthStore();
 
   // Theme colors
   const bgSurface = useColorModeValue("white", "gray.900");
@@ -79,9 +80,18 @@ export function SidebarContent({
   const textSecondary = useColorModeValue("gray.600", "gray.400");
   const hoverBg = useColorModeValue("gray.100", "gray.800");
   const activeBg = useColorModeValue("brand.500", "brand.600");
-  const logoSrc = useColorModeValue("/curtlandrylogo.svg", "/curtlandrylogo-light.svg");
+  const logoSrc = useColorModeValue(
+    "/curtlandrylogo.svg",
+    "/curtlandrylogo-light.svg",
+  );
 
   const canAccess = (link: LinkItemProps) => {
+    // Check if requires direct reports (for Team page)
+    if (link.requiresDirectReports && !user?.has_direct_reports) {
+      return false;
+    }
+
+    // Check role/permission requirements
     if (!link.requiredRoles && !link.requiredPermissions) return true;
     if (
       link.requiredRoles?.length &&
@@ -119,12 +129,7 @@ export function SidebarContent({
       borderColor={borderColor}
     >
       {/* Logo Only */}
-      <Flex
-        h="64px"
-        align="center"
-        position="relative"
-        justify="center"
-      >
+      <Flex h="64px" align="center" position="relative" justify="center">
         <Box p={2}>
           <Image
             src={logoSrc}
@@ -161,7 +166,11 @@ export function SidebarContent({
               borderColor: "brand.500",
             }}
           >
-            {collapsed ? <LuChevronRight size={14} /> : <LuChevronLeft size={14} />}
+            {collapsed ? (
+              <LuChevronRight size={14} />
+            ) : (
+              <LuChevronLeft size={14} />
+            )}
           </IconButton>
         </Box>
 
@@ -243,7 +252,12 @@ export function SidebarContent({
       </Box>
 
       {/* Footer */}
-      <Box px={collapsed ? 2 : 4} py={4} borderTop="1px solid" borderColor={borderColor}>
+      <Box
+        px={collapsed ? 2 : 4}
+        py={4}
+        borderTop="1px solid"
+        borderColor={borderColor}
+      >
         <Text fontSize="xs" color={textSecondary} textAlign="center">
           {collapsed ? "©" : "© 2025 Curt Landry Ministries"}
         </Text>
