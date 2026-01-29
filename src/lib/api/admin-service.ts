@@ -238,10 +238,7 @@ export const adminService = {
   // -------------------------------------------------------------------------
 
   async getSettings(): Promise<AdminSettings> {
-    const response = await httpClient.get<AdminSettings>(
-      "/portal/admin/settings",
-    );
-    return response;
+    return await httpClient.get<AdminSettings>("/portal/admin/settings");
   },
 
   async updateGeneralSettings(

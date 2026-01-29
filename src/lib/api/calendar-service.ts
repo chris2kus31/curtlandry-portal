@@ -36,9 +36,6 @@ export const calendarService = {
    * Check if calendar integration is configured
    */
   async getStatus(): Promise<CalendarStatus> {
-    const response = await httpClient.get<CalendarStatus>(
-      "/portal/calendar/status",
-    );
-    return response;
+    return await httpClient.get<CalendarStatus>("/portal/calendar/status");
   },
 };

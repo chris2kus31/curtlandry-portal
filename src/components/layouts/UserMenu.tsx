@@ -5,7 +5,6 @@ import { Menu, Portal } from "@chakra-ui/react";
 import { Box, HStack, Text, Avatar } from "@chakra-ui/react";
 import { LuLogOut } from "react-icons/lu";
 import { useColorModeValue } from "@/components/ui/color-mode";
-import { useRouter } from "next/navigation";
 
 interface UserMenuProps {
   user: {

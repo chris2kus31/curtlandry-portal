@@ -33,13 +33,10 @@ import {
   LuWallet,
   LuPlus,
   LuMinus,
-  LuClock,
-  LuTrendingUp,
   LuChevronDown,
   LuX,
   LuCalendarOff,
   LuTrash2,
-  LuCheck,
   LuInfo,
   LuClipboardCheck,
   LuCircleCheck,
@@ -477,7 +474,6 @@ export default function AdminPage() {
 
   // Impersonation
   const [isImpersonating, setIsImpersonating] = useState(false);
-  const router = useRouter();
   const { user: currentUser, roles: currentRoles } = useAuthStore();
 
   // All color hooks at top level
