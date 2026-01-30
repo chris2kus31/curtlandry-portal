@@ -1504,6 +1504,7 @@ function MyRequestsTab({
                   variant="subtle"
                   borderRadius="full"
                   fontSize="xs"
+                  px={4}
                 >
                   {pendingRequests.length}
                 </Badge>
@@ -1534,6 +1535,7 @@ function MyRequestsTab({
                 variant="subtle"
                 borderRadius="full"
                 fontSize="xs"
+                px={4}
               >
                 {upcomingRequests.length}
               </Badge>
@@ -2065,9 +2067,9 @@ export default function TimeOffPage() {
                 <HStack gap={2}>
                   <LuFileText size={16} />
                   <Text>My Requests</Text>
-                  {pendingCount > 0 && (
+                  {pendingCount > 0 ? (
                     <Box
-                      bg="amber.500"
+                      bg="green.500"
                       color="white"
                       borderRadius="full"
                       fontSize="xs"
@@ -2079,7 +2081,21 @@ export default function TimeOffPage() {
                     >
                       {pendingCount}
                     </Box>
-                  )}
+                  ) : requests.length > 0 ? (
+                    <Box
+                      bg="gray.500"
+                      color="white"
+                      borderRadius="full"
+                      fontSize="xs"
+                      fontWeight="bold"
+                      px={1.5}
+                      minW="18px"
+                      textAlign="center"
+                      lineHeight="18px"
+                    >
+                      {requests.length}
+                    </Box>
+                  ) : null}
                 </HStack>
               </Tabs.Trigger>
               <Tabs.Trigger
