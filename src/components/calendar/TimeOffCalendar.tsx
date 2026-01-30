@@ -39,9 +39,12 @@ function getFirstDayOfMonth(year: number, month: number): number {
   return new Date(year, month, 1).getDay();
 }
 
-// Helper to format date as YYYY-MM-DD
+// Helper to format date as YYYY-MM-DD in local timezone
 function formatDate(date: Date): string {
-  return date.toISOString().split("T")[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 // Parse date string to local date
@@ -340,7 +343,7 @@ export function TimeOffCalendar({ title = "Team Calendar", showLegend = true }: 
               <LuUsers size={16} color="var(--chakra-colors-brand-500)" />
               <Text fontWeight="semibold" fontSize="sm" color={textPrimary}>
                 {selectedDate
-                  ? new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", {
+                  ? parseDate(selectedDate).toLocaleDateString("en-US", {
                       weekday: "long",
                       month: "short",
                       day: "numeric",

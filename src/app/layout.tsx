@@ -26,18 +26,6 @@ const geistMono = Geist_Mono({
   display: "swap",
 });
 
-// Inline script to prevent theme flash - runs before React hydrates
-const themeScript = `
-(function() {
-  try {
-    var theme = localStorage.getItem('theme') || 'light';
-    document.documentElement.classList.remove('light', 'dark');
-    document.documentElement.classList.add(theme);
-    document.documentElement.style.colorScheme = theme;
-  } catch (e) {}
-})();
-`;
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -46,15 +34,28 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className="light"
-      style={{ colorScheme: "light" }}
       suppressHydrationWarning
     >
+      <head>
+        {/* Prevent theme flash - must be in head to run before body renders */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('theme') || 'light';
+                  document.documentElement.classList.add(theme);
+                  document.documentElement.style.colorScheme = theme;
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
       <body
         className={`${dmSans.variable} ${geistMono.variable}`}
         suppressHydrationWarning
       >
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <Provider>
           <AuthProvider>{children}</AuthProvider>
         </Provider>

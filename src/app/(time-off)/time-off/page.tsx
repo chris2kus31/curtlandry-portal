@@ -21,6 +21,7 @@ import {
 } from "@chakra-ui/react";
 import { useColorModeValue } from "@/components/ui/color-mode";
 import { toaster } from "@/components/ui/toaster";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   LuCalendar,
   LuClock,
@@ -38,6 +39,8 @@ import {
   LuRotateCcw,
   LuCalendarClock,
   LuCircleAlert,
+  LuChevronDown,
+  LuChevronRight,
 } from "react-icons/lu";
 import {
   timeOffService,
@@ -106,8 +109,18 @@ function getStatusStyles(status: string) {
   }
 }
 
+/**
+ * Parse a date string (YYYY-MM-DD) as local time to avoid timezone shifts.
+ * new Date("2026-01-30") interprets as UTC, causing day shift in local timezone.
+ * This function ensures the date is interpreted as local midnight.
+ */
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
 function formatDateShort(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-US", {
+  return parseLocalDate(dateStr).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
   });
@@ -115,7 +128,7 @@ function formatDateShort(dateStr: string) {
 
 function formatDateRange(startDate: string, endDate: string) {
   if (startDate === endDate) {
-    return new Date(startDate).toLocaleDateString("en-US", {
+    return parseLocalDate(startDate).toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
       day: "numeric",
@@ -125,7 +138,7 @@ function formatDateRange(startDate: string, endDate: string) {
 }
 
 function getRelativeTime(dateStr: string) {
-  const date = new Date(dateStr);
+  const date = parseLocalDate(dateStr);
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   date.setHours(0, 0, 0, 0);
@@ -161,6 +174,7 @@ function RequestTab({
   const [startTime, setStartTime] = useState<string>("09:00");
   const [endTime, setEndTime] = useState<string>("17:00");
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [selectedTypeId, setSelectedTypeId] = useState<number | null>(null);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.100", "gray.700");
@@ -183,11 +197,38 @@ function RequestTab({
   const selectedTypeBg = useColorModeValue("brand.50", "brand.900");
   const selectedTypeColor = useColorModeValue("brand.600", "brand.200");
 
-  // Memoize type/balance lookups
-  const ptoType = useMemo(
-    () => types.find((t) => t.code.toUpperCase() === "PTO") || types[0],
+  // Sort types by sort_order for display
+  const sortedTypes = useMemo(
+    () => [...types].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)),
     [types],
   );
+
+  // Get the default PTO type
+  const defaultPtoType = useMemo(
+    () => types.find((t) => t.code.toUpperCase() === "PTO"),
+    [types],
+  );
+
+  // Set default selection to PTO when types load
+  useEffect(() => {
+    if (defaultPtoType && selectedTypeId === null) {
+      setSelectedTypeId(defaultPtoType.id);
+    }
+  }, [defaultPtoType, selectedTypeId]);
+
+  // Memoize selected type
+  const selectedType = useMemo(
+    () => types.find((t) => t.id === selectedTypeId) || defaultPtoType || types[0],
+    [types, selectedTypeId, defaultPtoType],
+  );
+
+  // Check if selected type uses accrual (only PTO does)
+  const usesAccrual = selectedType?.uses_accrual ?? false;
+
+  // Check if selected type requires documentation (notes required)
+  const requiresNotes = selectedType?.requires_documentation ?? false;
+
+  // Get PTO balance (only relevant for PTO type)
   const ptoBalance = useMemo(
     () => balances.find((b) => b.type.code.toUpperCase() === "PTO"),
     [balances],
@@ -224,7 +265,7 @@ function RequestTab({
   );
 
   // Memoize validation
-  const { isPartialValid, isFullDayValid, isFormValid } = useMemo(() => {
+  const { isPartialValid, isFullDayValid, isFormValid, notesError } = useMemo(() => {
     const partialValid =
       requestType === "partial" &&
       startDate &&
@@ -232,16 +273,26 @@ function RequestTab({
       partialHours <= 8;
     const fullDayValid =
       requestType === "full" && startDate && endDate && totalDays > 0;
+    const dateValid = partialValid || fullDayValid;
+    
+    // Check if notes are required but missing
+    const notesRequired = requiresNotes && !notes.trim();
+    const notesErrorMsg = notesRequired ? "A note explaining the reason is required for this leave type." : null;
+    
     return {
       isPartialValid: partialValid,
       isFullDayValid: fullDayValid,
-      isFormValid: partialValid || fullDayValid,
+      isFormValid: dateValid && !notesRequired && selectedType !== null,
+      notesError: notesErrorMsg,
     };
-  }, [requestType, startDate, endDate, partialHours, totalDays]);
+  }, [requestType, startDate, endDate, partialHours, totalDays, requiresNotes, notes, selectedType]);
 
-  // Format date to YYYY-MM-DD for API
+  // Format date to YYYY-MM-DD for API (use local date to avoid timezone shift)
   const formatDateForApi = (date: Date) => {
-    return date.toISOString().split("T")[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   };
 
   const handleReset = () => {
@@ -252,10 +303,14 @@ function RequestTab({
     setStartTime("09:00");
     setEndTime("17:00");
     setSubmitError(null);
+    // Reset to default PTO type
+    if (defaultPtoType) {
+      setSelectedTypeId(defaultPtoType.id);
+    }
   };
 
   const handleSubmit = async () => {
-    if (!ptoType || !isFormValid || !startDate) return;
+    if (!selectedType || !isFormValid || !startDate) return;
 
     // For partial day, end date = start date
     const effectiveEndDate = requestType === "partial" ? startDate : endDate;
@@ -266,7 +321,7 @@ function RequestTab({
 
     try {
       await timeOffService.createRequest({
-        time_off_type_id: ptoType.id,
+        time_off_type_id: selectedType.id,
         start_date: formatDateForApi(startDate),
         end_date: formatDateForApi(effectiveEndDate),
         // Include time for partial day requests
@@ -353,7 +408,7 @@ function RequestTab({
               )}
             </HStack>
 
-            {/* Request Type Selection */}
+            {/* Leave Type Selection */}
             <Box>
               <Text
                 fontSize="xs"
@@ -363,7 +418,72 @@ function RequestTab({
                 textTransform="uppercase"
                 letterSpacing="wide"
               >
-                Request Type
+                Leave Type
+              </Text>
+              <Box 
+                position="relative"
+                bg={cardBg}
+                borderRadius="lg"
+                border="2px solid"
+                borderColor={borderColor}
+                _hover={{ borderColor: inputHoverBorder }}
+                _focusWithin={{ borderColor: "brand.500", boxShadow: "0 0 0 1px var(--chakra-colors-brand-500)" }}
+              >
+                <select
+                  value={selectedTypeId || ""}
+                  onChange={(e) => setSelectedTypeId(Number(e.target.value))}
+                  disabled={isSubmitting}
+                  className="leave-type-select"
+                  style={{
+                    width: "100%",
+                    padding: "12px 40px 12px 12px",
+                    borderRadius: "6px",
+                    border: "none",
+                    backgroundColor: "transparent",
+                    color: "inherit",
+                    fontWeight: 500,
+                    fontSize: "14px",
+                    cursor: "pointer",
+                    appearance: "none",
+                    WebkitAppearance: "none",
+                    outline: "none",
+                  }}
+                >
+                  {sortedTypes.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
+                    </option>
+                  ))}
+                </select>
+                <Box
+                  position="absolute"
+                  right={3}
+                  top="50%"
+                  transform="translateY(-50%)"
+                  pointerEvents="none"
+                  color={textSecondary}
+                >
+                  <LuChevronDown size={18} />
+                </Box>
+              </Box>
+              {selectedType && !usesAccrual && (
+                <Text fontSize="xs" color={textSecondary} mt={2}>
+                  {selectedType.description}
+                </Text>
+              )}
+            </Box>
+
+            {/* Request Type Selection (Full Day / Partial) */}
+            <Box>
+              <Text
+                fontSize="xs"
+                color={textSecondary}
+                mb={3}
+                fontWeight="semibold"
+                textTransform="uppercase"
+                letterSpacing="wide"
+              >
+                Duration Type
               </Text>
               <HStack gap={2}>
                 <Box
@@ -638,27 +758,37 @@ function RequestTab({
               >
                 Notes{" "}
                 <Text as="span" fontWeight="normal" textTransform="none">
-                  (optional)
+                  {requiresNotes ? "(required)" : "(optional)"}
                 </Text>
               </Text>
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Any details for your manager..."
+                placeholder={requiresNotes 
+                  ? "Please explain the reason for this leave request..."
+                  : "Any details for your manager..."
+                }
                 bg={inputBg}
                 border="1px solid"
-                borderColor={borderColor}
+                borderColor={notesError ? "red.400" : borderColor}
                 borderRadius="xl"
                 rows={3}
                 resize="none"
                 _focus={{
-                  borderColor: "brand.500",
-                  boxShadow: "0 0 0 1px var(--chakra-colors-brand-500)",
+                  borderColor: notesError ? "red.500" : "brand.500",
+                  boxShadow: notesError 
+                    ? "0 0 0 1px var(--chakra-colors-red-500)"
+                    : "0 0 0 1px var(--chakra-colors-brand-500)",
                 }}
-                _hover={{ borderColor: inputHoverBorder }}
+                _hover={{ borderColor: notesError ? "red.400" : inputHoverBorder }}
                 px={4}
                 py={3}
               />
+              {notesError && (
+                <Text fontSize="xs" color="red.500" mt={1}>
+                  {notesError}
+                </Text>
+              )}
             </Box>
 
             {/* Error Message */}
@@ -1003,16 +1133,44 @@ function RequestSection({
   count,
   children,
   textSecondary,
+  defaultExpanded = true,
+  collapsible = false,
 }: {
   title: string;
   icon: React.ReactNode;
   count: number;
   children: React.ReactNode;
   textSecondary: string;
+  defaultExpanded?: boolean;
+  collapsible?: boolean;
 }) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const headerBg = useColorModeValue("gray.50", "gray.800");
+  const headerHoverBg = useColorModeValue("gray.100", "gray.750");
+
   return (
     <Box>
-      <HStack gap={2} mb={3}>
+      <HStack
+        gap={2}
+        mb={isExpanded ? 3 : 0}
+        py={2}
+        px={3}
+        mx={-3}
+        borderRadius="lg"
+        cursor={collapsible ? "pointer" : "default"}
+        bg={collapsible ? headerBg : "transparent"}
+        _hover={collapsible ? { bg: headerHoverBg } : {}}
+        onClick={collapsible ? () => setIsExpanded(!isExpanded) : undefined}
+        transition="all 0.2s"
+      >
+        {collapsible && (
+          <Box
+            transition="transform 0.2s"
+            transform={isExpanded ? "rotate(0deg)" : "rotate(-90deg)"}
+          >
+            <LuChevronDown size={16} color="var(--chakra-colors-gray-400)" />
+          </Box>
+        )}
         {icon}
         <Text
           fontSize="sm"
@@ -1031,10 +1189,22 @@ function RequestSection({
         >
           {count}
         </Badge>
+        {collapsible && !isExpanded && (
+          <Text fontSize="xs" color={textSecondary} ml="auto">
+            Click to expand
+          </Text>
+        )}
       </HStack>
-      <VStack gap={2} align="stretch">
-        {children}
-      </VStack>
+      <Box
+        overflow="hidden"
+        transition="all 0.3s ease-in-out"
+        maxHeight={isExpanded ? "5000px" : "0"}
+        opacity={isExpanded ? 1 : 0}
+      >
+        <VStack gap={2} align="stretch">
+          {children}
+        </VStack>
+      </Box>
     </Box>
   );
 }
@@ -1061,19 +1231,26 @@ function RequestRow({
   cancelHoverBg: string;
 }) {
   const status = getStatusStyles(request.status);
-  const canCancel = request.status === "pending" || request.status === "draft";
-  const isUpcoming =
-    new Date(request.start_date) >= new Date() && request.status === "approved";
+  const isUpcoming = parseLocalDate(request.start_date) >= new Date();
+  // Can cancel: pending/draft requests OR approved requests that haven't started yet
+  const canCancel = 
+    request.status === "pending" || 
+    request.status === "draft" ||
+    (request.status === "approved" && isUpcoming);
+  const isUpcomingApproved = isUpcoming && request.status === "approved";
   const statusTextColor = useColorModeValue(status.text, status.darkText);
 
+  // Check if there are notes to display
+  const hasReviewNotes = request.review_notes && (request.status === "approved" || request.status === "denied");
+  const hasCancellationNotes = request.cancellation_reason && request.status === "cancelled";
+
   return (
-    <HStack
+    <Box
       p={4}
       bg={cardBg}
       borderRadius="xl"
       border="1px solid"
       borderColor={borderColor}
-      justify="space-between"
       transition="all 0.15s"
       _hover={{
         bg: hoverBg,
@@ -1081,50 +1258,318 @@ function RequestRow({
         transform: "translateY(-1px)",
       }}
     >
-      <HStack gap={4} flex={1}>
-        <Box w="4px" h="44px" borderRadius="full" bg={status.bg} />
-        <VStack align="start" gap={0.5} flex={1}>
-          <HStack gap={2} flexWrap="wrap">
-            <Text fontWeight="medium" color={textPrimary}>
-              {formatDateRange(request.start_date, request.end_date)}
-            </Text>
-            {isUpcoming && (
-              <Badge
-                colorPalette="green"
-                variant="subtle"
-                fontSize="xs"
-                borderRadius="full"
-                px={2}
-              >
-                {getRelativeTime(request.start_date)}
-              </Badge>
-            )}
-          </HStack>
-          <HStack gap={3} fontSize="sm" color={textSecondary} flexWrap="wrap">
-            <Text>{request.total_hours} hours</Text>
-            <Text display={{ base: "none", sm: "block" }}>•</Text>
-            <HStack gap={1} color={statusTextColor}>
-              {getStatusIcon(request.status, 14)}
-              <Text textTransform="capitalize">{request.status}</Text>
+      <HStack justify="space-between">
+        <HStack gap={4} flex={1}>
+          <Box w="4px" h="44px" borderRadius="full" bg={status.bg} alignSelf="start" />
+          <VStack align="start" gap={0.5} flex={1}>
+            <HStack gap={2} flexWrap="wrap">
+              <Text fontWeight="medium" color={textPrimary}>
+                {formatDateRange(request.start_date, request.end_date)}
+              </Text>
+              {isUpcomingApproved && (
+                <Badge
+                  colorPalette="green"
+                  variant="subtle"
+                  fontSize="xs"
+                  borderRadius="full"
+                  px={2}
+                >
+                  {getRelativeTime(request.start_date)}
+                </Badge>
+              )}
             </HStack>
-          </HStack>
-        </VStack>
+            <HStack gap={3} fontSize="sm" color={textSecondary} flexWrap="wrap">
+              <Text>{request.total_hours} hours</Text>
+              <Text display={{ base: "none", sm: "block" }}>•</Text>
+              <HStack gap={1} color={statusTextColor}>
+                {getStatusIcon(request.status, 14)}
+                <Text textTransform="capitalize">{request.status}</Text>
+              </HStack>
+              {request.reviewed_by && (
+                <>
+                  <Text display={{ base: "none", md: "block" }}>•</Text>
+                  <Text display={{ base: "none", md: "block" }}>
+                    by {request.reviewed_by.name}
+                  </Text>
+                </>
+              )}
+            </HStack>
+          </VStack>
+        </HStack>
+
+        {canCancel && (
+          <Tooltip
+            content={
+              isUpcomingApproved
+                ? "Cancel this approved request (hours will be restored)"
+                : "Cancel this request"
+            }
+          >
+            <IconButton
+              aria-label="Cancel"
+              onClick={() => onCancel(request.id)}
+              variant="ghost"
+              size="sm"
+              color="gray.400"
+              _hover={{ color: "red.500", bg: cancelHoverBg }}
+              borderRadius="lg"
+            >
+              <LuX size={16} />
+            </IconButton>
+          </Tooltip>
+        )}
       </HStack>
 
-      {canCancel && (
-        <IconButton
-          aria-label="Cancel"
-          onClick={() => onCancel(request.id)}
-          variant="ghost"
-          size="sm"
-          color="gray.400"
-          _hover={{ color: "red.500", bg: cancelHoverBg }}
+      {/* Display review notes for approved/denied requests */}
+      {hasReviewNotes && (
+        <Box
+          mt={3}
+          ml={8}
+          p={3}
+          bg={request.status === "approved" ? "green.50" : "red.50"}
+          _dark={{ bg: request.status === "approved" ? "green.950" : "red.950" }}
           borderRadius="lg"
+          borderLeft="3px solid"
+          borderLeftColor={request.status === "approved" ? "green.400" : "red.400"}
         >
-          <LuX size={16} />
-        </IconButton>
+          <Text
+            fontSize="xs"
+            fontWeight="medium"
+            color={request.status === "approved" ? "green.600" : "red.600"}
+            _dark={{ color: request.status === "approved" ? "green.400" : "red.400" }}
+            mb={1}
+          >
+            {request.status === "approved" ? "Approval" : "Denial"} Notes
+          </Text>
+          <Text fontSize="sm" color={textPrimary}>
+            {request.review_notes}
+          </Text>
+        </Box>
       )}
-    </HStack>
+
+      {/* Display cancellation reason */}
+      {hasCancellationNotes && (
+        <Box
+          mt={3}
+          ml={8}
+          p={3}
+          bg="gray.50"
+          _dark={{ bg: "gray.900" }}
+          borderRadius="lg"
+          borderLeft="3px solid"
+          borderLeftColor="gray.400"
+        >
+          <Text
+            fontSize="xs"
+            fontWeight="medium"
+            color="gray.600"
+            _dark={{ color: "gray.400" }}
+            mb={1}
+          >
+            Cancellation Reason
+          </Text>
+          <Text fontSize="sm" color={textPrimary}>
+            {request.cancellation_reason}
+          </Text>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+// Compact history item for the collapsible history section
+function HistoryItem({
+  request,
+  cardBg,
+  borderColor,
+  textPrimary,
+  textSecondary,
+  hoverBg,
+}: {
+  request: TimeOffRequest;
+  cardBg: string;
+  borderColor: string;
+  textPrimary: string;
+  textSecondary: string;
+  hoverBg: string;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const status = getStatusStyles(request.status);
+  const statusTextColor = useColorModeValue(status.text, status.darkText);
+  const hasNotes = request.review_notes || request.cancellation_reason;
+
+  return (
+    <Box
+      bg={cardBg}
+      borderRadius="lg"
+      border="1px solid"
+      borderColor={borderColor}
+      overflow="hidden"
+      transition="all 0.2s"
+      _hover={{ bg: hoverBg }}
+    >
+      {/* Compact row - always visible */}
+      <HStack
+        p={3}
+        gap={4}
+        cursor={hasNotes ? "pointer" : "default"}
+        onClick={hasNotes ? () => setIsExpanded(!isExpanded) : undefined}
+      >
+        {/* Status indicator */}
+        <Box w="3px" h="32px" borderRadius="full" bg={status.bg} flexShrink={0} />
+        
+        {/* Date */}
+        <Box minW="90px">
+          <Text fontSize="sm" fontWeight="medium" color={textPrimary}>
+            {formatDateShort(request.start_date)}
+          </Text>
+        </Box>
+        
+        {/* Hours */}
+        <Box minW="60px" display={{ base: "none", sm: "block" }}>
+          <Text fontSize="sm" color={textSecondary}>
+            {request.total_hours}h
+          </Text>
+        </Box>
+        
+        {/* Status */}
+        <HStack gap={1} color={statusTextColor} flex={1}>
+          {getStatusIcon(request.status, 14)}
+          <Text fontSize="sm" textTransform="capitalize">
+            {request.status}
+          </Text>
+        </HStack>
+        
+        {/* Reviewer */}
+        {request.reviewed_by && (
+          <Text fontSize="xs" color={textSecondary} display={{ base: "none", md: "block" }}>
+            by {request.reviewed_by.name}
+          </Text>
+        )}
+        
+        {/* Expand indicator if has notes */}
+        {hasNotes && (
+          <Box
+            transition="transform 0.2s"
+            transform={isExpanded ? "rotate(180deg)" : "rotate(0deg)"}
+          >
+            <LuChevronDown size={14} color="var(--chakra-colors-gray-400)" />
+          </Box>
+        )}
+      </HStack>
+      
+      {/* Expandable notes section */}
+      {hasNotes && (
+        <Box
+          overflow="hidden"
+          transition="all 0.2s ease-in-out"
+          maxHeight={isExpanded ? "200px" : "0"}
+          opacity={isExpanded ? 1 : 0}
+        >
+          <Box
+            mx={3}
+            mb={3}
+            p={3}
+            bg={request.status === "approved" ? "green.50" : request.status === "denied" ? "red.50" : "gray.50"}
+            _dark={{
+              bg: request.status === "approved" ? "green.950" : request.status === "denied" ? "red.950" : "gray.900",
+            }}
+            borderRadius="md"
+            borderLeft="3px solid"
+            borderLeftColor={
+              request.status === "approved" ? "green.400" : request.status === "denied" ? "red.400" : "gray.400"
+            }
+          >
+            <Text
+              fontSize="xs"
+              fontWeight="medium"
+              color={
+                request.status === "approved" ? "green.600" : request.status === "denied" ? "red.600" : "gray.600"
+              }
+              _dark={{
+                color: request.status === "approved" ? "green.400" : request.status === "denied" ? "red.400" : "gray.400",
+              }}
+              mb={1}
+            >
+              {request.status === "approved" ? "Approval" : request.status === "denied" ? "Denial" : "Cancellation"} Notes
+            </Text>
+            <Text fontSize="sm" color={textPrimary}>
+              {request.review_notes || request.cancellation_reason}
+            </Text>
+          </Box>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+// History list with year grouping
+function HistoryList({
+  requests,
+  cardBg,
+  borderColor,
+  textPrimary,
+  textSecondary,
+  hoverBg,
+}: {
+  requests: TimeOffRequest[];
+  cardBg: string;
+  borderColor: string;
+  textPrimary: string;
+  textSecondary: string;
+  hoverBg: string;
+}) {
+  // Group by year
+  const groupedByYear = useMemo(() => {
+    const groups: Record<number, TimeOffRequest[]> = {};
+    requests.forEach((r) => {
+      const year = parseLocalDate(r.start_date).getFullYear();
+      if (!groups[year]) groups[year] = [];
+      groups[year].push(r);
+    });
+    // Sort years descending
+    return Object.entries(groups)
+      .sort(([a], [b]) => Number(b) - Number(a))
+      .map(([year, reqs]) => ({
+        year: Number(year),
+        requests: reqs.sort((a, b) => 
+          parseLocalDate(b.start_date).getTime() - parseLocalDate(a.start_date).getTime()
+        ),
+      }));
+  }, [requests]);
+
+  return (
+    <VStack gap={4} align="stretch">
+      {groupedByYear.map(({ year, requests: yearRequests }) => (
+        <Box key={year}>
+          {/* Year header - only show if multiple years */}
+          {groupedByYear.length > 1 && (
+            <HStack gap={2} mb={2}>
+              <Text fontSize="xs" fontWeight="semibold" color={textSecondary}>
+                {year}
+              </Text>
+              <Box flex={1} h="1px" bg={borderColor} />
+              <Text fontSize="xs" color={textSecondary}>
+                {yearRequests.length} request{yearRequests.length !== 1 ? "s" : ""}
+              </Text>
+            </HStack>
+          )}
+          <VStack gap={1} align="stretch">
+            {yearRequests.map((r) => (
+              <HistoryItem
+                key={r.id}
+                request={r}
+                cardBg={cardBg}
+                borderColor={borderColor}
+                textPrimary={textPrimary}
+                textSecondary={textSecondary}
+                hoverBg={hoverBg}
+              />
+            ))}
+          </VStack>
+        </Box>
+      ))}
+    </VStack>
   );
 }
 
@@ -1137,24 +1582,62 @@ function MyRequestsTab({
   isLoading: boolean;
   onCancelRequest: (id: number) => void;
 }) {
+  const [isPastExpanded, setIsPastExpanded] = useState(false);
+  
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.100", "gray.700");
-  const hoverBorderColor = useColorModeValue("gray.200", "gray.600");
   const textPrimary = useColorModeValue("gray.900", "gray.50");
   const textSecondary = useColorModeValue("gray.500", "gray.400");
   const hoverBg = useColorModeValue("gray.50", "gray.750");
+  const hoverBgActive = useColorModeValue("gray.100", "gray.700");
   const emptyBg = useColorModeValue("gray.50", "gray.800");
   const cancelHoverBg = useColorModeValue("red.50", "red.950");
+  const dividerColor = useColorModeValue("gray.200", "gray.700");
+  const sectionHeaderBg = useColorModeValue("gray.50", "gray.850");
 
-  const pendingRequests = requests.filter((r) => r.status === "pending");
-  const upcomingApproved = requests.filter(
-    (r) => r.status === "approved" && new Date(r.start_date) >= new Date(),
-  );
-  const pastRequests = requests.filter(
-    (r) =>
-      r.status !== "pending" &&
-      (r.status !== "approved" || new Date(r.start_date) < new Date()),
-  );
+  // Get today at midnight for proper comparison
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  // Split into: pending, upcoming (approved future), past
+  const { pendingRequests, upcomingRequests, pastRequests } = useMemo(() => {
+    const pending: TimeOffRequest[] = [];
+    const upcoming: TimeOffRequest[] = [];
+    const past: TimeOffRequest[] = [];
+
+    requests.forEach((r) => {
+      const startDate = parseLocalDate(r.start_date);
+      const isInFuture = startDate >= today;
+
+      if (r.status === "pending") {
+        pending.push(r);
+      } else if (r.status === "approved" && isInFuture) {
+        upcoming.push(r);
+      } else {
+        past.push(r);
+      }
+    });
+
+    // Sort by date ascending (soonest first)
+    pending.sort((a, b) => 
+      parseLocalDate(a.start_date).getTime() - parseLocalDate(b.start_date).getTime()
+    );
+    upcoming.sort((a, b) => 
+      parseLocalDate(a.start_date).getTime() - parseLocalDate(b.start_date).getTime()
+    );
+    // Sort past by date descending (most recent first)
+    past.sort((a, b) => 
+      parseLocalDate(b.start_date).getTime() - parseLocalDate(a.start_date).getTime()
+    );
+
+    return { pendingRequests: pending, upcomingRequests: upcoming, pastRequests: past };
+  }, [requests, today]);
+
+  // Auto-expand past if there are no pending/upcoming
+  const shouldShowPast = isPastExpanded || (pendingRequests.length === 0 && upcomingRequests.length === 0);
 
   if (isLoading) {
     return (
@@ -1199,80 +1682,283 @@ function MyRequestsTab({
     );
   }
 
+  // Render a single request row
+  const renderRequestRow = (r: TimeOffRequest, showCancel: boolean = false) => {
+    const status = getStatusStyles(r.status);
+    const statusTextColor = r.status === "pending" ? "amber.500" : "green.500";
+    const relativeTime = getRelativeTime(r.start_date);
+    const typeName = r.type?.name || "PTO";
+
+    return (
+      <HStack
+        key={r.id}
+        p={3}
+        bg={hoverBg}
+        borderRadius="lg"
+        gap={{ base: 2, md: 3 }}
+        _hover={{ bg: hoverBgActive }}
+        transition="all 0.15s"
+        flexWrap={{ base: "wrap", md: "nowrap" }}
+      >
+        {/* Status indicator */}
+        <Box
+          w="4px"
+          alignSelf="stretch"
+          borderRadius="full"
+          bg={status.bg}
+          minH="40px"
+          display={{ base: "none", sm: "block" }}
+        />
+
+        {/* Date and relative time */}
+        <VStack align="start" gap={0} minW={{ base: "100px", md: "120px" }}>
+          <Text fontWeight="medium" color={textPrimary} fontSize="sm">
+            {formatDateRange(r.start_date, r.end_date)}
+          </Text>
+          <Text fontSize="xs" color={textSecondary}>
+            {relativeTime}
+          </Text>
+        </VStack>
+
+        {/* Type */}
+        <Badge 
+          colorPalette="gray" 
+          variant="subtle" 
+          fontSize="xs"
+          display={{ base: "none", sm: "flex" }}
+        >
+          {typeName}
+        </Badge>
+
+        {/* Hours */}
+        <Text fontSize="sm" color={textSecondary} minW="40px">
+          {r.total_hours}h
+        </Text>
+
+        {/* Status */}
+        <HStack gap={1} flex={1}>
+          {getStatusIcon(r.status, 14)}
+          <Text
+            fontSize="sm"
+            fontWeight="medium"
+            color={statusTextColor}
+            textTransform="capitalize"
+          >
+            {r.status}
+          </Text>
+        </HStack>
+
+        {/* Reviewer (if approved) */}
+        {r.reviewed_by && (
+          <Text fontSize="xs" color={textSecondary} display={{ base: "none", lg: "block" }}>
+            by {r.reviewed_by.name}
+          </Text>
+        )}
+
+        {/* Cancel button */}
+        {showCancel && (
+          <Tooltip
+            content={
+              r.status === "approved"
+                ? "Cancel (hours will be restored)"
+                : "Cancel request"
+            }
+          >
+            <IconButton
+              aria-label="Cancel"
+              onClick={() => onCancelRequest(r.id)}
+              variant="ghost"
+              size="sm"
+              color="gray.400"
+              _hover={{ color: "red.500", bg: cancelHoverBg }}
+              borderRadius="lg"
+            >
+              <LuX size={16} />
+            </IconButton>
+          </Tooltip>
+        )}
+      </HStack>
+    );
+  };
+
+  // Render a compact past row
+  const renderPastRow = (r: TimeOffRequest) => {
+    const status = getStatusStyles(r.status);
+    const typeName = r.type?.name || "PTO";
+
+    return (
+      <HStack
+        key={r.id}
+        py={2}
+        px={3}
+        borderRadius="md"
+        gap={{ base: 2, md: 3 }}
+        opacity={0.85}
+        _hover={{ opacity: 1, bg: hoverBg }}
+        transition="all 0.15s"
+      >
+        {/* Status indicator */}
+        <Box w="3px" h="24px" borderRadius="full" bg={status.bg} flexShrink={0} />
+
+        {/* Date */}
+        <Text fontSize="sm" color={textPrimary} minW={{ base: "70px", md: "80px" }}>
+          {formatDateShort(r.start_date)}
+        </Text>
+
+        {/* Type */}
+        <Text fontSize="xs" color={textSecondary} display={{ base: "none", sm: "block" }} minW="60px">
+          {typeName}
+        </Text>
+
+        {/* Hours */}
+        <Text fontSize="sm" color={textSecondary} minW="35px">
+          {r.total_hours}h
+        </Text>
+
+        {/* Status */}
+        <HStack gap={1} flex={1}>
+          <Box color={status.text} _dark={{ color: status.darkText }}>
+            {getStatusIcon(r.status, 12)}
+          </Box>
+          <Text 
+            fontSize="sm" 
+            textTransform="capitalize"
+            color={status.text}
+            _dark={{ color: status.darkText }}
+          >
+            {r.status}
+          </Text>
+        </HStack>
+
+        {/* Reviewer */}
+        {r.reviewed_by && (
+          <Text fontSize="xs" color={textSecondary} display={{ base: "none", lg: "block" }}>
+            by {r.reviewed_by.name}
+          </Text>
+        )}
+      </HStack>
+    );
+  };
+
   return (
-    <VStack gap={8} align="stretch">
-      {pendingRequests.length > 0 && (
-        <RequestSection
-          title="Pending"
-          icon={
-            <LuCircleDashed size={16} color="var(--chakra-colors-amber-500)" />
-          }
-          count={pendingRequests.length}
-          textSecondary={textSecondary}
-        >
-          {pendingRequests.map((r) => (
-            <RequestRow
-              key={r.id}
-              request={r}
-              onCancel={onCancelRequest}
-              cardBg={cardBg}
-              borderColor={borderColor}
-              hoverBorderColor={hoverBorderColor}
-              textPrimary={textPrimary}
-              textSecondary={textSecondary}
-              hoverBg={hoverBg}
-              cancelHoverBg={cancelHoverBg}
+    <Card.Root
+      bg={cardBg}
+      borderRadius="2xl"
+      border="1px solid"
+      borderColor={borderColor}
+      overflow="hidden"
+    >
+      <Card.Body p={0}>
+        {/* PENDING Section */}
+        {pendingRequests.length > 0 && (
+          <>
+            <Box p={5} pb={4}>
+              <HStack gap={2} mb={4}>
+                <Box w={2} h={2} borderRadius="full" bg="amber.500" />
+                <Text fontWeight="semibold" color={textPrimary} fontSize="sm">
+                  Pending Approval
+                </Text>
+                <Badge colorPalette="amber" variant="subtle" borderRadius="full" fontSize="xs">
+                  {pendingRequests.length}
+                </Badge>
+              </HStack>
+              <VStack gap={2} align="stretch">
+                {pendingRequests.map((r) => renderRequestRow(r, true))}
+              </VStack>
+            </Box>
+            <Box h="1px" bg={dividerColor} mx={5} />
+          </>
+        )}
+
+        {/* UPCOMING Section */}
+        <Box p={5} pb={upcomingRequests.length > 0 ? 4 : 5}>
+          <HStack gap={2} mb={upcomingRequests.length > 0 ? 4 : 0}>
+            <Box
+              w={2}
+              h={2}
+              borderRadius="full"
+              bg={upcomingRequests.length > 0 ? "green.500" : "gray.300"}
             />
-          ))}
-        </RequestSection>
-      )}
-      {upcomingApproved.length > 0 && (
-        <RequestSection
-          title="Upcoming"
-          icon={<LuCalendar size={16} color="var(--chakra-colors-green-500)" />}
-          count={upcomingApproved.length}
-          textSecondary={textSecondary}
-        >
-          {upcomingApproved.map((r) => (
-            <RequestRow
-              key={r.id}
-              request={r}
-              onCancel={onCancelRequest}
-              cardBg={cardBg}
-              borderColor={borderColor}
-              hoverBorderColor={hoverBorderColor}
-              textPrimary={textPrimary}
-              textSecondary={textSecondary}
-              hoverBg={hoverBg}
-              cancelHoverBg={cancelHoverBg}
-            />
-          ))}
-        </RequestSection>
-      )}
-      {pastRequests.length > 0 && (
-        <RequestSection
-          title="History"
-          icon={<LuHistory size={16} color="var(--chakra-colors-gray-400)" />}
-          count={pastRequests.length}
-          textSecondary={textSecondary}
-        >
-          {pastRequests.map((r) => (
-            <RequestRow
-              key={r.id}
-              request={r}
-              onCancel={onCancelRequest}
-              cardBg={cardBg}
-              borderColor={borderColor}
-              hoverBorderColor={hoverBorderColor}
-              textPrimary={textPrimary}
-              textSecondary={textSecondary}
-              hoverBg={hoverBg}
-              cancelHoverBg={cancelHoverBg}
-            />
-          ))}
-        </RequestSection>
-      )}
-    </VStack>
+            <Text fontWeight="semibold" color={textPrimary} fontSize="sm">
+              Upcoming
+            </Text>
+            {upcomingRequests.length > 0 && (
+              <Badge colorPalette="green" variant="subtle" borderRadius="full" fontSize="xs">
+                {upcomingRequests.length}
+              </Badge>
+            )}
+          </HStack>
+
+          {upcomingRequests.length === 0 ? (
+            <Text fontSize="sm" color={textSecondary} ml={4}>
+              No upcoming approved time off
+            </Text>
+          ) : (
+            <VStack gap={2} align="stretch">
+              {upcomingRequests.map((r) => renderRequestRow(r, true))}
+            </VStack>
+          )}
+        </Box>
+
+        {/* Divider */}
+        <Box h="1px" bg={dividerColor} mx={5} />
+
+        {/* PAST Section - Collapsible */}
+        <Box>
+          {/* Header - clickable */}
+          <HStack
+            gap={2}
+            p={5}
+            py={4}
+            cursor="pointer"
+            onClick={() => setIsPastExpanded(!isPastExpanded)}
+            _hover={{ bg: sectionHeaderBg }}
+            transition="all 0.15s"
+          >
+            <Box
+              transition="transform 0.2s"
+              transform={shouldShowPast ? "rotate(0deg)" : "rotate(-90deg)"}
+            >
+              <LuChevronDown size={16} color="var(--chakra-colors-gray-400)" />
+            </Box>
+            <Box w={2} h={2} borderRadius="full" bg="gray.400" />
+            <Text fontWeight="semibold" color={textPrimary} fontSize="sm">
+              Past
+            </Text>
+            {pastRequests.length > 0 && (
+              <Text fontSize="sm" color={textSecondary}>
+                ({pastRequests.length})
+              </Text>
+            )}
+            {!shouldShowPast && pastRequests.length > 0 && (
+              <Text fontSize="xs" color={textSecondary} ml="auto">
+                Click to expand
+              </Text>
+            )}
+          </HStack>
+
+          {/* Collapsible content */}
+          <Box
+            overflow="hidden"
+            transition="all 0.3s ease-in-out"
+            maxHeight={shouldShowPast ? "2000px" : "0"}
+            opacity={shouldShowPast ? 1 : 0}
+          >
+            <Box px={5} pb={5}>
+              {pastRequests.length === 0 ? (
+                <Text fontSize="sm" color={textSecondary} ml={4}>
+                  No past requests
+                </Text>
+              ) : (
+                <VStack gap={1} align="stretch">
+                  {pastRequests.map((r) => renderPastRow(r))}
+                </VStack>
+              )}
+            </Box>
+          </Box>
+        </Box>
+      </Card.Body>
+    </Card.Root>
   );
 }
 
@@ -1478,6 +2164,8 @@ export default function TimeOffPage() {
   const textSecondary = useColorModeValue("gray.500", "gray.400");
   const tabBg = useColorModeValue("gray.100", "gray.800");
   const activeTabBg = useColorModeValue("white", "gray.700");
+  const cardBg = useColorModeValue("white", "gray.800");
+  const borderColor = useColorModeValue("gray.200", "gray.700");
 
   // Fetch types and balances (for Request tab)
   const fetchRequestTabData = useCallback(async () => {
@@ -1644,124 +2332,172 @@ export default function TimeOffPage() {
           </Text>
         </Box>
 
-        {/* Tabs */}
-        <Tabs.Root
-          value={activeTab}
-          onValueChange={(e) => setActiveTab(e.value)}
-          variant="enclosed"
-        >
-          <Tabs.List
-            bg={tabBg}
-            p={1}
+        {/* Mobile Dropdown */}
+        <Box display={{ base: "block", md: "none" }}>
+          <Box
+            position="relative"
+            bg={cardBg}
             borderRadius="xl"
-            gap={1}
-            overflowX="auto"
-            css={{ "&::-webkit-scrollbar": { display: "none" } }}
+            border="1px solid"
+            borderColor={borderColor}
           >
-            <Tabs.Trigger
-              value="request"
-              px={{ base: 4, md: 6 }}
-              py={2.5}
-              borderRadius="lg"
-              fontWeight="medium"
-              fontSize="sm"
-              _selected={{ bg: activeTabBg, shadow: "sm" }}
-              whiteSpace="nowrap"
+            <select
+              value={activeTab}
+              onChange={(e) => setActiveTab(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "14px 44px 14px 16px",
+                borderRadius: "12px",
+                border: "none",
+                backgroundColor: "transparent",
+                color: "inherit",
+                fontWeight: 600,
+                fontSize: "15px",
+                cursor: "pointer",
+                appearance: "none",
+                WebkitAppearance: "none",
+                outline: "none",
+              }}
             >
-              <HStack gap={2}>
-                <LuCalendarPlus size={16} />
-                <Text>Request</Text>
-              </HStack>
-            </Tabs.Trigger>
-            <Tabs.Trigger
-              value="requests"
-              px={{ base: 4, md: 6 }}
-              py={2.5}
-              borderRadius="lg"
-              fontWeight="medium"
-              fontSize="sm"
-              _selected={{ bg: activeTabBg, shadow: "sm" }}
-              whiteSpace="nowrap"
+              <option value="request">
+                New Request
+              </option>
+              <option value="requests">
+                My Requests {pendingCount > 0 ? `(${pendingCount} pending)` : ""}
+              </option>
+              <option value="balances">Balances</option>
+              <option value="calendar">Calendar</option>
+            </select>
+            <Box
+              position="absolute"
+              right={4}
+              top="50%"
+              transform="translateY(-50%)"
+              pointerEvents="none"
+              color={textSecondary}
             >
-              <HStack gap={2}>
-                <LuFileText size={16} />
-                <Text>My Requests</Text>
-                {pendingCount > 0 && (
-                  <Badge
-                    bg="amber.500"
-                    color="white"
-                    borderRadius="full"
-                    fontSize="xs"
-                    px={1.5}
-                    minW="18px"
-                  >
-                    {pendingCount}
-                  </Badge>
-                )}
-              </HStack>
-            </Tabs.Trigger>
-            <Tabs.Trigger
-              value="balances"
-              px={{ base: 4, md: 6 }}
-              py={2.5}
-              borderRadius="lg"
-              fontWeight="medium"
-              fontSize="sm"
-              _selected={{ bg: activeTabBg, shadow: "sm" }}
-              whiteSpace="nowrap"
-            >
-              <HStack gap={2}>
-                <LuWallet size={16} />
-                <Text>Balances</Text>
-              </HStack>
-            </Tabs.Trigger>
-            <Tabs.Trigger
-              value="calendar"
-              px={{ base: 4, md: 6 }}
-              py={2.5}
-              borderRadius="lg"
-              fontWeight="medium"
-              fontSize="sm"
-              _selected={{ bg: activeTabBg, shadow: "sm" }}
-              whiteSpace="nowrap"
-            >
-              <HStack gap={2}>
-                <LuCalendar size={16} />
-                <Text>Calendar</Text>
-              </HStack>
-            </Tabs.Trigger>
-          </Tabs.List>
-
-          <Box mt={6}>
-            {/* Only render tab content when active to prevent unnecessary API calls */}
-            {activeTab === "request" && (
-              <RequestTab
-                types={types}
-                balances={balances}
-                isLoading={isLoadingRequest || !requestTabLoaded}
-                onRequestCreated={refreshData}
-              />
-            )}
-            {activeTab === "requests" && (
-              <MyRequestsTab
-                requests={requests}
-                isLoading={isLoadingRequests || !requestsTabLoaded}
-                onCancelRequest={handleCancelRequest}
-              />
-            )}
-            {activeTab === "balances" && (
-              <BalancesTab
-                balances={balances}
-                isLoading={
-                  isLoadingBalances || (!balancesTabLoaded && !requestTabLoaded)
-                }
-              />
-            )}
-            {activeTab === "calendar" && (
-              <TimeOffCalendar title="Company Time Off" />
-            )}
+              <LuChevronDown size={20} />
+            </Box>
           </Box>
-        </Tabs.Root>
+        </Box>
+
+        {/* Desktop Tabs */}
+        <Box display={{ base: "none", md: "block" }}>
+          <Tabs.Root
+            value={activeTab}
+            onValueChange={(e) => setActiveTab(e.value)}
+            variant="enclosed"
+          >
+            <Tabs.List
+              bg={tabBg}
+              p={1}
+              borderRadius="xl"
+              gap={1}
+            >
+              <Tabs.Trigger
+                value="request"
+                px={6}
+                py={2.5}
+                borderRadius="lg"
+                fontWeight="medium"
+                fontSize="sm"
+                _selected={{ bg: activeTabBg, shadow: "sm" }}
+              >
+                <HStack gap={2}>
+                  <LuCalendarPlus size={16} />
+                  <Text>Request</Text>
+                </HStack>
+              </Tabs.Trigger>
+              <Tabs.Trigger
+                value="requests"
+                px={6}
+                py={2.5}
+                borderRadius="lg"
+                fontWeight="medium"
+                fontSize="sm"
+                _selected={{ bg: activeTabBg, shadow: "sm" }}
+              >
+                <HStack gap={2}>
+                  <LuFileText size={16} />
+                  <Text>My Requests</Text>
+                  {pendingCount > 0 && (
+                    <Box
+                      bg="amber.500"
+                      color="white"
+                      borderRadius="full"
+                      fontSize="xs"
+                      fontWeight="bold"
+                      px={1.5}
+                      minW="18px"
+                      textAlign="center"
+                      lineHeight="18px"
+                    >
+                      {pendingCount}
+                    </Box>
+                  )}
+                </HStack>
+              </Tabs.Trigger>
+              <Tabs.Trigger
+                value="balances"
+                px={6}
+                py={2.5}
+                borderRadius="lg"
+                fontWeight="medium"
+                fontSize="sm"
+                _selected={{ bg: activeTabBg, shadow: "sm" }}
+              >
+                <HStack gap={2}>
+                  <LuWallet size={16} />
+                  <Text>Balances</Text>
+                </HStack>
+              </Tabs.Trigger>
+              <Tabs.Trigger
+                value="calendar"
+                px={6}
+                py={2.5}
+                borderRadius="lg"
+                fontWeight="medium"
+                fontSize="sm"
+                _selected={{ bg: activeTabBg, shadow: "sm" }}
+              >
+                <HStack gap={2}>
+                  <LuCalendar size={16} />
+                  <Text>Calendar</Text>
+                </HStack>
+              </Tabs.Trigger>
+            </Tabs.List>
+          </Tabs.Root>
+        </Box>
+
+        {/* Tab Content */}
+        <Box>
+          {activeTab === "request" && (
+            <RequestTab
+              types={types}
+              balances={balances}
+              isLoading={isLoadingRequest || !requestTabLoaded}
+              onRequestCreated={refreshData}
+            />
+          )}
+          {activeTab === "requests" && (
+            <MyRequestsTab
+              requests={requests}
+              isLoading={isLoadingRequests || !requestsTabLoaded}
+              onCancelRequest={handleCancelRequest}
+            />
+          )}
+          {activeTab === "balances" && (
+            <BalancesTab
+              balances={balances}
+              isLoading={
+                isLoadingBalances || (!balancesTabLoaded && !requestTabLoaded)
+              }
+            />
+          )}
+          {activeTab === "calendar" && (
+            <TimeOffCalendar title="Company Time Off" />
+          )}
+        </Box>
       </VStack>
     </Box>
   );

@@ -182,9 +182,17 @@ function getStatusColor(status: string) {
   }
 }
 
+/**
+ * Parse a date string (YYYY-MM-DD) as local time to avoid timezone shifts.
+ */
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
 function formatDateRange(startDate: string, endDate: string) {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const start = parseLocalDate(startDate);
+  const end = parseLocalDate(endDate);
   const options: Intl.DateTimeFormatOptions = {
     month: "short",
     day: "numeric",
@@ -1195,7 +1203,7 @@ export default function DashboardPage() {
   const approvedThisYear = recentRequests.filter(
     (r) =>
       r.status === "approved" &&
-      new Date(r.start_date).getFullYear() === currentYear,
+      parseLocalDate(r.start_date).getFullYear() === currentYear,
   );
   const hoursUsedThisYear = approvedThisYear.reduce(
     (sum, r) => sum + r.total_hours,

@@ -8,8 +8,14 @@ export interface TimeOffType {
   description: string | null;
   color: string;
   requires_approval: boolean;
+  requires_documentation: boolean;
+  uses_accrual: boolean;
+  uses_tenure_tiers: boolean;
   min_increment_hours: number;
   max_consecutive_days: number | null;
+  is_paid: boolean;
+  is_active: boolean;
+  sort_order: number;
 }
 
 export interface TimeOffBalance {
@@ -74,6 +80,20 @@ export interface TimeOffRequest {
   approved_at: string | null;
   created_at: string;
   updated_at: string;
+  // Review fields (for approved/denied requests)
+  reviewed_by?: {
+    id: number;
+    name: string;
+  } | null;
+  reviewed_at?: string | null;
+  review_notes?: string | null;
+  // Cancellation fields
+  cancelled_by?: {
+    id: number;
+    name: string;
+  } | null;
+  cancelled_at?: string | null;
+  cancellation_reason?: string | null;
 }
 
 interface ApiResponse<T> {
@@ -174,9 +194,15 @@ export const timeOffService = {
     notes?: string;
     submit?: boolean;
   }): Promise<TimeOffRequest> {
+    // Transform notes to reason for API compatibility
+    const { notes, ...rest } = data;
+    const payload = {
+      ...rest,
+      reason: notes, // Backend expects 'reason' field for employee notes
+    };
     const response = await httpClient.post<ApiResponse<TimeOffRequest>>(
       "/portal/time-off/requests",
-      data,
+      payload,
     );
     return response.data;
   },

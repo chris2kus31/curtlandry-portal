@@ -30,6 +30,9 @@ import {
   LuMessageSquare,
   LuCalendar,
   LuUserX,
+  LuCircleAlert,
+  LuChevronDown,
+  LuFilter,
 } from "react-icons/lu";
 import { approvalService, type ApprovalTimeOffRequest } from "@/lib/api";
 import { TimeOffCalendar } from "@/components/calendar";
@@ -105,9 +108,17 @@ function getStatusColors(status: string, isLight: boolean) {
   }
 }
 
+/**
+ * Parse a date string (YYYY-MM-DD) as local time to avoid timezone shifts.
+ */
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
 function formatDateRange(startDate: string, endDate: string) {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  const start = parseLocalDate(startDate);
+  const end = parseLocalDate(endDate);
   const options: Intl.DateTimeFormatOptions = {
     month: "short",
     day: "numeric",
@@ -121,7 +132,17 @@ function formatDateRange(startDate: string, endDate: string) {
 }
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-US", {
+  // Handle both YYYY-MM-DD and full ISO datetime formats
+  if (dateStr.includes("T")) {
+    // ISO datetime - use native Date parsing
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+  // Date-only string - use local parsing to avoid timezone shift
+  return parseLocalDate(dateStr).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -159,8 +180,8 @@ function RequestCard({
   isLight,
 }: {
   request: TimeOffRequest;
-  onApprove: (id: number, notes?: string) => void;
-  onDeny: (id: number, notes?: string) => void;
+  onApprove: (id: number, notes?: string) => Promise<{ success: boolean; error?: string }>;
+  onDeny: (id: number, notes?: string) => Promise<{ success: boolean; error?: string }>;
   isPending: boolean;
   colors: ColorProps;
   isLight: boolean;
@@ -168,23 +189,34 @@ function RequestCard({
   const [showNotes, setShowNotes] = useState(false);
   const [approvalNotes, setApprovalNotes] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const status = getStatusColors(request.status, isLight);
 
   const handleApprove = async () => {
     setIsProcessing(true);
-    await onApprove(request.id, approvalNotes || undefined);
+    setActionError(null);
+    const result = await onApprove(request.id, approvalNotes || undefined);
     setIsProcessing(false);
-    setShowNotes(false);
-    setApprovalNotes("");
+    if (result.success) {
+      setShowNotes(false);
+      setApprovalNotes("");
+    } else {
+      setActionError(result.error || "Failed to approve request");
+    }
   };
 
   const handleDeny = async () => {
     setIsProcessing(true);
-    await onDeny(request.id, approvalNotes || undefined);
+    setActionError(null);
+    const result = await onDeny(request.id, approvalNotes || undefined);
     setIsProcessing(false);
-    setShowNotes(false);
-    setApprovalNotes("");
+    if (result.success) {
+      setShowNotes(false);
+      setApprovalNotes("");
+    } else {
+      setActionError(result.error || "Failed to deny request");
+    }
   };
 
   return (
@@ -361,7 +393,28 @@ function RequestCard({
                 rows={2}
                 borderRadius="lg"
                 bg={colors.cardBg}
+                px={2}
+                py={2}
               />
+            </Box>
+          )}
+
+          {/* Inline Error Display */}
+          {actionError && (
+            <Box
+              p={3}
+              bg="red.50"
+              _dark={{ bg: "red.950", borderColor: "red.800" }}
+              borderRadius="lg"
+              border="1px solid"
+              borderColor="red.200"
+            >
+              <HStack gap={2}>
+                <LuCircleAlert size={16} color="var(--chakra-colors-red-500)" />
+                <Text fontSize="sm" color="red.600" _dark={{ color: "red.400" }}>
+                  {actionError}
+                </Text>
+              </HStack>
             </Box>
           )}
 
@@ -431,6 +484,262 @@ function RequestCard({
         </VStack>
       </Card.Body>
     </Card.Root>
+  );
+}
+
+// Compact History Table Component
+function HistoryTable({
+  requests,
+  colors,
+  isLight,
+}: {
+  requests: TimeOffRequest[];
+  colors: ColorProps;
+  isLight: boolean;
+}) {
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const hoverBg = useColorModeValue("gray.50", "gray.800");
+  const headerBg = useColorModeValue("gray.50", "gray.850");
+  const rowBorderColor = useColorModeValue("gray.100", "gray.800");
+
+  // Filter requests
+  const filteredRequests = useMemo(() => {
+    if (filterStatus === "all") return requests;
+    return requests.filter((r) => r.status === filterStatus);
+  }, [requests, filterStatus]);
+
+  // Group by date (month/year)
+  const groupedRequests = useMemo(() => {
+    const groups: { [key: string]: TimeOffRequest[] } = {};
+    filteredRequests.forEach((r) => {
+      const date = parseLocalDate(r.start_date);
+      const key = `${date.toLocaleString("en-US", { month: "long" })} ${date.getFullYear()}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(r);
+    });
+    return Object.entries(groups);
+  }, [filteredRequests]);
+
+  const toggleExpand = (id: number) => {
+    setExpandedId(expandedId === id ? null : id);
+  };
+
+  return (
+    <VStack gap={4} align="stretch">
+      {/* Filter Bar */}
+      <HStack gap={3} flexWrap="wrap">
+        <HStack gap={2}>
+          <LuFilter size={14} color="var(--chakra-colors-gray-400)" />
+          <Text fontSize="sm" color={colors.textSecondary}>Filter:</Text>
+        </HStack>
+        {["all", "approved", "denied", "cancelled"].map((status) => (
+          <Box
+            key={status}
+            as="button"
+            px={3}
+            py={1.5}
+            fontSize="xs"
+            fontWeight="medium"
+            borderRadius="full"
+            bg={filterStatus === status ? "brand.500" : "transparent"}
+            color={filterStatus === status ? "white" : colors.textSecondary}
+            border="1px solid"
+            borderColor={filterStatus === status ? "brand.500" : colors.borderColor}
+            cursor="pointer"
+            transition="all 0.15s"
+            _hover={{ borderColor: "brand.400" }}
+            onClick={() => setFilterStatus(status)}
+            textTransform="capitalize"
+          >
+            {status === "all" ? "All" : status}
+          </Box>
+        ))}
+        <Text fontSize="xs" color={colors.textSecondary} ml="auto">
+          {filteredRequests.length} request{filteredRequests.length !== 1 ? "s" : ""}
+        </Text>
+      </HStack>
+
+      {/* Table */}
+      <Card.Root
+        bg={colors.cardBg}
+        borderRadius="xl"
+        border="1px solid"
+        borderColor={colors.borderColor}
+        overflow="hidden"
+      >
+        {/* Table Header */}
+        <HStack
+          px={4}
+          py={3}
+          bg={headerBg}
+          gap={2}
+          fontSize="xs"
+          fontWeight="semibold"
+          color={colors.textSecondary}
+          textTransform="uppercase"
+          letterSpacing="wide"
+          display={{ base: "none", md: "flex" }}
+        >
+          <Box flex={2} minW="150px">Employee</Box>
+          <Box flex={1} minW="80px">Type</Box>
+          <Box flex={1} minW="100px">Dates</Box>
+          <Box minW="60px" textAlign="center">Hours</Box>
+          <Box flex={1} minW="120px">Status</Box>
+          <Box minW="30px" />
+        </HStack>
+
+        {/* Table Body */}
+        <VStack gap={0} align="stretch" divideY="1px" divideColor={rowBorderColor}>
+          {groupedRequests.length === 0 ? (
+            <Box p={8} textAlign="center">
+              <Text color={colors.textSecondary}>No requests match the filter</Text>
+            </Box>
+          ) : (
+            groupedRequests.map(([monthYear, monthRequests]) => (
+              <Box key={monthYear}>
+                {/* Month Header */}
+                <Box px={4} py={2} bg={headerBg}>
+                  <Text fontSize="xs" fontWeight="semibold" color={colors.textSecondary}>
+                    {monthYear} ({monthRequests.length})
+                  </Text>
+                </Box>
+                
+                {/* Month Rows */}
+                {monthRequests.map((request) => {
+                  const status = getStatusColors(request.status, isLight);
+                  const isExpanded = expandedId === request.id;
+                  const hasNotes = request.review_notes || request.cancellation_reason || request.reason;
+                  const typeName = request.type?.name || "PTO";
+                  
+                  return (
+                    <Box key={request.id}>
+                      {/* Main Row */}
+                      <HStack
+                        px={4}
+                        py={3}
+                        gap={2}
+                        cursor={hasNotes ? "pointer" : "default"}
+                        onClick={hasNotes ? () => toggleExpand(request.id) : undefined}
+                        _hover={{ bg: hoverBg }}
+                        transition="all 0.15s"
+                        flexWrap={{ base: "wrap", md: "nowrap" }}
+                      >
+                        {/* Employee - Mobile shows on full width */}
+                        <VStack align="start" gap={0} flex={2} minW={{ base: "100%", md: "150px" }}>
+                          <Text fontWeight="medium" color={colors.textPrimary} fontSize="sm">
+                            {request.user.first_name} {request.user.last_name}
+                          </Text>
+                          <Text fontSize="xs" color={colors.textSecondary} display={{ base: "block", md: "none" }}>
+                            {typeName} • {request.total_hours}h • {formatDateRange(request.start_date, request.end_date)}
+                          </Text>
+                        </VStack>
+
+                        {/* Type - Desktop only */}
+                        <HStack flex={1} minW="80px" display={{ base: "none", md: "flex" }}>
+                          <Box w={2} h={2} borderRadius="full" bg={request.type.color} flexShrink={0} />
+                          <Text fontSize="sm" color={colors.textPrimary} truncate>
+                            {typeName}
+                          </Text>
+                        </HStack>
+
+                        {/* Dates - Desktop only */}
+                        <Text flex={1} minW="100px" fontSize="sm" color={colors.textPrimary} display={{ base: "none", md: "block" }}>
+                          {formatDateRange(request.start_date, request.end_date)}
+                        </Text>
+
+                        {/* Hours - Desktop only */}
+                        <Text minW="60px" textAlign="center" fontSize="sm" color={colors.textSecondary} display={{ base: "none", md: "block" }}>
+                          {request.total_hours}h
+                        </Text>
+
+                        {/* Status */}
+                        <HStack flex={1} minW="120px" justify={{ base: "flex-start", md: "flex-start" }}>
+                          <Badge
+                            bg={status.bg}
+                            color={status.color}
+                            px={2}
+                            py={0.5}
+                            borderRadius="full"
+                            fontSize="xs"
+                            fontWeight="medium"
+                          >
+                            <HStack gap={1}>
+                              {request.status === "cancelled" && request.cancelled_by?.id === request.user.id ? (
+                                <LuUserX size={12} />
+                              ) : (
+                                getStatusIcon(request.status)
+                              )}
+                              <Text display={{ base: "none", sm: "block" }}>{getStatusLabel(request)}</Text>
+                            </HStack>
+                          </Badge>
+                        </HStack>
+
+                        {/* Expand indicator */}
+                        <Box minW="30px" textAlign="right">
+                          {hasNotes && (
+                            <Box
+                              as="span"
+                              display="inline-block"
+                              transition="transform 0.2s"
+                              transform={isExpanded ? "rotate(180deg)" : "rotate(0)"}
+                            >
+                              <LuChevronDown size={16} color="var(--chakra-colors-gray-400)" />
+                            </Box>
+                          )}
+                        </Box>
+                      </HStack>
+
+                      {/* Expanded Details */}
+                      {isExpanded && hasNotes && (
+                        <Box
+                          px={4}
+                          pb={3}
+                          bg={hoverBg}
+                        >
+                          <VStack align="stretch" gap={2} pl={{ base: 0, md: 4 }} borderLeft={{ base: "none", md: "2px solid" }} borderColor={request.type.color}>
+                            {request.reason && (
+                              <Box>
+                                <Text fontSize="xs" fontWeight="medium" color={colors.textSecondary}>
+                                  Employee Note
+                                </Text>
+                                <Text fontSize="sm" color={colors.textPrimary}>
+                                  {request.reason}
+                                </Text>
+                              </Box>
+                            )}
+                            {request.review_notes && (
+                              <Box>
+                                <Text fontSize="xs" fontWeight="medium" color={request.status === "approved" ? "green.500" : "red.500"}>
+                                  {request.status === "approved" ? "Approval" : "Denial"} Notes
+                                </Text>
+                                <Text fontSize="sm" color={colors.textPrimary}>
+                                  {request.review_notes}
+                                </Text>
+                              </Box>
+                            )}
+                            {request.cancellation_reason && (
+                              <Box>
+                                <Text fontSize="xs" fontWeight="medium" color="gray.500">
+                                  Cancellation Reason
+                                </Text>
+                                <Text fontSize="sm" color={colors.textPrimary}>
+                                  {request.cancellation_reason}
+                                </Text>
+                              </Box>
+                            )}
+                          </VStack>
+                        </Box>
+                      )}
+                    </Box>
+                  );
+                })}
+              </Box>
+            ))
+          )}
+        </VStack>
+      </Card.Root>
+    </VStack>
   );
 }
 
@@ -520,7 +829,7 @@ export default function TeamPage() {
     fetchPending();
   };
 
-  const handleApprove = async (id: number, notes?: string) => {
+  const handleApprove = async (id: number, notes?: string): Promise<{ success: boolean; error?: string }> => {
     try {
       await approvalService.approve(id, notes);
       toaster.create({
@@ -528,17 +837,23 @@ export default function TeamPage() {
         type: "success",
       });
       refreshData();
+      return { success: true };
     } catch (error) {
-      toaster.create({
-        title: "Failed to approve",
-        description:
-          error instanceof Error ? error.message : "Please try again",
-        type: "error",
-      });
+      // Extract error message from API error response
+      const apiError = error as { message?: string; errors?: Record<string, string[]> };
+      let errorMsg = apiError.message || "Please try again";
+      // If there are validation errors, show the first one
+      if (apiError.errors) {
+        const firstError = Object.values(apiError.errors)[0];
+        if (firstError && firstError[0]) {
+          errorMsg = firstError[0];
+        }
+      }
+      return { success: false, error: errorMsg };
     }
   };
 
-  const handleDeny = async (id: number, notes?: string) => {
+  const handleDeny = async (id: number, notes?: string): Promise<{ success: boolean; error?: string }> => {
     try {
       await approvalService.deny(id, notes);
       toaster.create({
@@ -546,13 +861,19 @@ export default function TeamPage() {
         type: "success",
       });
       refreshData();
+      return { success: true };
     } catch (error) {
-      toaster.create({
-        title: "Failed to deny",
-        description:
-          error instanceof Error ? error.message : "Please try again",
-        type: "error",
-      });
+      // Extract error message from API error response
+      const apiError = error as { message?: string; errors?: Record<string, string[]> };
+      let errorMsg = apiError.message || "Please try again";
+      // If there are validation errors, show the first one
+      if (apiError.errors) {
+        const firstError = Object.values(apiError.errors)[0];
+        if (firstError && firstError[0]) {
+          errorMsg = firstError[0];
+        }
+      }
+      return { success: false, error: errorMsg };
     }
   };
 
@@ -670,15 +991,19 @@ export default function TeamPage() {
               <LuClock size={16} />
               <Text>Pending</Text>
               {pendingRequests.length > 0 && (
-                <Badge
+                <Box
                   bg="amber.500"
                   color="white"
                   borderRadius="full"
                   fontSize="xs"
+                  fontWeight="bold"
                   px={1.5}
+                  minW="18px"
+                  textAlign="center"
+                  lineHeight="18px"
                 >
                   {pendingRequests.length}
-                </Badge>
+                </Box>
               )}
             </HStack>
           </Tabs.Trigger>
@@ -728,7 +1053,40 @@ export default function TeamPage() {
                 />
               ))}
             </VStack>
-          ) : displayedRequests.length === 0 ? (
+          ) : activeTab === "history" ? (
+            /* History Tab - Use compact table view */
+            allRequests.length === 0 ? (
+              <Card.Root
+                bg={cardBg}
+                borderRadius="2xl"
+                border="1px solid"
+                borderColor={borderColor}
+              >
+                <Card.Body py={12}>
+                  <VStack gap={4}>
+                    <Box p={5} borderRadius="full" bg={emptyStateBg}>
+                      <LuClock size={40} color="var(--chakra-colors-gray-400)" />
+                    </Box>
+                    <VStack gap={1}>
+                      <Text fontWeight="semibold" color={textPrimary}>
+                        No history yet
+                      </Text>
+                      <Text fontSize="sm" color={textSecondary}>
+                        Approved and denied requests will appear here
+                      </Text>
+                    </VStack>
+                  </VStack>
+                </Card.Body>
+              </Card.Root>
+            ) : (
+              <HistoryTable
+                requests={allRequests}
+                colors={colors}
+                isLight={isLight}
+              />
+            )
+          ) : pendingRequests.length === 0 ? (
+            /* Pending Tab - Empty state */
             <Card.Root
               bg={cardBg}
               borderRadius="2xl"
@@ -738,49 +1096,33 @@ export default function TeamPage() {
               <Card.Body py={12}>
                 <VStack gap={4}>
                   <Box p={5} borderRadius="full" bg={emptyStateBg}>
-                    {activeTab === "pending" ? (
-                      <LuCircleCheck
-                        size={40}
-                        color="var(--chakra-colors-green-500)"
-                      />
-                    ) : (
-                      <LuClock
-                        size={40}
-                        color="var(--chakra-colors-gray-400)"
-                      />
-                    )}
+                    <LuCircleCheck size={40} color="var(--chakra-colors-green-500)" />
                   </Box>
                   <VStack gap={1}>
                     <Text fontWeight="semibold" color={textPrimary}>
-                      {activeTab === "pending"
-                        ? "All caught up!"
-                        : "No history yet"}
+                      All caught up!
                     </Text>
                     <Text fontSize="sm" color={textSecondary}>
-                      {activeTab === "pending"
-                        ? "No pending requests to review"
-                        : "Approved and denied requests will appear here"}
+                      No pending requests to review
                     </Text>
                   </VStack>
                 </VStack>
               </Card.Body>
             </Card.Root>
           ) : (
+            /* Pending Tab - Show request cards */
             <VStack gap={4} align="stretch">
               <Text fontSize="sm" color={textSecondary}>
-                {displayedRequests.length} request
-                {displayedRequests.length !== 1 ? "s" : ""}
-                {activeTab === "pending"
-                  ? " awaiting your review"
-                  : " in history"}
+                {pendingRequests.length} request
+                {pendingRequests.length !== 1 ? "s" : ""} awaiting your review
               </Text>
-              {displayedRequests.map((request) => (
+              {pendingRequests.map((request) => (
                 <RequestCard
                   key={request.id}
                   request={request}
                   onApprove={handleApprove}
                   onDeny={handleDeny}
-                  isPending={activeTab === "pending"}
+                  isPending={true}
                   colors={colors}
                   isLight={isLight}
                 />

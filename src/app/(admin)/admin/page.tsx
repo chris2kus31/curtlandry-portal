@@ -47,6 +47,7 @@ import {
 } from "react-icons/lu";
 import { authService, adminService, approvalService } from "@/lib/api";
 import { EditUserDrawer } from "@/components/admin/EditUserDrawer";
+import { CreateUserDrawer } from "@/components/admin/CreateUserDrawer";
 import { useAuthStore } from "@/store/auth-store";
 import { useRouter } from "next/navigation";
 
@@ -169,8 +170,9 @@ interface PendingRequest {
   id: number;
   user: {
     id: number;
-    first_name: string;
-    last_name: string;
+    name: string;
+    first_name?: string;
+    last_name?: string;
     email: string;
     department?: string;
     job_title?: string;
@@ -183,15 +185,35 @@ interface PendingRequest {
   };
   approver?: {
     id: number;
-    first_name: string;
-    last_name: string;
-  };
+    name: string;
+    email?: string;
+  } | null;
   start_date: string;
   end_date: string;
   total_hours: number;
   status: "pending" | "approved" | "denied" | "cancelled";
   reason: string | null;
   submitted_at: string;
+  // Review info
+  reviewed_by?: {
+    id: number;
+    name: string;
+  } | null;
+  review_notes?: string | null;
+  // Cancellation info
+  cancelled_by?: {
+    id: number;
+    name: string;
+  } | null;
+  cancellation_reason?: string | null;
+}
+
+/**
+ * Parse a date string (YYYY-MM-DD) as local time to avoid timezone shifts.
+ */
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
 }
 
 // Get role color
@@ -426,6 +448,8 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("users");
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
+  const [managers, setManagers] = useState<User[]>([]);
   const [adjustingBalance, setAdjustingBalance] = useState<Balance | null>(
     null,
   );
@@ -454,6 +478,7 @@ export default function AdminPage() {
   });
   const [isSavingBlackout, setIsSavingBlackout] = useState(false);
   const [departments, setDepartments] = useState<string[]>([]);
+  const [departmentsLoaded, setDepartmentsLoaded] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isEditingGeneral, setIsEditingGeneral] = useState(false);
   const [editedSettings, setEditedSettings] = useState<GeneralSettings | null>(
@@ -537,6 +562,26 @@ export default function AdminPage() {
     }
   }, []);
 
+  const fetchDepartments = useCallback(async () => {
+    if (departmentsLoaded) return;
+    try {
+      const deptData = await adminService.getDepartments();
+      setDepartments(deptData || []);
+      setDepartmentsLoaded(true);
+    } catch (error) {
+      console.error("Failed to fetch departments:", error);
+    }
+  }, [departmentsLoaded]);
+
+  const fetchManagers = useCallback(async () => {
+    try {
+      const managersData = await adminService.getManagers();
+      setManagers(managersData as User[]);
+    } catch (error) {
+      console.error("Failed to fetch managers:", error);
+    }
+  }, []);
+
   const fetchSettings = useCallback(async () => {
     setIsLoadingSettings(true);
     try {
@@ -552,6 +597,7 @@ export default function AdminPage() {
         (settingsRes.general || null) as GeneralSettings | null,
       );
       setDepartments(deptData || []);
+      setDepartmentsLoaded(true);
       setSettingsLoaded(true);
     } catch (error) {
       console.error("Failed to fetch settings:", error);
@@ -576,8 +622,19 @@ export default function AdminPage() {
 
   // Fetch data based on active tab
   useEffect(() => {
-    if (activeTab === "users" && !usersLoaded && !isLoadingUsers) {
-      fetchUsers();
+    if (activeTab === "users") {
+      // Users tab needs users, roles, departments, AND managers (for the create/edit drawer)
+      if (!usersLoaded && !isLoadingUsers) {
+        fetchUsers();
+      }
+      if (!rolesLoaded && !isLoadingRoles) {
+        fetchRoles();
+      }
+      if (!departmentsLoaded) {
+        fetchDepartments();
+      }
+      // Always fetch managers (they might change)
+      fetchManagers();
     } else if (activeTab === "roles" && !rolesLoaded && !isLoadingRoles) {
       fetchRoles();
     } else if (
@@ -606,6 +663,7 @@ export default function AdminPage() {
     balancesLoaded,
     settingsLoaded,
     approvalsLoaded,
+    departmentsLoaded,
     isLoadingUsers,
     isLoadingRoles,
     isLoadingBalances,
@@ -616,6 +674,8 @@ export default function AdminPage() {
     fetchBalances,
     fetchSettings,
     fetchApprovals,
+    fetchDepartments,
+    fetchManagers,
   ]);
 
   const handleEditUser = (user: User) => {
@@ -633,6 +693,15 @@ export default function AdminPage() {
     setUsersLoaded(false);
     setRolesLoaded(false);
     fetchUsers();
+    fetchManagers(); // Managers list might have changed
+  };
+
+  const handleUserCreated = () => {
+    // Refetch users, roles, and managers after creating a new user
+    setUsersLoaded(false);
+    setRolesLoaded(false);
+    fetchUsers();
+    fetchManagers();
   };
 
   // Approval handlers
@@ -721,28 +790,47 @@ export default function AdminPage() {
   );
 
   // Memoize filtered users to prevent recalculation on every render
+  // Sort alphabetically by first name, then last name
   const filteredUsers = useMemo(
     () =>
-      users.filter(
-        (user) =>
-          user.first_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          user.last_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          user.email.toLowerCase().includes(searchQuery.toLowerCase()),
-      ),
+      [...users]
+        .filter(
+          (user) =>
+            (user.first_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (user.last_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (user.email || "").toLowerCase().includes(searchQuery.toLowerCase()),
+        )
+        .sort((a, b) => {
+          const firstNameA = (a.first_name || "").toLowerCase();
+          const firstNameB = (b.first_name || "").toLowerCase();
+          const lastNameA = (a.last_name || "").toLowerCase();
+          const lastNameB = (b.last_name || "").toLowerCase();
+          
+          const firstNameCompare = firstNameA.localeCompare(firstNameB);
+          if (firstNameCompare !== 0) return firstNameCompare;
+          return lastNameA.localeCompare(lastNameB);
+        }),
     [users, searchQuery],
   );
 
   // Memoize filtered balances
+  // Sort alphabetically by user name
   const filteredBalances = useMemo(
     () =>
-      balances.filter((b) => {
-        if (!balanceSearch) return true;
-        const search = balanceSearch.toLowerCase();
-        return (
-          b.user?.name.toLowerCase().includes(search) ||
-          b.user?.email.toLowerCase().includes(search)
-        );
-      }),
+      balances
+        .filter((b) => {
+          if (!balanceSearch) return true;
+          const search = balanceSearch.toLowerCase();
+          return (
+            b.user?.name.toLowerCase().includes(search) ||
+            b.user?.email.toLowerCase().includes(search)
+          );
+        })
+        .sort((a, b) => {
+          const nameA = a.user?.name || "";
+          const nameB = b.user?.name || "";
+          return nameA.localeCompare(nameB);
+        }),
     [balances, balanceSearch],
   );
 
@@ -1223,33 +1311,60 @@ export default function AdminPage() {
           {/* Users Tab */}
           <Tabs.Content value="users">
             <VStack align="stretch" gap={4}>
-              {/* Search */}
-              <Box position="relative" maxW={{ base: "100%", md: "400px" }}>
-                <Box
-                  position="absolute"
-                  left={3}
-                  top="50%"
-                  transform="translateY(-50%)"
-                  color={textSecondary}
-                  zIndex={1}
-                >
-                  <LuSearch size={18} />
+              {/* Search and Add Button */}
+              <Flex
+                gap={3}
+                direction={{ base: "column", sm: "row" }}
+                justify="space-between"
+                align={{ base: "stretch", sm: "center" }}
+              >
+                <Box position="relative" flex={1} maxW={{ base: "100%", md: "400px" }}>
+                  <Box
+                    position="absolute"
+                    left={3}
+                    top="50%"
+                    transform="translateY(-50%)"
+                    color={textSecondary}
+                    zIndex={1}
+                  >
+                    <LuSearch size={18} />
+                  </Box>
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search users..."
+                    pl={10}
+                    bg={inputBg}
+                    border="1px solid"
+                    borderColor={borderColor}
+                    borderRadius="xl"
+                    _focus={{
+                      borderColor: "brand.500",
+                      boxShadow: "0 0 0 1px var(--chakra-colors-brand-500)",
+                    }}
+                  />
                 </Box>
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search users..."
-                  pl={10}
-                  bg={inputBg}
-                  border="1px solid"
-                  borderColor={borderColor}
+                <Box
+                  as="button"
+                  px={4}
+                  py={2.5}
+                  bg="green.500"
+                  color="white"
                   borderRadius="xl"
-                  _focus={{
-                    borderColor: "brand.500",
-                    boxShadow: "0 0 0 1px var(--chakra-colors-brand-500)",
-                  }}
-                />
-              </Box>
+                  fontWeight="medium"
+                  fontSize="sm"
+                  display="flex"
+                  alignItems="center"
+                  gap={2}
+                  onClick={() => setIsCreateDrawerOpen(true)}
+                  _hover={{ bg: "green.600" }}
+                  transition="all 0.15s"
+                  flexShrink={0}
+                >
+                  <LuUserPlus size={18} />
+                  Add Employee
+                </Box>
+              </Flex>
 
               {/* User Grid */}
               {isLoadingUsers ? (
@@ -1634,8 +1749,7 @@ export default function AdminPage() {
                           <HStack gap={4}>
                             <Box>
                               <Text fontWeight="semibold" color={textPrimary}>
-                                {request.user.first_name}{" "}
-                                {request.user.last_name}
+                                {request.user.name}
                               </Text>
                               <Text fontSize="sm" color={textSecondary}>
                                 {request.user.job_title || request.user.email}
@@ -1682,9 +1796,7 @@ export default function AdminPage() {
                               color={textPrimary}
                               fontSize="sm"
                             >
-                              {new Date(
-                                request.start_date + "T00:00:00",
-                              ).toLocaleDateString("en-US", {
+                              {parseLocalDate(request.start_date).toLocaleDateString("en-US", {
                                 month: "short",
                                 day: "numeric",
                               })}
@@ -1692,9 +1804,7 @@ export default function AdminPage() {
                                 <>
                                   {" "}
                                   –{" "}
-                                  {new Date(
-                                    request.end_date + "T00:00:00",
-                                  ).toLocaleDateString("en-US", {
+                                  {parseLocalDate(request.end_date).toLocaleDateString("en-US", {
                                     month: "short",
                                     day: "numeric",
                                     year: "numeric",
@@ -1704,9 +1814,7 @@ export default function AdminPage() {
                               {request.start_date === request.end_date && (
                                 <>
                                   ,{" "}
-                                  {new Date(
-                                    request.start_date + "T00:00:00",
-                                  ).getFullYear()}
+                                  {parseLocalDate(request.start_date).getFullYear()}
                                 </>
                               )}
                             </Text>
@@ -1732,9 +1840,7 @@ export default function AdminPage() {
                               color={textPrimary}
                               fontSize="sm"
                             >
-                              {request.approver
-                                ? `${request.approver.first_name} ${request.approver.last_name}`
-                                : "—"}
+                              {request.approver?.name || "—"}
                             </Text>
                           </Box>
                           <Box>
@@ -1787,6 +1893,8 @@ export default function AdminPage() {
                               rows={2}
                               borderRadius="lg"
                               bg={cardBg}
+                              px={2}
+                              py={2}
                             />
                           </Box>
                         )}
@@ -2636,13 +2744,9 @@ export default function AdminPage() {
                                   )}
                                 </HStack>
                                 <Text fontSize="sm" color={textSecondary}>
-                                  {new Date(
-                                    period.start_date + "T00:00:00",
-                                  ).toLocaleDateString()}{" "}
+                                  {parseLocalDate(period.start_date).toLocaleDateString()}{" "}
                                   –{" "}
-                                  {new Date(
-                                    period.end_date + "T00:00:00",
-                                  ).toLocaleDateString()}
+                                  {parseLocalDate(period.end_date).toLocaleDateString()}
                                 </Text>
                                 {period.reason && (
                                   <Text fontSize="xs" color={textSecondary}>
@@ -2691,6 +2795,17 @@ export default function AdminPage() {
         onClose={handleCloseDrawer}
         onUserUpdated={handleUserUpdated}
         availableRoles={roles}
+        availableDepartments={departments}
+      />
+
+      {/* Create User Drawer */}
+      <CreateUserDrawer
+        isOpen={isCreateDrawerOpen}
+        onClose={() => setIsCreateDrawerOpen(false)}
+        onUserCreated={handleUserCreated}
+        availableRoles={roles}
+        availableDepartments={departments}
+        availableManagers={managers}
       />
 
       {/* Adjustment Modal */}

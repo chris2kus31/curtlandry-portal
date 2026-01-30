@@ -51,6 +51,7 @@ interface EditUserDrawerProps {
   onClose: () => void;
   onUserUpdated: () => void;
   availableRoles: Role[];
+  availableDepartments: string[];
 }
 
 function getRoleColor(role: string): string {
@@ -72,6 +73,7 @@ export function EditUserDrawer({
   onClose,
   onUserUpdated,
   availableRoles,
+  availableDepartments,
 }: EditUserDrawerProps) {
   const [formData, setFormData] = useState({
     first_name: "",
@@ -316,19 +318,53 @@ export function EditUserDrawer({
                           Department
                         </Text>
                       </HStack>
-                      <Input
-                        value={formData.department}
-                        onChange={(e) =>
-                          handleInputChange("department", e.target.value)
-                        }
-                        placeholder="e.g., Marketing, Finance"
+                      <Box
+                        position="relative"
                         bg={inputBg}
+                        borderRadius="lg"
                         border="1px solid"
                         borderColor={borderColor}
-                        borderRadius="lg"
-                        _focus={{ borderColor: "brand.500" }}
-                        px={4}
-                      />
+                        _focusWithin={{ borderColor: "brand.500" }}
+                      >
+                        <select
+                          value={formData.department}
+                          onChange={(e) =>
+                            handleInputChange("department", e.target.value)
+                          }
+                          style={{
+                            width: "100%",
+                            padding: "10px 16px",
+                            borderRadius: "8px",
+                            border: "none",
+                            backgroundColor: "transparent",
+                            color: "inherit",
+                            fontSize: "14px",
+                            cursor: "pointer",
+                            appearance: "none",
+                            WebkitAppearance: "none",
+                            outline: "none",
+                          }}
+                        >
+                          <option value="">Select Department</option>
+                          {availableDepartments.map((dept) => (
+                            <option key={dept} value={dept}>
+                              {dept}
+                            </option>
+                          ))}
+                        </select>
+                        <Box
+                          position="absolute"
+                          right={3}
+                          top="50%"
+                          transform="translateY(-50%)"
+                          pointerEvents="none"
+                          color={textSecondary}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                            <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                          </svg>
+                        </Box>
+                      </Box>
                     </Box>
                     <Box w="full">
                       <HStack gap={2} mb={1.5}>

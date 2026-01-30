@@ -128,6 +128,21 @@ export interface UpdateUserData {
   is_manager?: boolean;
 }
 
+export interface CreateUserData {
+  email: string;
+  first_name: string;
+  last_name: string;
+  department?: string;
+  job_title?: string;
+  hire_date?: string;
+  employment_type?: string;
+  weekly_hours?: number;
+  reports_to?: number | null;
+  is_manager?: boolean;
+  roles?: string[];
+  initial_pto_balance?: number;
+}
+
 export interface BalanceAdjustment {
   hours: number;
   reason: string;
@@ -165,6 +180,14 @@ export const adminService = {
   async updateUser(userId: number, data: UpdateUserData): Promise<User> {
     const response = await httpClient.patch<{ data: User }>(
       `/portal/admin/users/${userId}`,
+      data,
+    );
+    return response.data;
+  },
+
+  async createUser(data: CreateUserData): Promise<User> {
+    const response = await httpClient.post<{ data: User }>(
+      "/portal/admin/users",
       data,
     );
     return response.data;
@@ -320,4 +343,22 @@ export interface PendingRequest {
   reason?: string;
   submitted_at: string;
   created_at: string;
+  // Manager who will approve/has approved
+  approver?: {
+    id: number;
+    name: string;
+    email?: string;
+  } | null;
+  // Review info
+  reviewed_by?: {
+    id: number;
+    name: string;
+  } | null;
+  review_notes?: string | null;
+  // Cancellation info
+  cancelled_by?: {
+    id: number;
+    name: string;
+  } | null;
+  cancellation_reason?: string | null;
 }
