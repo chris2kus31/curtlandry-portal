@@ -748,15 +748,18 @@ function RequestTab({
             <Box>
               <Text
                 fontSize="xs"
-                color={textSecondary}
+                color={requiresNotes ? "red.500" : textSecondary}
                 mb={2}
                 fontWeight="semibold"
                 textTransform="uppercase"
                 letterSpacing="wide"
               >
                 Notes{" "}
-                <Text as="span" fontWeight="normal" textTransform="none">
-                  {requiresNotes ? "(required)" : "(optional)"}
+                {requiresNotes && (
+                  <Text as="span" color="red.500" fontWeight="bold">*</Text>
+                )}
+                <Text as="span" fontWeight="normal" textTransform="none" color={requiresNotes ? "red.500" : textSecondary}>
+                  {requiresNotes ? " (required)" : " (optional)"}
                 </Text>
               </Text>
               <Textarea
@@ -1333,10 +1336,14 @@ function MyRequestsTab({
     );
   };
 
-  // Render a compact past row
+  // Render a compact past row with inline notes display
   const renderPastRow = (r: TimeOffRequest) => {
     const status = getStatusStyles(r.status);
     const typeName = r.type?.name || "PTO";
+    
+    // Check if there are notes to show
+    const hasNotes = r.review_notes || r.cancellation_reason;
+    const notesText = r.review_notes || r.cancellation_reason;
 
     return (
       <HStack
@@ -1348,46 +1355,65 @@ function MyRequestsTab({
         opacity={0.85}
         _hover={{ opacity: 1, bg: hoverBg }}
         transition="all 0.15s"
+        align="start"
       >
         {/* Status indicator */}
-        <Box w="3px" h="24px" borderRadius="full" bg={status.bg} flexShrink={0} />
+        <Box w="3px" minH="24px" h="full" borderRadius="full" bg={status.bg} flexShrink={0} mt={0.5} />
 
-        {/* Date */}
-        <Text fontSize="sm" color={textPrimary} minW={{ base: "70px", md: "80px" }}>
-          {formatDateShort(r.start_date)}
-        </Text>
+        {/* Main content */}
+        <VStack align="start" gap={0.5} flex={1} minW={0}>
+          {/* Top row with date, type, hours, status */}
+          <HStack gap={{ base: 2, md: 3 }} w="full" flexWrap="wrap">
+            {/* Date */}
+            <Text fontSize="sm" color={textPrimary} minW={{ base: "70px", md: "80px" }}>
+              {formatDateShort(r.start_date)}
+            </Text>
 
-        {/* Type */}
-        <Text fontSize="xs" color={textSecondary} display={{ base: "none", sm: "block" }} minW="60px">
-          {typeName}
-        </Text>
+            {/* Type */}
+            <Text fontSize="xs" color={textSecondary} display={{ base: "none", sm: "block" }} minW="60px">
+              {typeName}
+            </Text>
 
-        {/* Hours */}
-        <Text fontSize="sm" color={textSecondary} minW="35px">
-          {r.total_hours}h
-        </Text>
+            {/* Hours */}
+            <Text fontSize="sm" color={textSecondary} minW="35px">
+              {r.total_hours}h
+            </Text>
 
-        {/* Status */}
-        <HStack gap={1} flex={1}>
-          <Box color={status.text} _dark={{ color: status.darkText }}>
-            {getStatusIcon(r.status, 12)}
-          </Box>
-          <Text 
-            fontSize="sm" 
-            textTransform="capitalize"
-            color={status.text}
-            _dark={{ color: status.darkText }}
-          >
-            {r.status}
-          </Text>
-        </HStack>
+            {/* Status */}
+            <HStack gap={1} flex={1}>
+              <Box color={status.text} _dark={{ color: status.darkText }}>
+                {getStatusIcon(r.status, 12)}
+              </Box>
+              <Text 
+                fontSize="sm" 
+                textTransform="capitalize"
+                color={status.text}
+                _dark={{ color: status.darkText }}
+              >
+                {r.status}
+              </Text>
+            </HStack>
 
-        {/* Reviewer */}
-        {r.reviewed_by && (
-          <Text fontSize="xs" color={textSecondary} display={{ base: "none", lg: "block" }}>
-            by {r.reviewed_by.name}
-          </Text>
-        )}
+            {/* Reviewer */}
+            {r.reviewed_by && (
+              <Text fontSize="xs" color={textSecondary} display={{ base: "none", lg: "block" }}>
+                by {r.reviewed_by.name}
+              </Text>
+            )}
+          </HStack>
+          
+          {/* Notes displayed as subtle italic text */}
+          {hasNotes && (
+            <Text 
+              fontSize="xs" 
+              color={textSecondary}
+              fontStyle="italic"
+              lineHeight="short"
+            >
+              "{notesText}"
+            </Text>
+          )}
+        </VStack>
       </HStack>
     );
   };

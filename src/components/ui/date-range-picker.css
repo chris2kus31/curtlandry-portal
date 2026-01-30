@@ -60,6 +60,7 @@
   line-height: 40px;
   margin: 2px;
   text-transform: uppercase;
+  color: black
 }
 
 .react-datepicker__month {
@@ -75,8 +76,10 @@
   font-weight: 500;
 }
 
-.dark .react-datepicker__day {
-  color: #f7fafc;
+/* Target the portal directly for dark mode */
+html.dark #datepicker-portal .react-datepicker__day-name,
+html[class*="dark"] #datepicker-portal .react-datepicker__day {
+  color: #f7fafc !important;
 }
 
 .react-datepicker__day:hover {
