@@ -216,7 +216,8 @@ function RequestTab({
 
   // Memoize selected type
   const selectedType = useMemo(
-    () => types.find((t) => t.id === selectedTypeId) || defaultPtoType || types[0],
+    () =>
+      types.find((t) => t.id === selectedTypeId) || defaultPtoType || types[0],
     [types, selectedTypeId, defaultPtoType],
   );
 
@@ -263,27 +264,39 @@ function RequestTab({
   );
 
   // Memoize validation
-  const { isPartialValid, isFullDayValid, isFormValid, notesError } = useMemo(() => {
-    const partialValid =
-      requestType === "partial" &&
-      startDate &&
-      partialHours > 0 &&
-      partialHours <= 8;
-    const fullDayValid =
-      requestType === "full" && startDate && endDate && totalDays > 0;
-    const dateValid = partialValid || fullDayValid;
-    
-    // Check if notes are required but missing
-    const notesRequired = requiresNotes && !notes.trim();
-    const notesErrorMsg = notesRequired ? "A note explaining the reason is required for this leave type." : null;
-    
-    return {
-      isPartialValid: partialValid,
-      isFullDayValid: fullDayValid,
-      isFormValid: dateValid && !notesRequired && selectedType !== null,
-      notesError: notesErrorMsg,
-    };
-  }, [requestType, startDate, endDate, partialHours, totalDays, requiresNotes, notes, selectedType]);
+  const { isPartialValid, isFullDayValid, isFormValid, notesError } =
+    useMemo(() => {
+      const partialValid =
+        requestType === "partial" &&
+        startDate &&
+        partialHours > 0 &&
+        partialHours <= 8;
+      const fullDayValid =
+        requestType === "full" && startDate && endDate && totalDays > 0;
+      const dateValid = partialValid || fullDayValid;
+
+      // Check if notes are required but missing
+      const notesRequired = requiresNotes && !notes.trim();
+      const notesErrorMsg = notesRequired
+        ? "A note explaining the reason is required for this leave type."
+        : null;
+
+      return {
+        isPartialValid: partialValid,
+        isFullDayValid: fullDayValid,
+        isFormValid: dateValid && !notesRequired && selectedType !== null,
+        notesError: notesErrorMsg,
+      };
+    }, [
+      requestType,
+      startDate,
+      endDate,
+      partialHours,
+      totalDays,
+      requiresNotes,
+      notes,
+      selectedType,
+    ]);
 
   // Format date to YYYY-MM-DD for API (use local date to avoid timezone shift)
   const formatDateForApi = (date: Date) => {
@@ -418,14 +431,17 @@ function RequestTab({
               >
                 Leave Type
               </Text>
-              <Box 
+              <Box
                 position="relative"
                 bg={cardBg}
                 borderRadius="lg"
                 border="2px solid"
                 borderColor={borderColor}
                 _hover={{ borderColor: inputHoverBorder }}
-                _focusWithin={{ borderColor: "brand.500", boxShadow: "0 0 0 1px var(--chakra-colors-brand-500)" }}
+                _focusWithin={{
+                  borderColor: "brand.500",
+                  boxShadow: "0 0 0 1px var(--chakra-colors-brand-500)",
+                }}
               >
                 <select
                   value={selectedTypeId || ""}
@@ -756,18 +772,26 @@ function RequestTab({
               >
                 Notes{" "}
                 {requiresNotes && (
-                  <Text as="span" color="red.500" fontWeight="bold">*</Text>
+                  <Text as="span" color="red.500" fontWeight="bold">
+                    *
+                  </Text>
                 )}
-                <Text as="span" fontWeight="normal" textTransform="none" color={requiresNotes ? "red.500" : textSecondary}>
+                <Text
+                  as="span"
+                  fontWeight="normal"
+                  textTransform="none"
+                  color={requiresNotes ? "red.500" : textSecondary}
+                >
                   {requiresNotes ? " (required)" : " (optional)"}
                 </Text>
               </Text>
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder={requiresNotes 
-                  ? "Please explain the reason for this leave request..."
-                  : "Any details for your manager..."
+                placeholder={
+                  requiresNotes
+                    ? "Please explain the reason for this leave request..."
+                    : "Any details for your manager..."
                 }
                 bg={inputBg}
                 border="1px solid"
@@ -777,11 +801,13 @@ function RequestTab({
                 resize="none"
                 _focus={{
                   borderColor: notesError ? "red.500" : "brand.500",
-                  boxShadow: notesError 
+                  boxShadow: notesError
                     ? "0 0 0 1px var(--chakra-colors-red-500)"
                     : "0 0 0 1px var(--chakra-colors-brand-500)",
                 }}
-                _hover={{ borderColor: notesError ? "red.400" : inputHoverBorder }}
+                _hover={{
+                  borderColor: notesError ? "red.400" : inputHoverBorder,
+                }}
                 px={4}
                 py={3}
               />
@@ -1138,7 +1164,7 @@ function MyRequestsTab({
   onCancelRequest: (id: number) => void;
 }) {
   const [isPastExpanded, setIsPastExpanded] = useState(false);
-  
+
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.100", "gray.700");
   const textPrimary = useColorModeValue("gray.900", "gray.50");
@@ -1177,22 +1203,34 @@ function MyRequestsTab({
     });
 
     // Sort by date ascending (soonest first)
-    pending.sort((a, b) => 
-      parseLocalDate(a.start_date).getTime() - parseLocalDate(b.start_date).getTime()
+    pending.sort(
+      (a, b) =>
+        parseLocalDate(a.start_date).getTime() -
+        parseLocalDate(b.start_date).getTime(),
     );
-    upcoming.sort((a, b) => 
-      parseLocalDate(a.start_date).getTime() - parseLocalDate(b.start_date).getTime()
+    upcoming.sort(
+      (a, b) =>
+        parseLocalDate(a.start_date).getTime() -
+        parseLocalDate(b.start_date).getTime(),
     );
     // Sort past by date descending (most recent first)
-    past.sort((a, b) => 
-      parseLocalDate(b.start_date).getTime() - parseLocalDate(a.start_date).getTime()
+    past.sort(
+      (a, b) =>
+        parseLocalDate(b.start_date).getTime() -
+        parseLocalDate(a.start_date).getTime(),
     );
 
-    return { pendingRequests: pending, upcomingRequests: upcoming, pastRequests: past };
+    return {
+      pendingRequests: pending,
+      upcomingRequests: upcoming,
+      pastRequests: past,
+    };
   }, [requests, today]);
 
   // Auto-expand past if there are no pending/upcoming
-  const shouldShowPast = isPastExpanded || (pendingRequests.length === 0 && upcomingRequests.length === 0);
+  const shouldShowPast =
+    isPastExpanded ||
+    (pendingRequests.length === 0 && upcomingRequests.length === 0);
 
   if (isLoading) {
     return (
@@ -1276,9 +1314,9 @@ function MyRequestsTab({
         </VStack>
 
         {/* Type */}
-        <Badge 
-          colorPalette="gray" 
-          variant="subtle" 
+        <Badge
+          colorPalette="gray"
+          variant="subtle"
           fontSize="xs"
           display={{ base: "none", sm: "flex" }}
         >
@@ -1305,7 +1343,11 @@ function MyRequestsTab({
 
         {/* Reviewer (if approved) */}
         {r.reviewed_by && (
-          <Text fontSize="xs" color={textSecondary} display={{ base: "none", lg: "block" }}>
+          <Text
+            fontSize="xs"
+            color={textSecondary}
+            display={{ base: "none", lg: "block" }}
+          >
             by {r.reviewed_by.name}
           </Text>
         )}
@@ -1340,7 +1382,7 @@ function MyRequestsTab({
   const renderPastRow = (r: TimeOffRequest) => {
     const status = getStatusStyles(r.status);
     const typeName = r.type?.name || "PTO";
-    
+
     // Check if there are notes to show
     const hasNotes = r.review_notes || r.cancellation_reason;
     const notesText = r.review_notes || r.cancellation_reason;
@@ -1358,19 +1400,36 @@ function MyRequestsTab({
         align="start"
       >
         {/* Status indicator */}
-        <Box w="3px" minH="24px" h="full" borderRadius="full" bg={status.bg} flexShrink={0} mt={0.5} />
+        <Box
+          w="3px"
+          minH="24px"
+          h="full"
+          borderRadius="full"
+          bg={status.bg}
+          flexShrink={0}
+          mt={0.5}
+        />
 
         {/* Main content */}
         <VStack align="start" gap={0.5} flex={1} minW={0}>
           {/* Top row with date, type, hours, status */}
           <HStack gap={{ base: 2, md: 3 }} w="full" flexWrap="wrap">
             {/* Date */}
-            <Text fontSize="sm" color={textPrimary} minW={{ base: "70px", md: "80px" }}>
+            <Text
+              fontSize="sm"
+              color={textPrimary}
+              minW={{ base: "70px", md: "80px" }}
+            >
               {formatDateShort(r.start_date)}
             </Text>
 
             {/* Type */}
-            <Text fontSize="xs" color={textSecondary} display={{ base: "none", sm: "block" }} minW="60px">
+            <Text
+              fontSize="xs"
+              color={textSecondary}
+              display={{ base: "none", sm: "block" }}
+              minW="60px"
+            >
               {typeName}
             </Text>
 
@@ -1384,8 +1443,8 @@ function MyRequestsTab({
               <Box color={status.text} _dark={{ color: status.darkText }}>
                 {getStatusIcon(r.status, 12)}
               </Box>
-              <Text 
-                fontSize="sm" 
+              <Text
+                fontSize="sm"
                 textTransform="capitalize"
                 color={status.text}
                 _dark={{ color: status.darkText }}
@@ -1396,21 +1455,25 @@ function MyRequestsTab({
 
             {/* Reviewer */}
             {r.reviewed_by && (
-              <Text fontSize="xs" color={textSecondary} display={{ base: "none", lg: "block" }}>
+              <Text
+                fontSize="xs"
+                color={textSecondary}
+                display={{ base: "none", lg: "block" }}
+              >
                 by {r.reviewed_by.name}
               </Text>
             )}
           </HStack>
-          
+
           {/* Notes displayed as subtle italic text */}
           {hasNotes && (
-            <Text 
-              fontSize="xs" 
+            <Text
+              fontSize="xs"
               color={textSecondary}
               fontStyle="italic"
               lineHeight="short"
             >
-              "{notesText}"
+              &#34;{notesText}&#34;
             </Text>
           )}
         </VStack>
@@ -1436,7 +1499,12 @@ function MyRequestsTab({
                 <Text fontWeight="semibold" color={textPrimary} fontSize="sm">
                   Pending Approval
                 </Text>
-                <Badge colorPalette="amber" variant="subtle" borderRadius="full" fontSize="xs">
+                <Badge
+                  colorPalette="amber"
+                  variant="subtle"
+                  borderRadius="full"
+                  fontSize="xs"
+                >
                   {pendingRequests.length}
                 </Badge>
               </HStack>
@@ -1461,7 +1529,12 @@ function MyRequestsTab({
               Upcoming
             </Text>
             {upcomingRequests.length > 0 && (
-              <Badge colorPalette="green" variant="subtle" borderRadius="full" fontSize="xs">
+              <Badge
+                colorPalette="green"
+                variant="subtle"
+                borderRadius="full"
+                fontSize="xs"
+              >
                 {upcomingRequests.length}
               </Badge>
             )}
@@ -1937,11 +2010,10 @@ export default function TimeOffPage() {
                 outline: "none",
               }}
             >
-              <option value="request">
-                New Request
-              </option>
+              <option value="request">New Request</option>
               <option value="requests">
-                My Requests {pendingCount > 0 ? `(${pendingCount} pending)` : ""}
+                My Requests{" "}
+                {pendingCount > 0 ? `(${pendingCount} pending)` : ""}
               </option>
               <option value="balances">Balances</option>
               <option value="calendar">Calendar</option>
@@ -1966,12 +2038,7 @@ export default function TimeOffPage() {
             onValueChange={(e) => setActiveTab(e.value)}
             variant="enclosed"
           >
-            <Tabs.List
-              bg={tabBg}
-              p={1}
-              borderRadius="xl"
-              gap={1}
-            >
+            <Tabs.List bg={tabBg} p={1} borderRadius="xl" gap={1}>
               <Tabs.Trigger
                 value="request"
                 px={6}
