@@ -49,7 +49,6 @@ import { authService, adminService, approvalService } from "@/lib/api";
 import { EditUserDrawer } from "@/components/admin/EditUserDrawer";
 import { CreateUserDrawer } from "@/components/admin/CreateUserDrawer";
 import { useAuthStore } from "@/store/auth-store";
-import { useRouter } from "next/navigation";
 
 // Types
 interface User {
