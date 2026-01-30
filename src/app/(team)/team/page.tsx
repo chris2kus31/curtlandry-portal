@@ -242,7 +242,7 @@ function RequestCard({
             <HStack gap={3}>
               <Box>
                 <Text fontWeight="semibold" color={colors.textPrimary}>
-                  {request.user.first_name} {request.user.last_name}
+                  {request.user.name || `${request.user.first_name || ''} ${request.user.last_name || ''}`.trim() || request.user.email}
                 </Text>
                 <Text fontSize="sm" color={colors.textSecondary}>
                   {request.user.job_title ||
@@ -628,7 +628,7 @@ function HistoryTable({
                         {/* Employee - Mobile shows on full width */}
                         <VStack align="start" gap={0} flex={2} minW={{ base: "100%", md: "150px" }}>
                           <Text fontWeight="medium" color={colors.textPrimary} fontSize="sm">
-                            {request.user.first_name} {request.user.last_name}
+                            {request.user.name || `${request.user.first_name || ''} ${request.user.last_name || ''}`.trim() || request.user.email}
                           </Text>
                           <Text fontSize="xs" color={colors.textSecondary} display={{ base: "block", md: "none" }}>
                             {typeName} • {request.total_hours}h • {formatDateRange(request.start_date, request.end_date)}
