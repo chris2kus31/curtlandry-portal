@@ -1803,6 +1803,7 @@ export default function TimeOffPage() {
   const [pendingCount, setPendingCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [activeTab, setActiveTab] = useState("request");
+  const [isMounted, setIsMounted] = useState(false);
 
   // Track loading states for each tab
   const [isLoadingRequest, setIsLoadingRequest] = useState(false);
@@ -1814,6 +1815,11 @@ export default function TimeOffPage() {
   const [requestsTabLoaded, setRequestsTabLoaded] = useState(false);
   const [balancesTabLoaded, setBalancesTabLoaded] = useState(false);
   const [statsLoaded, setStatsLoaded] = useState(false);
+
+  // Ensure hydration completes before rendering dynamic content
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const textPrimary = useColorModeValue("gray.900", "gray.50");
   const textSecondary = useColorModeValue("gray.500", "gray.400");
@@ -2035,11 +2041,11 @@ export default function TimeOffPage() {
             >
               <option value="request">New Request</option>
               <option value="requests">
-                My Requests{" "}
-                {pendingCount > 0
-                  ? `(${pendingCount} pending)`
-                  : totalCount > 0
-                    ? `(${totalCount})`
+                My Requests
+                {isMounted && pendingCount > 0
+                  ? ` (${pendingCount} pending)`
+                  : isMounted && totalCount > 0
+                    ? ` (${totalCount})`
                     : ""}
               </option>
               <option value="balances">Balances</option>
@@ -2092,7 +2098,7 @@ export default function TimeOffPage() {
                 <HStack gap={2}>
                   <LuFileText size={16} />
                   <Text>My Requests</Text>
-                  {pendingCount > 0 ? (
+                  {isMounted && pendingCount > 0 && (
                     <Box
                       bg="amber.500"
                       color="white"
@@ -2106,7 +2112,8 @@ export default function TimeOffPage() {
                     >
                       {pendingCount}
                     </Box>
-                  ) : totalCount > 0 ? (
+                  )}
+                  {isMounted && pendingCount === 0 && totalCount > 0 && (
                     <Box
                       bg="gray.500"
                       color="white"
@@ -2120,7 +2127,7 @@ export default function TimeOffPage() {
                     >
                       {totalCount}
                     </Box>
-                  ) : null}
+                  )}
                 </HStack>
               </Tabs.Trigger>
               <Tabs.Trigger

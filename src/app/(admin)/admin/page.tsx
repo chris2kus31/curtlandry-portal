@@ -445,6 +445,12 @@ export default function AdminPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [balanceSearch, setBalanceSearch] = useState("");
   const [activeTab, setActiveTab] = useState("users");
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Ensure hydration completes before rendering dynamic content
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
@@ -1059,7 +1065,7 @@ export default function AdminPage() {
       value: "approvals",
       label: "Approvals",
       icon: <LuClipboardCheck size={16} />,
-      badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : undefined,
+      badge: isMounted && pendingApprovalsCount > 0 ? pendingApprovalsCount : undefined,
     },
     { value: "settings", label: "Settings", icon: <LuSettings size={16} /> },
   ];

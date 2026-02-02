@@ -51,7 +51,6 @@ export default function RootLayout({
             `,
           }}
         />
-        <title>Curt Landry</title>
       </head>
       <body
         className={`${dmSans.variable} ${geistMono.variable}`}
