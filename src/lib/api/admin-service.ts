@@ -305,6 +305,13 @@ export const adminService = {
   // Approvals (Admin - sees all requests)
   // -------------------------------------------------------------------------
 
+  async getApprovalStats(): Promise<{ pending_count: number }> {
+    const response = await httpClient.get<{
+      data: { pending_count: number };
+    }>("/portal/admin/approvals/stats");
+    return response.data;
+  },
+
   async getPendingApprovals(): Promise<PendingRequest[]> {
     const response = await httpClient.get<{ data: PendingRequest[] }>(
       "/portal/admin/approvals/pending",

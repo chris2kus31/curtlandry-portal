@@ -1801,6 +1801,7 @@ export default function TimeOffPage() {
   const [balances, setBalances] = useState<TimeOffBalance[]>([]);
   const [requests, setRequests] = useState<TimeOffRequest[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const [activeTab, setActiveTab] = useState("request");
 
   // Track loading states for each tab
@@ -1812,6 +1813,7 @@ export default function TimeOffPage() {
   const [requestTabLoaded, setRequestTabLoaded] = useState(false);
   const [requestsTabLoaded, setRequestsTabLoaded] = useState(false);
   const [balancesTabLoaded, setBalancesTabLoaded] = useState(false);
+  const [statsLoaded, setStatsLoaded] = useState(false);
 
   const textPrimary = useColorModeValue("gray.900", "gray.50");
   const textSecondary = useColorModeValue("gray.500", "gray.400");
@@ -1819,6 +1821,22 @@ export default function TimeOffPage() {
   const activeTabBg = useColorModeValue("white", "gray.700");
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
+
+  // Fetch stats immediately on mount (for badge counts)
+  useEffect(() => {
+    if (statsLoaded) return;
+    timeOffService
+      .getStats()
+      .then((stats) => {
+        setPendingCount(stats.pending_count);
+        setTotalCount(stats.total_count);
+        setStatsLoaded(true);
+      })
+      .catch(() => {
+        // Silently fail - counts will be 0 until tab is loaded
+        setStatsLoaded(true);
+      });
+  }, [statsLoaded]);
 
   // Fetch types and balances (for Request tab)
   const fetchRequestTabData = useCallback(async () => {
@@ -1845,10 +1863,11 @@ export default function TimeOffPage() {
       const requestsData = await timeOffService
         .getRequests({ per_page: 50 })
         .catch(() => ({ data: [] }));
-      setRequests(requestsData.data || []);
-      setPendingCount(
-        (requestsData.data || []).filter((r) => r.status === "pending").length,
-      );
+      const data = requestsData.data || [];
+      setRequests(data);
+      // Update counts from actual data (more accurate than stats)
+      setPendingCount(data.filter((r) => r.status === "pending").length);
+      setTotalCount(data.length);
       setRequestsTabLoaded(true);
     } finally {
       setIsLoadingRequests(false);
@@ -1908,6 +1927,7 @@ export default function TimeOffPage() {
     setRequestTabLoaded(false);
     setRequestsTabLoaded(false);
     setBalancesTabLoaded(false);
+    setStatsLoaded(false);
 
     // Force re-fetch the request tab data and requests data
     setIsLoadingRequest(true);
@@ -1922,13 +1942,14 @@ export default function TimeOffPage() {
       ]);
       setTypes(typesData);
       setBalances(balancesData);
-      setRequests(requestsData.data || []);
-      setPendingCount(
-        (requestsData.data || []).filter((r) => r.status === "pending").length,
-      );
+      const data = requestsData.data || [];
+      setRequests(data);
+      setPendingCount(data.filter((r) => r.status === "pending").length);
+      setTotalCount(data.length);
       setRequestTabLoaded(true);
       setRequestsTabLoaded(true);
       setBalancesTabLoaded(true);
+      setStatsLoaded(true);
     } finally {
       setIsLoadingRequest(false);
       setIsLoadingRequests(false);
@@ -2015,7 +2036,11 @@ export default function TimeOffPage() {
               <option value="request">New Request</option>
               <option value="requests">
                 My Requests{" "}
-                {pendingCount > 0 ? `(${pendingCount} pending)` : ""}
+                {pendingCount > 0
+                  ? `(${pendingCount} pending)`
+                  : totalCount > 0
+                    ? `(${totalCount})`
+                    : ""}
               </option>
               <option value="balances">Balances</option>
               <option value="calendar">Calendar</option>
@@ -2069,7 +2094,7 @@ export default function TimeOffPage() {
                   <Text>My Requests</Text>
                   {pendingCount > 0 ? (
                     <Box
-                      bg="green.500"
+                      bg="amber.500"
                       color="white"
                       borderRadius="full"
                       fontSize="xs"
@@ -2081,7 +2106,7 @@ export default function TimeOffPage() {
                     >
                       {pendingCount}
                     </Box>
-                  ) : requests.length > 0 ? (
+                  ) : totalCount > 0 ? (
                     <Box
                       bg="gray.500"
                       color="white"
@@ -2093,7 +2118,7 @@ export default function TimeOffPage() {
                       textAlign="center"
                       lineHeight="18px"
                     >
-                      {requests.length}
+                      {totalCount}
                     </Box>
                   ) : null}
                 </HStack>

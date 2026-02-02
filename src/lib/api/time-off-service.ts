@@ -217,4 +217,14 @@ export const timeOffService = {
     );
     return response.data;
   },
+
+  /**
+   * Get stats/counts for the user's requests (lightweight for badge counts)
+   */
+  async getStats(): Promise<{ pending_count: number; total_count: number }> {
+    const response = await httpClient.get<
+      ApiResponse<{ pending_count: number; total_count: number }>
+    >("/portal/time-off/stats");
+    return response.data;
+  },
 };

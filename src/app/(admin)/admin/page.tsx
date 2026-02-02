@@ -486,8 +486,10 @@ export default function AdminPage() {
 
   // Approvals state
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
   const [isLoadingApprovals, setIsLoadingApprovals] = useState(false);
   const [approvalsLoaded, setApprovalsLoaded] = useState(false);
+  const [approvalsStatsLoaded, setApprovalsStatsLoaded] = useState(false);
   const [processingRequestId, setProcessingRequestId] = useState<number | null>(
     null,
   );
@@ -610,7 +612,9 @@ export default function AdminPage() {
     try {
       const data = await adminService.getPendingApprovals();
       setPendingRequests(data as unknown as PendingRequest[]);
+      setPendingApprovalsCount(data.length);
       setApprovalsLoaded(true);
+      setApprovalsStatsLoaded(true);
     } catch (error) {
       console.error("Failed to fetch pending approvals:", error);
       setPendingRequests([]);
@@ -618,6 +622,21 @@ export default function AdminPage() {
       setIsLoadingApprovals(false);
     }
   }, []);
+
+  // Fetch approvals stats immediately on mount (for badge count)
+  useEffect(() => {
+    if (approvalsStatsLoaded) return;
+    adminService
+      .getApprovalStats()
+      .then((stats) => {
+        setPendingApprovalsCount(stats.pending_count);
+        setApprovalsStatsLoaded(true);
+      })
+      .catch(() => {
+        // Silently fail - count will be 0 until tab is loaded
+        setApprovalsStatsLoaded(true);
+      });
+  }, [approvalsStatsLoaded]);
 
   // Fetch data based on active tab
   useEffect(() => {
@@ -715,6 +734,7 @@ export default function AdminPage() {
       setShowApprovalNotes(null);
       setApprovalNotes("");
       setApprovalsLoaded(false);
+      setApprovalsStatsLoaded(false);
       fetchApprovals();
     } catch (error) {
       toaster.create({
@@ -739,6 +759,7 @@ export default function AdminPage() {
       setShowApprovalNotes(null);
       setApprovalNotes("");
       setApprovalsLoaded(false);
+      setApprovalsStatsLoaded(false);
       fetchApprovals();
     } catch (error) {
       toaster.create({
@@ -1038,7 +1059,7 @@ export default function AdminPage() {
       value: "approvals",
       label: "Approvals",
       icon: <LuClipboardCheck size={16} />,
-      badge: pendingRequests.length > 0 ? pendingRequests.length : undefined,
+      badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : undefined,
     },
     { value: "settings", label: "Settings", icon: <LuSettings size={16} /> },
   ];
