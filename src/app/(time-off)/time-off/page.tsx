@@ -2042,11 +2042,7 @@ export default function TimeOffPage() {
               <option value="request">New Request</option>
               <option value="requests">
                 My Requests
-                {isMounted && pendingCount > 0
-                  ? ` (${pendingCount} pending)`
-                  : isMounted && totalCount > 0
-                    ? ` (${totalCount})`
-                    : ""}
+                {isMounted && pendingCount > 0 ? ` (${pendingCount} pending)` : ""}
               </option>
               <option value="balances">Balances</option>
               <option value="calendar">Calendar</option>
@@ -2100,7 +2096,7 @@ export default function TimeOffPage() {
                   <Text>My Requests</Text>
                   {isMounted && pendingCount > 0 && (
                     <Box
-                      bg="amber.500"
+                      bg="orange.500"
                       color="white"
                       borderRadius="full"
                       fontSize="xs"
@@ -2111,21 +2107,6 @@ export default function TimeOffPage() {
                       lineHeight="18px"
                     >
                       {pendingCount}
-                    </Box>
-                  )}
-                  {isMounted && pendingCount === 0 && totalCount > 0 && (
-                    <Box
-                      bg="gray.500"
-                      color="white"
-                      borderRadius="full"
-                      fontSize="xs"
-                      fontWeight="bold"
-                      px={1.5}
-                      minW="18px"
-                      textAlign="center"
-                      lineHeight="18px"
-                    >
-                      {totalCount}
                     </Box>
                   )}
                 </HStack>
