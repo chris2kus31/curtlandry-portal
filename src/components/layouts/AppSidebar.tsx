@@ -60,7 +60,7 @@ const LinkItems: LinkItemProps[] = [
   {
     name: "Woo Discounts",
     icon: LuTag,
-    href: "/store",
+    href: "/woo-discounts",
     requiredRoles: ["super_admin", "admin"],
   },
 ];
