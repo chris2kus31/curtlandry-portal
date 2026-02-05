@@ -5,6 +5,7 @@ export { timeOffService } from "./time-off-service";
 export { calendarService } from "./calendar-service";
 export { adminService } from "./admin-service";
 export { approvalService } from "./approval-service";
+export { wooService } from "./woo-service";
 
 // Time-off service types
 export type {
@@ -38,3 +39,14 @@ export type {
   TimeOffRequest as ApprovalTimeOffRequest,
   ApprovalFilters,
 } from "./approval-service";
+
+// WooCommerce service types
+export type {
+  WooCategory,
+  WooProduct,
+  SaleResult,
+  SaleBatch,
+  BatchDetails,
+  ApplySaleRequest,
+  RollbackResult,
+} from "./woo-service";

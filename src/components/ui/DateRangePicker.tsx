@@ -17,6 +17,7 @@ interface DateRangePickerProps {
   minDate?: Date;
   disabled?: boolean;
   singleDate?: boolean;
+  showDuration?: boolean;
 }
 
 // Custom input component for the date picker
@@ -132,6 +133,7 @@ export function DateRangePicker({
   minDate = new Date(),
   disabled = false,
   singleDate = false,
+  showDuration = true,
 }: DateRangePickerProps) {
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const textSecondary = useColorModeValue("gray.500", "gray.400");
@@ -245,7 +247,7 @@ export function DateRangePicker({
       </HStack>
 
       {/* Duration Display */}
-      {duration !== null && duration > 0 && (
+      {showDuration && duration !== null && duration > 0 && (
         <HStack
           mt={4}
           p={3}

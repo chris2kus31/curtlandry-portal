@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Box,
   Card,
@@ -21,12 +21,18 @@ import {
   LuCalendarDays,
   LuUsers,
   LuCalendarOff,
+  LuLayoutGrid,
+  LuCalendarRange,
+  LuCalendar,
 } from "react-icons/lu";
 import { calendarService, type CalendarEvent } from "@/lib/api";
+
+type CalendarView = "month" | "week" | "day";
 
 interface TimeOffCalendarProps {
   title?: string;
   showLegend?: boolean;
+  defaultView?: CalendarView;
 }
 
 // Helper to get days in a month
@@ -58,10 +64,31 @@ function parseDate(dateStr: string): Date {
   return new Date(year, month - 1, day);
 }
 
-export function TimeOffCalendar({ title = "Team Calendar", showLegend = true }: TimeOffCalendarProps) {
+// Get the start of the week (Sunday) for a given date
+function getWeekStart(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  d.setDate(d.getDate() - day);
+  return d;
+}
+
+// Get the end of the week (Saturday) for a given date
+function getWeekEnd(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  d.setDate(d.getDate() + (6 - day));
+  return d;
+}
+
+export function TimeOffCalendar({ 
+  title = "Team Calendar", 
+  showLegend = true,
+  defaultView = "month"
+}: TimeOffCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [view, setView] = useState<CalendarView>(defaultView);
   // Auto-select today's date on load
   const [selectedDate, setSelectedDate] = useState<string | null>(() => {
     const now = new Date();
@@ -79,6 +106,8 @@ export function TimeOffCalendar({ title = "Team Calendar", showLegend = true }: 
   const weekendBg = useColorModeValue("gray.50", "gray.850");
   const headerBg = useColorModeValue("gray.50", "gray.900");
   const selectedBg = useColorModeValue("brand.100", "brand.800");
+  const viewBtnBg = useColorModeValue("gray.100", "gray.700");
+  const viewBtnActiveBg = useColorModeValue("white", "gray.600");
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -92,13 +121,35 @@ export function TimeOffCalendar({ title = "Team Calendar", showLegend = true }: 
   ];
 
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const fullDayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-  // Fetch events for the current month
+  // Calculate date range based on view
+  const dateRange = useMemo(() => {
+    if (view === "month") {
+      return {
+        start: new Date(year, month, 1),
+        end: new Date(year, month + 1, 0),
+      };
+    } else if (view === "week") {
+      return {
+        start: getWeekStart(currentDate),
+        end: getWeekEnd(currentDate),
+      };
+    } else {
+      // Day view
+      return {
+        start: new Date(currentDate),
+        end: new Date(currentDate),
+      };
+    }
+  }, [view, year, month, currentDate]);
+
+  // Fetch events for the current view's date range
   const fetchEvents = useCallback(async () => {
     setIsLoading(true);
     try {
-      const startDate = formatDate(new Date(year, month, 1));
-      const endDate = formatDate(new Date(year, month + 1, 0));
+      const startDate = formatDate(dateRange.start);
+      const endDate = formatDate(dateRange.end);
       const data = await calendarService.getEvents(startDate, endDate);
       setEvents(data);
     } catch (error) {
@@ -107,19 +158,40 @@ export function TimeOffCalendar({ title = "Team Calendar", showLegend = true }: 
     } finally {
       setIsLoading(false);
     }
-  }, [year, month]);
+  }, [dateRange]);
 
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
 
-  const goToPrevMonth = () => {
-    setCurrentDate(new Date(year, month - 1, 1));
+  // Navigation functions based on view
+  const goToPrev = () => {
+    if (view === "month") {
+      setCurrentDate(new Date(year, month - 1, 1));
+    } else if (view === "week") {
+      const newDate = new Date(currentDate);
+      newDate.setDate(newDate.getDate() - 7);
+      setCurrentDate(newDate);
+    } else {
+      const newDate = new Date(currentDate);
+      newDate.setDate(newDate.getDate() - 1);
+      setCurrentDate(newDate);
+    }
     setSelectedDate(null);
   };
 
-  const goToNextMonth = () => {
-    setCurrentDate(new Date(year, month + 1, 1));
+  const goToNext = () => {
+    if (view === "month") {
+      setCurrentDate(new Date(year, month + 1, 1));
+    } else if (view === "week") {
+      const newDate = new Date(currentDate);
+      newDate.setDate(newDate.getDate() + 7);
+      setCurrentDate(newDate);
+    } else {
+      const newDate = new Date(currentDate);
+      newDate.setDate(newDate.getDate() + 1);
+      setCurrentDate(newDate);
+    }
     setSelectedDate(null);
   };
 
@@ -127,6 +199,41 @@ export function TimeOffCalendar({ title = "Team Calendar", showLegend = true }: 
     setCurrentDate(new Date());
     setSelectedDate(today);
   };
+
+  // Get display text for current date based on view
+  const getHeaderDateText = () => {
+    if (view === "month") {
+      return `${monthNames[month]} ${year}`;
+    } else if (view === "week") {
+      const weekStart = getWeekStart(currentDate);
+      const weekEnd = getWeekEnd(currentDate);
+      const startMonth = monthNames[weekStart.getMonth()].substring(0, 3);
+      const endMonth = monthNames[weekEnd.getMonth()].substring(0, 3);
+      if (weekStart.getMonth() === weekEnd.getMonth()) {
+        return `${startMonth} ${weekStart.getDate()} - ${weekEnd.getDate()}, ${weekStart.getFullYear()}`;
+      }
+      return `${startMonth} ${weekStart.getDate()} - ${endMonth} ${weekEnd.getDate()}, ${weekEnd.getFullYear()}`;
+    } else {
+      return currentDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
+  };
+
+  // Generate week days for week view
+  const weekDays = useMemo(() => {
+    const days: Date[] = [];
+    const weekStart = getWeekStart(currentDate);
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }, [currentDate]);
 
   // Get events for a specific date
   const getEventsForDate = (dateStr: string): CalendarEvent[] => {
@@ -174,71 +281,206 @@ export function TimeOffCalendar({ title = "Team Calendar", showLegend = true }: 
         
         {/* Header */}
         <Box px={5} py={4} bg={headerBg} borderBottom="1px solid" borderColor={borderColor}>
-          <HStack justify="space-between">
-            <HStack gap={3}>
-              <Flex
-                p={2}
+          <VStack gap={3} align="stretch">
+            <HStack justify="space-between">
+              <HStack gap={3}>
+                <Flex
+                  p={2}
+                  borderRadius="lg"
+                  bgGradient="to-br"
+                  gradientFrom="brand.500"
+                  gradientTo="cyan.500"
+                  align="center"
+                  justify="center"
+                >
+                  <LuCalendarDays size={20} color="white" />
+                </Flex>
+                <Text fontWeight="semibold" color={textPrimary} fontSize="lg">
+                  {title}
+                </Text>
+              </HStack>
+              
+              {/* View Toggle Buttons */}
+              <HStack 
+                gap={0} 
+                bg={viewBtnBg} 
+                p={1} 
                 borderRadius="lg"
-                bgGradient="to-br"
-                gradientFrom="brand.500"
-                gradientTo="cyan.500"
-                align="center"
-                justify="center"
+                display={{ base: "none", sm: "flex" }}
               >
-                <LuCalendarDays size={20} color="white" />
-              </Flex>
-              <Text fontWeight="semibold" color={textPrimary} fontSize="lg">
-                {title}
-              </Text>
+                <Box
+                  as="button"
+                  onClick={() => setView("month")}
+                  px={3}
+                  py={1.5}
+                  borderRadius="md"
+                  fontSize="xs"
+                  fontWeight="medium"
+                  color={view === "month" ? textPrimary : textSecondary}
+                  bg={view === "month" ? viewBtnActiveBg : "transparent"}
+                  shadow={view === "month" ? "sm" : "none"}
+                  _hover={{ color: textPrimary }}
+                  transition="all 0.2s"
+                  display="flex"
+                  alignItems="center"
+                  gap={1.5}
+                >
+                  <LuLayoutGrid size={14} />
+                  Month
+                </Box>
+                <Box
+                  as="button"
+                  onClick={() => setView("week")}
+                  px={3}
+                  py={1.5}
+                  borderRadius="md"
+                  fontSize="xs"
+                  fontWeight="medium"
+                  color={view === "week" ? textPrimary : textSecondary}
+                  bg={view === "week" ? viewBtnActiveBg : "transparent"}
+                  shadow={view === "week" ? "sm" : "none"}
+                  _hover={{ color: textPrimary }}
+                  transition="all 0.2s"
+                  display="flex"
+                  alignItems="center"
+                  gap={1.5}
+                >
+                  <LuCalendarRange size={14} />
+                  Week
+                </Box>
+                <Box
+                  as="button"
+                  onClick={() => setView("day")}
+                  px={3}
+                  py={1.5}
+                  borderRadius="md"
+                  fontSize="xs"
+                  fontWeight="medium"
+                  color={view === "day" ? textPrimary : textSecondary}
+                  bg={view === "day" ? viewBtnActiveBg : "transparent"}
+                  shadow={view === "day" ? "sm" : "none"}
+                  _hover={{ color: textPrimary }}
+                  transition="all 0.2s"
+                  display="flex"
+                  alignItems="center"
+                  gap={1.5}
+                >
+                  <LuCalendar size={14} />
+                  Day
+                </Box>
+              </HStack>
             </HStack>
-            <HStack gap={2}>
-              <IconButton
-                aria-label="Previous month"
-                onClick={goToPrevMonth}
-                variant="ghost"
-                size="sm"
+            
+            {/* Navigation and Date Display */}
+            <HStack justify="space-between">
+              {/* Mobile View Toggle */}
+              <HStack 
+                gap={0} 
+                bg={viewBtnBg} 
+                p={1} 
                 borderRadius="lg"
+                display={{ base: "flex", sm: "none" }}
               >
-                <LuChevronLeft size={18} />
-              </IconButton>
-              <Box
-                as="button"
-                onClick={goToToday}
-                px={3}
-                py={1.5}
-                borderRadius="lg"
-                fontWeight="medium"
-                fontSize="sm"
-                color={textPrimary}
-                _hover={{ bg: hoverBg }}
-                transition="all 0.2s"
-              >
-                {monthNames[month]} {year}
-              </Box>
-              <IconButton
-                aria-label="Next month"
-                onClick={goToNextMonth}
-                variant="ghost"
-                size="sm"
-                borderRadius="lg"
-              >
-                <LuChevronRight size={18} />
-              </IconButton>
+                <IconButton
+                  aria-label="Month view"
+                  onClick={() => setView("month")}
+                  variant="ghost"
+                  size="xs"
+                  borderRadius="md"
+                  bg={view === "month" ? viewBtnActiveBg : "transparent"}
+                  shadow={view === "month" ? "sm" : "none"}
+                >
+                  <LuLayoutGrid size={14} />
+                </IconButton>
+                <IconButton
+                  aria-label="Week view"
+                  onClick={() => setView("week")}
+                  variant="ghost"
+                  size="xs"
+                  borderRadius="md"
+                  bg={view === "week" ? viewBtnActiveBg : "transparent"}
+                  shadow={view === "week" ? "sm" : "none"}
+                >
+                  <LuCalendarRange size={14} />
+                </IconButton>
+                <IconButton
+                  aria-label="Day view"
+                  onClick={() => setView("day")}
+                  variant="ghost"
+                  size="xs"
+                  borderRadius="md"
+                  bg={view === "day" ? viewBtnActiveBg : "transparent"}
+                  shadow={view === "day" ? "sm" : "none"}
+                >
+                  <LuCalendar size={14} />
+                </IconButton>
+              </HStack>
+              
+              <HStack gap={2} flex={1} justify={{ base: "flex-end", sm: "center" }}>
+                <IconButton
+                  aria-label={`Previous ${view}`}
+                  onClick={goToPrev}
+                  variant="ghost"
+                  size="sm"
+                  borderRadius="lg"
+                >
+                  <LuChevronLeft size={18} />
+                </IconButton>
+                <Box
+                  as="button"
+                  onClick={goToToday}
+                  px={3}
+                  py={1.5}
+                  borderRadius="lg"
+                  fontWeight="medium"
+                  fontSize="sm"
+                  color={textPrimary}
+                  _hover={{ bg: hoverBg }}
+                  transition="all 0.2s"
+                  minW={{ base: "auto", sm: "200px" }}
+                  textAlign="center"
+                >
+                  {getHeaderDateText()}
+                </Box>
+                <IconButton
+                  aria-label={`Next ${view}`}
+                  onClick={goToNext}
+                  variant="ghost"
+                  size="sm"
+                  borderRadius="lg"
+                >
+                  <LuChevronRight size={18} />
+                </IconButton>
+              </HStack>
+              
+              {/* Spacer for desktop alignment */}
+              <Box display={{ base: "none", sm: "block" }} w="100px" />
             </HStack>
-          </HStack>
+          </VStack>
         </Box>
 
         <Card.Body p={4}>
           {isLoading ? (
             <VStack gap={3}>
               <Skeleton height="40px" width="100%" borderRadius="lg" />
-              <SimpleGrid columns={7} gap={2} w="full">
-                {Array.from({ length: 35 }).map((_, i) => (
-                  <Skeleton key={i} height="60px" borderRadius="lg" />
-                ))}
-              </SimpleGrid>
+              {view === "month" ? (
+                <SimpleGrid columns={7} gap={2} w="full">
+                  {Array.from({ length: 35 }).map((_, i) => (
+                    <Skeleton key={i} height="60px" borderRadius="lg" />
+                  ))}
+                </SimpleGrid>
+              ) : view === "week" ? (
+                <SimpleGrid columns={7} gap={2} w="full">
+                  {Array.from({ length: 7 }).map((_, i) => (
+                    <Skeleton key={i} height="120px" borderRadius="lg" />
+                  ))}
+                </SimpleGrid>
+              ) : (
+                <Skeleton height="300px" width="100%" borderRadius="lg" />
+              )}
             </VStack>
-          ) : (
+          ) : view === "month" ? (
+            /* Month View */
             <VStack gap={2} align="stretch">
               {/* Day headers */}
               <SimpleGrid columns={7} gap={1}>
@@ -318,6 +560,186 @@ export function TimeOffCalendar({ title = "Team Calendar", showLegend = true }: 
                   );
                 })}
               </SimpleGrid>
+            </VStack>
+          ) : view === "week" ? (
+            /* Week View */
+            <VStack gap={2} align="stretch">
+              {/* Day headers with dates */}
+              <SimpleGrid columns={7} gap={1}>
+                {weekDays.map((date, index) => {
+                  const dateStr = formatDate(date);
+                  const isToday = dateStr === today;
+                  const isWeekend = index === 0 || index === 6;
+                  
+                  return (
+                    <VStack
+                      key={dateStr}
+                      textAlign="center"
+                      py={2}
+                      gap={0}
+                    >
+                      <Text
+                        fontSize="xs"
+                        fontWeight="semibold"
+                        color={isWeekend ? "red.400" : textSecondary}
+                        textTransform="uppercase"
+                        letterSpacing="wide"
+                      >
+                        {dayNames[index]}
+                      </Text>
+                      <Text
+                        fontSize="lg"
+                        fontWeight={isToday ? "bold" : "medium"}
+                        color={isToday ? "brand.600" : textPrimary}
+                        w="32px"
+                        h="32px"
+                        lineHeight="32px"
+                        borderRadius="full"
+                        bg={isToday ? todayBg : "transparent"}
+                        border={isToday ? "2px solid" : "none"}
+                        borderColor={todayBorder}
+                      >
+                        {date.getDate()}
+                      </Text>
+                    </VStack>
+                  );
+                })}
+              </SimpleGrid>
+
+              {/* Week grid with events */}
+              <SimpleGrid columns={7} gap={1}>
+                {weekDays.map((date, index) => {
+                  const dateStr = formatDate(date);
+                  const isToday = dateStr === today;
+                  const isWeekend = index === 0 || index === 6;
+                  const dayEvents = getEventsForDate(dateStr);
+                  const isSelected = dateStr === selectedDate;
+
+                  return (
+                    <Box
+                      key={dateStr}
+                      minH="120px"
+                      p={2}
+                      borderRadius="lg"
+                      cursor="pointer"
+                      bg={isSelected ? selectedBg : isToday ? todayBg : isWeekend ? weekendBg : "transparent"}
+                      border="1px solid"
+                      borderColor={borderColor}
+                      _hover={{ bg: isSelected ? selectedBg : hoverBg }}
+                      transition="all 0.15s"
+                      onClick={() => setSelectedDate(dateStr)}
+                    >
+                      <VStack gap={1} align="stretch">
+                        {dayEvents.length === 0 ? (
+                          <Text fontSize="xs" color={textSecondary} textAlign="center" py={4}>
+                            No events
+                          </Text>
+                        ) : (
+                          dayEvents.slice(0, 4).map((event) => (
+                            <Box
+                              key={event.id}
+                              px={2}
+                              py={1}
+                              borderRadius="md"
+                              bg={eventDotColor}
+                              fontSize="xs"
+                              fontWeight="medium"
+                              color="white"
+                              truncate
+                            >
+                              {event.title}
+                            </Box>
+                          ))
+                        )}
+                        {dayEvents.length > 4 && (
+                          <Text fontSize="2xs" color={textSecondary} textAlign="center">
+                            +{dayEvents.length - 4} more
+                          </Text>
+                        )}
+                      </VStack>
+                    </Box>
+                  );
+                })}
+              </SimpleGrid>
+            </VStack>
+          ) : (
+            /* Day View */
+            <VStack gap={4} align="stretch">
+              <Box
+                p={4}
+                borderRadius="lg"
+                bg={formatDate(currentDate) === today ? todayBg : "transparent"}
+                border={formatDate(currentDate) === today ? "2px solid" : "1px solid"}
+                borderColor={formatDate(currentDate) === today ? todayBorder : borderColor}
+              >
+                <VStack gap={3} align="stretch">
+                  <HStack justify="space-between">
+                    <Text fontWeight="semibold" color={textPrimary} fontSize="lg">
+                      {fullDayNames[currentDate.getDay()]}
+                    </Text>
+                    <Text fontWeight="bold" color="brand.600" fontSize="2xl">
+                      {currentDate.getDate()}
+                    </Text>
+                  </HStack>
+                  
+                  {(() => {
+                    const dayEvents = getEventsForDate(formatDate(currentDate));
+                    if (dayEvents.length === 0) {
+                      return (
+                        <VStack gap={3} py={8}>
+                          <LuCalendarOff size={40} color="var(--chakra-colors-green-400)" />
+                          <Text fontSize="md" color={textSecondary} textAlign="center">
+                            No time off scheduled for this day
+                          </Text>
+                          <Badge colorPalette="green" variant="subtle" px={3} py={1.5} borderRadius="full" fontSize="sm">
+                            Everyone available
+                          </Badge>
+                        </VStack>
+                      );
+                    }
+                    
+                    return (
+                      <VStack gap={2} align="stretch" pt={2}>
+                        {dayEvents.map((event) => (
+                          <Box
+                            key={event.id}
+                            p={4}
+                            borderRadius="lg"
+                            bg={hoverBg}
+                            border="1px solid"
+                            borderColor={borderColor}
+                            borderLeft="4px solid"
+                            borderLeftColor="brand.500"
+                          >
+                            <HStack justify="space-between" align="start">
+                              <VStack align="start" gap={1}>
+                                <Text fontWeight="semibold" fontSize="md" color={textPrimary}>
+                                  {event.title}
+                                </Text>
+                                {event.description && (
+                                  <Text fontSize="sm" color={textSecondary}>
+                                    {event.description.split("\n")[0]}
+                                  </Text>
+                                )}
+                              </VStack>
+                              <Badge
+                                colorPalette={event.all_day ? "brand" : "gray"}
+                                variant="subtle"
+                                fontSize="xs"
+                              >
+                                {event.all_day ? "All day" : "Partial day"}
+                              </Badge>
+                            </HStack>
+                          </Box>
+                        ))}
+                        <Text fontSize="sm" color={textSecondary} textAlign="center" pt={2}>
+                          {dayEvents.length} {dayEvents.length === 1 ? "person" : "people"} out
+                        </Text>
+                      </VStack>
+                    );
+                  })()}
+                </VStack>
+              </Box>
             </VStack>
           )}
         </Card.Body>

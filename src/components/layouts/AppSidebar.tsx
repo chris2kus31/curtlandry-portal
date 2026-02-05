@@ -21,6 +21,7 @@ import {
   LuChevronLeft,
   LuChevronRight,
   LuShieldCheck,
+  LuTag,
 } from "react-icons/lu";
 import type { IconType } from "react-icons";
 import { useAuthStore } from "@/store/auth-store";
@@ -55,6 +56,12 @@ const LinkItems: LinkItemProps[] = [
     icon: LuShieldCheck,
     href: "/admin",
     requiredRoles: ["super_admin"],
+  },
+  {
+    name: "Woo Discounts",
+    icon: LuTag,
+    href: "/store",
+    requiredRoles: ["super_admin", "admin"],
   },
 ];
 
@@ -104,10 +111,18 @@ export function SidebarContent({
   };
 
   const visibleLinks = LinkItems.filter(canAccess);
-  const isActive = (href: string) =>
-    href === "/dashboard"
-      ? pathname === "/dashboard"
-      : pathname === href || pathname.startsWith(href + "/");
+  const isActive = (href: string) => {
+    // Exact match for dashboard
+    if (href === "/dashboard") {
+      return pathname === "/dashboard";
+    }
+    // For /admin, only match exact /admin path, not /admin/store
+    if (href === "/admin") {
+      return pathname === "/admin";
+    }
+    // For other routes, check exact match or starts with href/
+    return pathname === href || pathname.startsWith(href + "/");
+  };
 
   return (
     <Box
