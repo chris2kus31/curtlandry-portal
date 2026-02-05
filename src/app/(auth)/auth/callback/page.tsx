@@ -7,8 +7,12 @@ import { Box, VStack, Spinner, Text } from "@chakra-ui/react";
 import { useAuthStore } from "@/store/auth-store";
 import { authService } from "@/lib/api/auth-service";
 import { toaster } from "@/components/ui/toaster";
-import { useColorModeValue } from "@/components/ui/color-mode";
 import type { User } from "@/types/auth";
+
+// Static colors for this transient page (avoids hydration mismatch)
+const bgPrimary = "gray.50";
+const textPrimary = "gray.900";
+const textSecondary = "gray.600";
 
 function AuthCallbackContent() {
   const router = useRouter();
@@ -17,29 +21,6 @@ function AuthCallbackContent() {
   const [status, setStatus] = useState<"loading" | "success" | "error">(
     "loading",
   );
-  const [mounted, setMounted] = useState(false);
-
-  // Color mode values (called unconditionally)
-  const bgPrimaryLight = "gray.50";
-  const bgPrimaryDark = "gray.950";
-  const textPrimaryLight = "gray.900";
-  const textPrimaryDark = "gray.50";
-  const textSecondaryLight = "gray.600";
-  const textSecondaryDark = "gray.400";
-
-  const bgPrimaryResolved = useColorModeValue(bgPrimaryLight, bgPrimaryDark);
-  const textPrimaryResolved = useColorModeValue(textPrimaryLight, textPrimaryDark);
-  const textSecondaryResolved = useColorModeValue(textSecondaryLight, textSecondaryDark);
-
-  // Avoid hydration mismatch by only using color mode values after mount
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Use static values for SSR, dynamic values after mount
-  const bgPrimary = mounted ? bgPrimaryResolved : bgPrimaryLight;
-  const textPrimary = mounted ? textPrimaryResolved : textPrimaryLight;
-  const textSecondary = mounted ? textSecondaryResolved : textSecondaryLight;
 
   useEffect(() => {
     const handleError = (message: string) => {
