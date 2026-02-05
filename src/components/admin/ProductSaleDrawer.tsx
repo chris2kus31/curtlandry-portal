@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Box,
   Drawer,
@@ -80,29 +80,8 @@ export function ProductSaleDrawer({
   const hoverBg = useColorModeValue("gray.50", "gray.800");
   const selectedBg = useColorModeValue("brand.50", "brand.950");
 
-  // Fetch products when drawer opens
-  useEffect(() => {
-    if (isOpen && categoryId) {
-      fetchProducts();
-    }
-  }, [isOpen, categoryId]);
-
-  // Reset state when drawer closes
-  useEffect(() => {
-    if (!isOpen) {
-      setProducts([]);
-      setSelectedIds(new Set());
-      setSearchQuery("");
-      setPreviewResult(null);
-      setAdjustmentType("decrease");
-      setDiscountType("percent");
-      setAdjustmentValue("50");
-      setStartDate(null);
-      setEndDate(null);
-    }
-  }, [isOpen]);
-
-  const fetchProducts = async () => {
+  // Fetch products callback (must be declared before useEffect that uses it)
+  const fetchProducts = useCallback(async () => {
     setIsLoadingProducts(true);
     try {
       const data = await wooService.getCategoryProducts(categoryId, true);
@@ -122,7 +101,29 @@ export function ProductSaleDrawer({
     } finally {
       setIsLoadingProducts(false);
     }
-  };
+  }, [categoryId]);
+
+  // Fetch products when drawer opens
+  useEffect(() => {
+    if (isOpen && categoryId) {
+      fetchProducts();
+    }
+  }, [isOpen, categoryId, fetchProducts]);
+
+  // Reset state when drawer closes
+  useEffect(() => {
+    if (!isOpen) {
+      setProducts([]);
+      setSelectedIds(new Set());
+      setSearchQuery("");
+      setPreviewResult(null);
+      setAdjustmentType("decrease");
+      setDiscountType("percent");
+      setAdjustmentValue("50");
+      setStartDate(null);
+      setEndDate(null);
+    }
+  }, [isOpen]);
 
   // Filter products by search
   const filteredProducts = useMemo(() => {
@@ -880,7 +881,7 @@ export function ProductSaleDrawer({
                                     checked={isSelected}
                                     disabled={hasSale}
                                     onCheckedChange={() => {
-                                      !hasSale && toggleProduct(product.id);
+                                      if (!hasSale) toggleProduct(product.id);
                                     }}
                                     onClick={(e) => e.stopPropagation()}
                                   >

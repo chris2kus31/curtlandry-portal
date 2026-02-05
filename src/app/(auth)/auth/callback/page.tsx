@@ -17,10 +17,29 @@ function AuthCallbackContent() {
   const [status, setStatus] = useState<"loading" | "success" | "error">(
     "loading",
   );
+  const [mounted, setMounted] = useState(false);
 
-  const bgPrimary = useColorModeValue("gray.50", "gray.950");
-  const textPrimary = useColorModeValue("gray.900", "gray.50");
-  const textSecondary = useColorModeValue("gray.600", "gray.400");
+  // Color mode values (called unconditionally)
+  const bgPrimaryLight = "gray.50";
+  const bgPrimaryDark = "gray.950";
+  const textPrimaryLight = "gray.900";
+  const textPrimaryDark = "gray.50";
+  const textSecondaryLight = "gray.600";
+  const textSecondaryDark = "gray.400";
+
+  const bgPrimaryResolved = useColorModeValue(bgPrimaryLight, bgPrimaryDark);
+  const textPrimaryResolved = useColorModeValue(textPrimaryLight, textPrimaryDark);
+  const textSecondaryResolved = useColorModeValue(textSecondaryLight, textSecondaryDark);
+
+  // Avoid hydration mismatch by only using color mode values after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Use static values for SSR, dynamic values after mount
+  const bgPrimary = mounted ? bgPrimaryResolved : bgPrimaryLight;
+  const textPrimary = mounted ? textPrimaryResolved : textPrimaryLight;
+  const textSecondary = mounted ? textSecondaryResolved : textSecondaryLight;
 
   useEffect(() => {
     const handleError = (message: string) => {
