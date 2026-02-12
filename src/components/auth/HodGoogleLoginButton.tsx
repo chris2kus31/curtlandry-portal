@@ -4,13 +4,12 @@ import { Box, Spinner, Text } from "@chakra-ui/react";
 import { useAuthStore } from "@/store/auth-store";
 import { FcGoogle } from "react-icons/fc";
 
-interface GoogleLoginButtonProps {
-  variant?: "solid" | "outline";
+interface HodGoogleLoginButtonProps {
   size?: "sm" | "md" | "lg";
 }
 
-export function GoogleLoginButton({ size = "lg" }: GoogleLoginButtonProps) {
-  const { loginWithGoogle, isLoading } = useAuthStore();
+export function HodGoogleLoginButton({ size = "lg" }: HodGoogleLoginButtonProps) {
+  const { loginWithGoogleHod, isLoading } = useAuthStore();
 
   if (isLoading) {
     return (
@@ -41,7 +40,7 @@ export function GoogleLoginButton({ size = "lg" }: GoogleLoginButtonProps) {
   return (
     <Box
       as="button"
-      onClick={loginWithGoogle}
+      onClick={loginWithGoogleHod}
       display="flex"
       alignItems="center"
       justifyContent="center"
@@ -51,16 +50,16 @@ export function GoogleLoginButton({ size = "lg" }: GoogleLoginButtonProps) {
       px={4}
       borderRadius="lg"
       border="1px solid"
-      borderColor="gray.300"
+      borderColor="purple.200"
       bg="white"
       cursor="pointer"
       transition="all 0.2s"
-      _hover={{ bg: "gray.50", borderColor: "gray.400" }}
+      _hover={{ bg: "purple.50", borderColor: "purple.400" }}
       fontSize={size === "lg" ? "md" : size === "md" ? "sm" : "xs"}
     >
       <FcGoogle size={20} />
       <Text color="gray.700" fontWeight="medium">
-        CurtLandry Google
+        House of David Google
       </Text>
     </Box>
   );

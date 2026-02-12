@@ -47,24 +47,46 @@ export const authService = {
   },
 
   /**
-   * Get the Google OAuth redirect URL (Laravel handles the OAuth flow)
+   * Get the base API URL for OAuth redirects.
    */
-  getGoogleLoginUrl(): string {
+  getApiBaseUrl(): string {
     let baseUrl =
       process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001/api";
-    // Ensure baseUrl ends with /api
     if (!baseUrl.endsWith("/api")) {
       baseUrl = `${baseUrl}/api`;
     }
-    return `${baseUrl}/portal/auth/google/redirect`;
+    return baseUrl;
   },
 
   /**
-   * Initiate Google login by redirecting to Laravel backend
+   * Get the Google OAuth redirect URL - CurtLandry workspace
+   */
+  getGoogleLoginUrl(): string {
+    return `${this.getApiBaseUrl()}/portal/auth/google/redirect`;
+  },
+
+  /**
+   * Get the Google OAuth redirect URL - House of David workspace
+   */
+  getHodGoogleLoginUrl(): string {
+    return `${this.getApiBaseUrl()}/portal/auth/google-hod/redirect`;
+  },
+
+  /**
+   * Initiate Google login by redirecting to Laravel backend (CurtLandry)
    */
   initiateGoogleLogin(): void {
     const googleUrl = this.getGoogleLoginUrl();
     console.log("Redirecting to Google OAuth:", googleUrl);
+    window.location.href = googleUrl;
+  },
+
+  /**
+   * Initiate Google login by redirecting to Laravel backend (House of David)
+   */
+  initiateHodGoogleLogin(): void {
+    const googleUrl = this.getHodGoogleLoginUrl();
+    console.log("Redirecting to HOD Google OAuth:", googleUrl);
     window.location.href = googleUrl;
   },
 

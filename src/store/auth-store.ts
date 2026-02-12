@@ -18,6 +18,7 @@ interface AuthState {
 
   // Actions
   loginWithGoogle: () => void;
+  loginWithGoogleHod: () => void;
   logout: () => Promise<void>;
   setUser: (user: User) => void;
   setToken: (token: string) => void;
@@ -48,6 +49,11 @@ export const useAuthStore = create<AuthState>()(
       loginWithGoogle: () => {
         set({ isLoading: true, error: null });
         authService.initiateGoogleLogin();
+      },
+
+      loginWithGoogleHod: () => {
+        set({ isLoading: true, error: null });
+        authService.initiateHodGoogleLogin();
       },
 
       logout: async () => {
