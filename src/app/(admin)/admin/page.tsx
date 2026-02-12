@@ -1567,139 +1567,143 @@ export default function AdminPage() {
                       transition="all 0.2s"
                       _hover={{ borderColor: "brand.300", shadow: "sm" }}
                     >
-                      <Card.Body p={4}>
-                        <Flex
-                          direction={{ base: "column", lg: "row" }}
-                          justify="space-between"
-                          align={{ base: "stretch", lg: "center" }}
-                          gap={4}
-                        >
-                          {/* User Info */}
-                          <VStack align="start" gap={1} minW="180px">
-                            <HStack justify="space-between" w="full">
+                      <Card.Body p={{ base: 3, md: 4 }}>
+                        {/* User Info Row */}
+                        <HStack justify="space-between" mb={2}>
+                          <VStack align="start" gap={0.5}>
+                            <HStack gap={2}>
                               <Text fontWeight="semibold" color={textPrimary}>
                                 {balance.user?.name || "Unknown User"}
                               </Text>
                               <IconButton
                                 aria-label="Adjust balance"
-                                size="sm"
+                                size="2xs"
                                 variant="ghost"
                                 onClick={() => handleOpenAdjustment(balance)}
                                 borderRadius="lg"
                                 color={textSecondary}
                                 _hover={{ bg: hoverBg, color: "brand.500" }}
                               >
-                                <LuPencil size={14} />
+                                <LuPencil size={12} />
                               </IconButton>
                             </HStack>
-                            <Text fontSize="sm" color={textSecondary}>
-                              {balance.user?.email}
-                            </Text>
-                            {balance.tier && (
-                              <Badge
-                                colorPalette="purple"
-                                variant="subtle"
-                                fontSize="xs"
-                                borderRadius="full"
-                                px={2}
-                              >
-                                {balance.tier.name} ({balance.tier.accrual_rate}{" "}
-                                hrs/period)
-                              </Badge>
-                            )}
+                            <HStack gap={2}>
+                              <Text fontSize="xs" color={textSecondary}>
+                                {balance.user?.email}
+                              </Text>
+                              {balance.tier && (
+                                <Badge
+                                  colorPalette="purple"
+                                  variant="subtle"
+                                  fontSize="2xs"
+                                  borderRadius="full"
+                                  px={1.5}
+                                >
+                                  {balance.tier.name} ({balance.tier.accrual_rate} hrs/period)
+                                </Badge>
+                              )}
+                            </HStack>
                           </VStack>
+                        </HStack>
 
-                          {/* Balance Stats */}
-                          <SimpleGrid
-                            columns={{ base: 3, sm: 6 }}
-                            gap={{ base: 2, sm: 4 }}
-                            flex={1}
-                          >
-                            <VStack gap={0} align="center">
-                              <Text fontSize="xs" color={textSecondary}>
-                                Available
-                              </Text>
-                              <Text
-                                fontSize={{ base: "md", sm: "lg" }}
-                                fontWeight="bold"
-                                color={
-                                  balance.available_hours < 0
-                                    ? "red.500"
-                                    : "green.500"
-                                }
-                              >
-                                {balance.available_hours}
-                              </Text>
-                            </VStack>
-                            <VStack gap={0} align="center">
-                              <Text fontSize="xs" color={textSecondary}>
-                                Accrued
-                              </Text>
-                              <Text
-                                fontSize={{ base: "md", sm: "lg" }}
-                                fontWeight="semibold"
-                                color={textPrimary}
-                              >
-                                {balance.accrued_hours}
-                              </Text>
-                            </VStack>
-                            <VStack gap={0} align="center">
-                              <Text fontSize="xs" color={textSecondary}>
-                                Used
-                              </Text>
-                              <Text
-                                fontSize={{ base: "md", sm: "lg" }}
-                                fontWeight="semibold"
-                                color={textPrimary}
-                              >
-                                {balance.used_hours}
-                              </Text>
-                            </VStack>
-                            <VStack gap={0} align="center">
-                              <Text fontSize="xs" color={textSecondary}>
-                                Pending
-                              </Text>
-                              <Text
-                                fontSize={{ base: "md", sm: "lg" }}
-                                fontWeight="semibold"
-                                color="amber.500"
-                              >
-                                {balance.pending_hours}
-                              </Text>
-                            </VStack>
-                            <VStack gap={0} align="center">
-                              <Text fontSize="xs" color={textSecondary}>
-                                Adjust
-                              </Text>
-                              <Text
-                                fontSize={{ base: "md", sm: "lg" }}
-                                fontWeight="semibold"
-                                color={
-                                  balance.adjustment_hours < 0
-                                    ? "red.500"
-                                    : balance.adjustment_hours > 0
-                                      ? "green.500"
-                                      : textPrimary
-                                }
-                              >
-                                {balance.adjustment_hours > 0 ? "+" : ""}
-                                {balance.adjustment_hours}
-                              </Text>
-                            </VStack>
-                            <VStack gap={0} align="center">
-                              <Text fontSize="xs" color={textSecondary}>
-                                Max Neg
-                              </Text>
-                              <Text
-                                fontSize={{ base: "md", sm: "lg" }}
-                                fontWeight="semibold"
-                                color={textPrimary}
-                              >
-                                {balance.max_negative}
-                              </Text>
-                            </VStack>
-                          </SimpleGrid>
-                        </Flex>
+                        {/* Balance Stats Row */}
+                        <SimpleGrid columns={{ base: 4, sm: 7 }} gap={{ base: 2, sm: 4 }} textAlign="center">
+                          <VStack gap={0}>
+                            <Text fontSize="xs" color={textSecondary}>
+                              Available
+                            </Text>
+                            <Text
+                              fontSize={{ base: "md", sm: "lg" }}
+                              fontWeight="bold"
+                              color={
+                                balance.available_hours < 0
+                                  ? "red.500"
+                                  : "green.500"
+                              }
+                            >
+                              {balance.available_hours}
+                            </Text>
+                          </VStack>
+                          <VStack gap={0}>
+                            <Text fontSize="xs" color={textSecondary}>
+                              Accrued YTD
+                            </Text>
+                            <Text
+                              fontSize={{ base: "md", sm: "lg" }}
+                              fontWeight="semibold"
+                              color={textPrimary}
+                            >
+                              {balance.accrued_hours}
+                            </Text>
+                          </VStack>
+                          <VStack gap={0}>
+                            <Text fontSize="xs" color={textSecondary}>
+                              Carry Over
+                            </Text>
+                            <Text
+                              fontSize={{ base: "md", sm: "lg" }}
+                              fontWeight="semibold"
+                              color={balance.carry_over_hours > 0 ? "blue.500" : textPrimary}
+                            >
+                              {balance.carry_over_hours}
+                            </Text>
+                          </VStack>
+                          <VStack gap={0}>
+                            <Text fontSize="xs" color={textSecondary}>
+                              Used
+                            </Text>
+                            <Text
+                              fontSize={{ base: "md", sm: "lg" }}
+                              fontWeight="semibold"
+                              color={textPrimary}
+                            >
+                              {balance.used_hours}
+                            </Text>
+                          </VStack>
+                          <VStack gap={0}>
+                            <Text fontSize="xs" color={textSecondary}>
+                              Pending
+                            </Text>
+                            <Text
+                              fontSize={{ base: "md", sm: "lg" }}
+                              fontWeight="semibold"
+                              color="orange.500"
+                            >
+                              {balance.pending_hours}
+                            </Text>
+                          </VStack>
+                          <VStack gap={0}>
+                            <Text fontSize="xs" color={textSecondary}>
+                              Adjust
+                            </Text>
+                            <Text
+                              fontSize={{ base: "md", sm: "lg" }}
+                              fontWeight="semibold"
+                              color={
+                                balance.adjustment_hours < 0
+                                  ? "red.500"
+                                  : balance.adjustment_hours > 0
+                                    ? "green.500"
+                                    : textPrimary
+                              }
+                            >
+                              {balance.adjustment_hours > 0 ? "+" : ""}
+                              {balance.adjustment_hours}
+                            </Text>
+                          </VStack>
+                          <VStack gap={0}>
+                            <Text fontSize="xs" color={textSecondary}>
+                              Max Neg
+                            </Text>
+                            <Text
+                              fontSize={{ base: "md", sm: "lg" }}
+                              fontWeight="semibold"
+                              color={textPrimary}
+                            >
+                              {balance.max_negative}
+                            </Text>
+                          </VStack>
+                        </SimpleGrid>
                       </Card.Body>
                     </Card.Root>
                   ))}
