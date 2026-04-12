@@ -50,7 +50,7 @@ interface Role {
 
 interface Manager {
   id: number;
-  name: string;
+  name?: string;
   first_name?: string;
   last_name?: string;
   email: string;
