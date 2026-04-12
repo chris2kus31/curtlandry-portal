@@ -95,7 +95,10 @@ function AuthCallbackContent() {
           department: profileData.department,
           job_title: profileData.job_title,
           hire_date: profileData.hire_date,
+          tenure_years: profileData.tenure_years,
           is_manager: profileData.is_manager,
+          has_direct_reports: profileData.has_direct_reports,
+          manager: profileData.manager,
         };
 
         // Update auth store - setToken will also sync to localStorage
