@@ -17,6 +17,7 @@ import { toaster } from "@/components/ui/toaster";
 import {
   LuX,
   LuUser,
+  LuUsers,
   LuBuilding,
   LuBriefcase,
   LuShieldCheck,
@@ -35,6 +36,8 @@ interface User {
   job_title?: string;
   hire_date?: string;
   is_active: boolean;
+  is_manager?: boolean;
+  reports_to?: number | null;
   roles: string[];
 }
 
@@ -45,6 +48,15 @@ interface Role {
   description?: string;
 }
 
+interface Manager {
+  id: number;
+  name: string;
+  first_name?: string;
+  last_name?: string;
+  email: string;
+  department?: string;
+}
+
 interface EditUserDrawerProps {
   user: User | null;
   isOpen: boolean;
@@ -52,6 +64,7 @@ interface EditUserDrawerProps {
   onUserUpdated: () => void;
   availableRoles: Role[];
   availableDepartments: string[];
+  availableManagers?: Manager[];
 }
 
 function getRoleColor(role: string): string {
@@ -74,12 +87,14 @@ export function EditUserDrawer({
   onUserUpdated,
   availableRoles,
   availableDepartments,
+  availableManagers = [],
 }: EditUserDrawerProps) {
   const [formData, setFormData] = useState({
     first_name: "",
     last_name: "",
     department: "",
     job_title: "",
+    reports_to: "" as string | number,
   });
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -104,6 +119,7 @@ export function EditUserDrawer({
         last_name: user.last_name || "",
         department: user.department || "",
         job_title: user.job_title || "",
+        reports_to: user.reports_to ?? "",
       });
       setSelectedRoles(user.roles || []);
     }
@@ -126,12 +142,14 @@ export function EditUserDrawer({
 
     setIsSaving(true);
     try {
-      // Update user details
+      const reportsTo = formData.reports_to === "" ? null : Number(formData.reports_to);
+
       await adminService.updateUser(user.id, {
         first_name: formData.first_name,
         last_name: formData.last_name,
         department: formData.department || undefined,
         job_title: formData.job_title || undefined,
+        reports_to: reportsTo,
       });
 
       // Update roles if changed
@@ -151,12 +169,17 @@ export function EditUserDrawer({
 
       onUserUpdated();
       onClose();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Failed to update user:", error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "object" && error !== null && "message" in error
+            ? String((error as { message: string }).message)
+            : "Please try again";
       toaster.create({
         title: "Update failed",
-        description:
-          error instanceof Error ? error.message : "Please try again",
+        description: message,
         type: "error",
       });
     } finally {
@@ -183,12 +206,17 @@ export function EditUserDrawer({
 
       onUserUpdated();
       onClose();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Failed to toggle user status:", error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "object" && error !== null && "message" in error
+            ? String((error as { message: string }).message)
+            : "Please try again";
       toaster.create({
         title: "Action failed",
-        description:
-          error instanceof Error ? error.message : "Please try again",
+        description: message,
         type: "error",
       });
     } finally {
@@ -390,6 +418,71 @@ export function EditUserDrawer({
                         px={4}
                       />
                     </Box>
+                    {availableManagers.length > 0 && (
+                      <Box w="full">
+                        <HStack gap={2} mb={1.5}>
+                          <LuUsers
+                            size={14}
+                            color="var(--chakra-colors-gray-400)"
+                          />
+                          <Text fontSize="sm" color={textSecondary}>
+                            Reports To
+                          </Text>
+                        </HStack>
+                        <Box
+                          position="relative"
+                          bg={inputBg}
+                          borderRadius="lg"
+                          border="1px solid"
+                          borderColor={borderColor}
+                          _focusWithin={{ borderColor: "brand.500" }}
+                        >
+                          <select
+                            value={formData.reports_to}
+                            onChange={(e) =>
+                              handleInputChange("reports_to", e.target.value)
+                            }
+                            style={{
+                              width: "100%",
+                              padding: "10px 16px",
+                              borderRadius: "8px",
+                              border: "none",
+                              backgroundColor: "transparent",
+                              color: "inherit",
+                              fontSize: "14px",
+                              cursor: "pointer",
+                              appearance: "none",
+                              WebkitAppearance: "none",
+                              outline: "none",
+                            }}
+                          >
+                            <option value="">No Manager</option>
+                            {availableManagers
+                              .filter((m) => m.id !== user?.id)
+                              .map((mgr) => (
+                                <option key={mgr.id} value={mgr.id}>
+                                  {mgr.first_name && mgr.last_name
+                                    ? `${mgr.first_name} ${mgr.last_name}`
+                                    : mgr.name || mgr.email}
+                                  {mgr.department ? ` (${mgr.department})` : ""}
+                                </option>
+                              ))}
+                          </select>
+                          <Box
+                            position="absolute"
+                            right={3}
+                            top="50%"
+                            transform="translateY(-50%)"
+                            pointerEvents="none"
+                            color={textSecondary}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                              <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                            </svg>
+                          </Box>
+                        </Box>
+                      </Box>
+                    )}
                   </VStack>
                 </Box>
 

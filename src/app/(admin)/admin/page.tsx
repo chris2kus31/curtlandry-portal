@@ -61,6 +61,13 @@ interface User {
   job_title?: string;
   hire_date?: string;
   is_active: boolean;
+  is_manager?: boolean;
+  reports_to?: number | null;
+  manager?: {
+    id: number;
+    name: string;
+    email: string;
+  } | null;
   roles: string[];
 }
 
@@ -2826,6 +2833,7 @@ export default function AdminPage() {
         onUserUpdated={handleUserUpdated}
         availableRoles={roles}
         availableDepartments={departments}
+        availableManagers={managers}
       />
 
       {/* Create User Drawer */}
