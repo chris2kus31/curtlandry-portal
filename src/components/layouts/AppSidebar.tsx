@@ -22,6 +22,7 @@ import {
   LuChevronRight,
   LuShieldCheck,
   LuTag,
+  LuGlobe,
 } from "react-icons/lu";
 import type { IconType } from "react-icons";
 import { useAuthStore } from "@/store/auth-store";
@@ -61,6 +62,12 @@ const LinkItems: LinkItemProps[] = [
     name: "Woo Discounts",
     icon: LuTag,
     href: "/woo-discounts",
+    requiredRoles: ["super_admin", "admin"],
+  },
+  {
+    name: "Sites",
+    icon: LuGlobe,
+    href: "/sites",
     requiredRoles: ["super_admin", "admin"],
   },
 ];
