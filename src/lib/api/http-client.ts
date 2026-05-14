@@ -126,10 +126,18 @@ class HttpClient {
         refresh_token: refreshToken,
       });
 
-      const { token, refresh_token } = response.data;
-      localStorage.setItem("auth_token", token);
-      if (refresh_token) {
-        localStorage.setItem("refresh_token", refresh_token);
+      // Laravel returns { success, message, data: { tokens: { access_token, refresh_token, ... } } }
+      const tokens = response.data?.data?.tokens;
+      const accessToken = tokens?.access_token;
+      const newRefreshToken = tokens?.refresh_token;
+
+      if (!accessToken) {
+        throw new Error("Refresh response missing access_token");
+      }
+
+      localStorage.setItem("auth_token", accessToken);
+      if (newRefreshToken) {
+        localStorage.setItem("refresh_token", newRefreshToken);
       }
     } catch (error) {
       localStorage.removeItem("auth_token");
