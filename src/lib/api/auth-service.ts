@@ -76,18 +76,14 @@ export const authService = {
    * Initiate Google login by redirecting to Laravel backend (CurtLandry)
    */
   initiateGoogleLogin(): void {
-    const googleUrl = this.getGoogleLoginUrl();
-    console.log("Redirecting to Google OAuth:", googleUrl);
-    window.location.href = googleUrl;
+    window.location.href = this.getGoogleLoginUrl();
   },
 
   /**
    * Initiate Google login by redirecting to Laravel backend (House of David)
    */
   initiateHodGoogleLogin(): void {
-    const googleUrl = this.getHodGoogleLoginUrl();
-    console.log("Redirecting to HOD Google OAuth:", googleUrl);
-    window.location.href = googleUrl;
+    window.location.href = this.getHodGoogleLoginUrl();
   },
 
   /**

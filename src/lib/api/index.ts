@@ -6,6 +6,8 @@ export { calendarService } from "./calendar-service";
 export { adminService } from "./admin-service";
 export { approvalService } from "./approval-service";
 export { wooService } from "./woo-service";
+// TODO: Uncomment when site-service module is implemented
+// export { siteService } from "./site-service";
 
 // Time-off service types
 export type {
@@ -39,6 +41,19 @@ export type {
   TimeOffRequest as ApprovalTimeOffRequest,
   ApprovalFilters,
 } from "./approval-service";
+
+// TODO: Uncomment when site-service module is implemented
+// export type {
+//   Site,
+//   SitePage,
+//   SitePageSection,
+//   SchemaField,
+//   SectionSchema,
+//   MediaAsset,
+//   CreateSiteData,
+//   CreatePageData,
+//   CreateSectionData,
+// } from "./site-service";
 
 // WooCommerce service types
 export type {

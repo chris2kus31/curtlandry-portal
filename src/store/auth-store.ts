@@ -6,6 +6,17 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { authService } from "@/lib/api/auth-service";
 import type { User } from "@/types/auth";
 
+function setSessionCookie(hasToken: boolean) {
+  if (typeof document === "undefined") return;
+  if (hasToken) {
+    document.cookie =
+      "auth_session=1; path=/; max-age=604800; SameSite=Lax; Secure";
+  } else {
+    document.cookie =
+      "auth_session=; path=/; max-age=0; SameSite=Lax; Secure";
+  }
+}
+
 interface AuthState {
   user: User | null;
   roles: string[];
@@ -60,11 +71,12 @@ export const useAuthStore = create<AuthState>()(
         try {
           await authService.logout();
         } finally {
-          // Clear localStorage token
           if (typeof window !== "undefined") {
             localStorage.removeItem("auth_token");
             localStorage.removeItem("refresh_token");
+            localStorage.removeItem("impersonated_by");
           }
+          setSessionCookie(false);
           set({
             user: null,
             roles: [],
@@ -79,10 +91,10 @@ export const useAuthStore = create<AuthState>()(
       setUser: (user: User) => set({ user, isLoading: false, error: null }),
 
       setToken: (token: string) => {
-        // Also store in localStorage for http-client to access
         if (typeof window !== "undefined") {
           localStorage.setItem("auth_token", token);
         }
+        setSessionCookie(true);
         set({ token });
       },
 
@@ -132,11 +144,11 @@ export const useAuthStore = create<AuthState>()(
         } catch (error) {
           console.error("Auth initialization failed:", error);
           
-          // Clear invalid tokens
           if (typeof window !== "undefined") {
             localStorage.removeItem("auth_token");
             localStorage.removeItem("refresh_token");
           }
+          setSessionCookie(false);
           
           set({
             user: null,
@@ -177,7 +189,10 @@ export const useAuthStore = create<AuthState>()(
         token: state.token,
       }),
       onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
+        if (state) {
+          setSessionCookie(!!state.token);
+          state.setHasHydrated(true);
+        }
       },
     }
   )

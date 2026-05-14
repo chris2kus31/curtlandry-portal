@@ -49,9 +49,11 @@ function AuthCallbackContent() {
     };
 
     const handleCallback = async () => {
-      // Get token from URL params
-      const token = searchParams.get("token");
-      const error = searchParams.get("error");
+      // Read token from URL fragment first (secure), fall back to query params (legacy)
+      const hash = window.location.hash.substring(1);
+      const hashParams = new URLSearchParams(hash);
+      const token = hashParams.get("token") || searchParams.get("token");
+      const error = hashParams.get("error") || searchParams.get("error");
 
       if (error) {
         handleError(error);
