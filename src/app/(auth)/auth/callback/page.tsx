@@ -49,9 +49,13 @@ function AuthCallbackContent() {
     };
 
     const handleCallback = async () => {
-      // Get token from URL params
-      const token = searchParams.get("token");
-      const error = searchParams.get("error");
+      // Read tokens from URL fragment first (secure), fall back to query params (legacy)
+      const hash = window.location.hash.substring(1);
+      const hashParams = new URLSearchParams(hash);
+      const token = hashParams.get("token") || searchParams.get("token");
+      const refreshToken =
+        hashParams.get("refresh_token") || searchParams.get("refresh_token");
+      const error = hashParams.get("error") || searchParams.get("error");
 
       if (error) {
         handleError(error);
@@ -65,8 +69,11 @@ function AuthCallbackContent() {
 
       setStatus("loading");
 
-      // Store the token in localStorage first (for http-client to use)
+      // Store tokens in localStorage first (for http-client to use)
       localStorage.setItem("auth_token", token);
+      if (refreshToken) {
+        localStorage.setItem("refresh_token", refreshToken);
+      }
 
       try {
         // Fetch user profile with the token

@@ -41,18 +41,18 @@ export type {
   ApprovalFilters,
 } from "./approval-service";
 
-// Site CMS service types
-export type {
-  Site,
-  SitePage,
-  SitePageSection,
-  SchemaField,
-  SectionSchema,
-  MediaAsset,
-  CreateSiteData,
-  CreatePageData,
-  CreateSectionData,
-} from "./site-service";
+// TODO: Uncomment when site-service module is implemented
+// export type {
+//   Site,
+//   SitePage,
+//   SitePageSection,
+//   SchemaField,
+//   SectionSchema,
+//   MediaAsset,
+//   CreateSiteData,
+//   CreatePageData,
+//   CreateSectionData,
+// } from "./site-service";
 
 // WooCommerce service types
 export type {

@@ -30,20 +30,30 @@ export const authService = {
       throw new Error("No refresh token available");
     }
 
-    const response = await httpClient.post<AuthResponse>(
-      "/portal/auth/refresh",
-      { refresh_token: refreshToken },
-    );
+    const response = await httpClient.post<{
+      success: boolean;
+      message: string;
+      data: {
+        tokens: {
+          access_token: string;
+          refresh_token?: string;
+          token_type: string;
+          expires_in: number;
+        };
+      };
+    }>("/portal/auth/refresh", { refresh_token: refreshToken });
 
-    // Store new tokens
-    if (response.token) {
-      httpClient.setAuthToken(response.token);
+    const accessToken = response.data?.tokens?.access_token;
+    const newRefreshToken = response.data?.tokens?.refresh_token;
+
+    if (accessToken) {
+      httpClient.setAuthToken(accessToken);
     }
-    if (response.refresh_token) {
-      localStorage.setItem("refresh_token", response.refresh_token);
+    if (newRefreshToken) {
+      localStorage.setItem("refresh_token", newRefreshToken);
     }
 
-    return response;
+    return response as unknown as AuthResponse;
   },
 
   /**
@@ -76,18 +86,14 @@ export const authService = {
    * Initiate Google login by redirecting to Laravel backend (CurtLandry)
    */
   initiateGoogleLogin(): void {
-    const googleUrl = this.getGoogleLoginUrl();
-    console.log("Redirecting to Google OAuth:", googleUrl);
-    window.location.href = googleUrl;
+    window.location.href = this.getGoogleLoginUrl();
   },
 
   /**
    * Initiate Google login by redirecting to Laravel backend (House of David)
    */
   initiateHodGoogleLogin(): void {
-    const googleUrl = this.getHodGoogleLoginUrl();
-    console.log("Redirecting to HOD Google OAuth:", googleUrl);
-    window.location.href = googleUrl;
+    window.location.href = this.getHodGoogleLoginUrl();
   },
 
   /**
