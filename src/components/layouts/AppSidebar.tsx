@@ -23,6 +23,7 @@ import {
   LuShieldCheck,
   LuTag,
   LuGlobe,
+  LuClipboardList,
 } from "react-icons/lu";
 import type { IconType } from "react-icons";
 import { useAuthStore } from "@/store/auth-store";
@@ -69,6 +70,12 @@ const LinkItems: LinkItemProps[] = [
     icon: LuGlobe,
     href: "/sites",
     requiredRoles: ["super_admin", "admin"],
+  },
+  {
+    name: "Events",
+    icon: LuClipboardList,
+    href: "/events/applications",
+    requiredPermissions: ["applications.review"],
   },
 ];
 
@@ -126,6 +133,12 @@ export function SidebarContent({
     // For /admin, only match exact /admin path, not /admin/store
     if (href === "/admin") {
       return pathname === "/admin";
+    }
+    // The Events nav points to /events/applications but the whole /events
+    // subtree (detail pages, future event management) should keep the item
+    // visually active.
+    if (href === "/events/applications") {
+      return pathname === href || pathname.startsWith("/events/");
     }
     // For other routes, check exact match or starts with href/
     return pathname === href || pathname.startsWith(href + "/");

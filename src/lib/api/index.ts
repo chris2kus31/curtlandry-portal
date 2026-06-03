@@ -7,6 +7,9 @@ export { adminService } from "./admin-service";
 export { approvalService } from "./approval-service";
 export { wooService } from "./woo-service";
 export { siteService } from "./site-service";
+export { adminApplicationsService } from "./admin-applications-service";
+export { mediaService } from "./media-service";
+export type { MediaAsset } from "./media-service";
 
 // Time-off service types
 export type {
@@ -64,3 +67,30 @@ export type {
   ApplySaleRequest,
   RollbackResult,
 } from "./woo-service";
+
+// Admin applications (event-application review widget) types
+export type {
+  ApplicationStatus,
+  EventLifecycleStatus,
+  AdminEvent,
+  AdminEventSummary,
+  AdminApplicationSummary,
+  AdminApplicationDetail,
+  AdminApplicationNote,
+  AdminApplicationStats,
+  AdminTimelineEntry,
+  AllowedTransition,
+  QueueFilters,
+  ChangeStatusPayload,
+  AddNotePayload,
+  SendEmailPayload,
+  CreateEventPayload,
+  UpdateEventPayload,
+  SchemaField,
+  SchemaSection,
+  SchemaStep,
+  SchemaOption,
+  ApplicationSchema,
+} from "./admin-applications-service";
+
+export { STATUS_LABELS } from "./admin-applications-service";
