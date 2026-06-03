@@ -132,6 +132,7 @@ export const STATUS_LABELS: Record<ApplicationStatus, string> = {
   info_requested: "Info Requested",
   accepted: "Accepted",
   paid: "Paid",
+  confirmed: "Confirmed",
   waitlisted: "Waitlisted",
   declined: "Declined",
   cancelled: "Cancelled",

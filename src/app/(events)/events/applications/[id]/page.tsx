@@ -31,11 +31,15 @@ import {
   type ApplicationStatus,
 } from "@/lib/api/admin-applications-service";
 import { StatusBadge } from "@/components/events/StatusBadge";
+import { PaymentLinkExpiredBadge } from "@/components/events/PaymentLinkExpiredBadge";
 import { ApplicationResponses } from "@/components/events/ApplicationResponses";
 import { ApplicationNotes } from "@/components/events/ApplicationNotes";
 import { ApplicationTimeline } from "@/components/events/ApplicationTimeline";
 import { StatusChangeModal } from "@/components/events/StatusChangeModal";
 import { AdminEmailModal } from "@/components/events/AdminEmailModal";
+import { SendPaymentLinkButton } from "@/components/events/SendPaymentLinkButton";
+import { ConfirmRegistrationButton } from "@/components/events/ConfirmRegistrationButton";
+import { RefundModal } from "@/components/events/RefundModal";
 
 /**
  * Application detail page. Lays out applicant info + responses on the left
@@ -55,6 +59,7 @@ export default function ApplicationDetailPage() {
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [statusInitialTo, setStatusInitialTo] = useState<ApplicationStatus | undefined>();
   const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [refundModalOpen, setRefundModalOpen] = useState(false);
 
   const surfaceBg = useColorModeValue("white", "gray.900");
   const subduedText = useColorModeValue("gray.600", "gray.400");
@@ -90,6 +95,15 @@ export default function ApplicationDetailPage() {
   };
 
   const handleEmailSent = () => {
+    if (id) adminApplicationsService.getTimeline(id).then(setTimeline).catch(() => {});
+  };
+
+  // Used by Send Payment Link / Confirm Registration / Refund. These actions
+  // mutate the application + write an activity log entry; we update both the
+  // detail state and the timeline panel in one pass so the audit row appears
+  // without a manual refresh.
+  const handleApplicationUpdated = (next: AdminApplicationDetail) => {
+    setDetail(next);
     if (id) adminApplicationsService.getTimeline(id).then(setTimeline).catch(() => {});
   };
 
@@ -133,6 +147,12 @@ export default function ApplicationDetailPage() {
             <Heading size="lg">{applicantName || "Application"}</Heading>
             <HStack mt={1} gap={3}>
               <StatusBadge status={detail.status} />
+              {detail.payment.payment_link_expired_at && detail.status === "accepted" && (
+                <PaymentLinkExpiredBadge
+                  expiredAt={detail.payment.payment_link_expired_at}
+                  sentCount={detail.payment.payment_link_sent_count}
+                />
+              )}
               <Text fontSize="sm" color={subduedText}>
                 {detail.reference_number} · {detail.event?.name ?? "—"}
               </Text>
@@ -204,6 +224,16 @@ export default function ApplicationDetailPage() {
 
           {/* Right rail */}
           <VStack align="stretch" gap={6}>
+            {/* Payment & registration actions — visible when relevant */}
+            <PaymentActionsPanel
+              application={detail}
+              onUpdated={handleApplicationUpdated}
+              onOpenRefund={() => setRefundModalOpen(true)}
+              surfaceBg={surfaceBg}
+              borderColor={borderColor}
+              subduedText={subduedText}
+            />
+
             {/* Quick actions */}
             <Box bg={surfaceBg} borderWidth={1} borderColor={borderColor} borderRadius="lg" p={4}>
               <Heading size="sm" mb={3}>
@@ -259,6 +289,116 @@ export default function ApplicationDetailPage() {
         onClose={() => setEmailModalOpen(false)}
         onSent={handleEmailSent}
       />
+      <RefundModal
+        application={detail}
+        open={refundModalOpen}
+        onClose={() => setRefundModalOpen(false)}
+        onUpdated={handleApplicationUpdated}
+      />
+    </Box>
+  );
+}
+
+/**
+ * Right-rail block grouping the Stripe / registration actions for the
+ * application. Renders nothing if no action is currently relevant — keeps
+ * the rail tidy for SUBMITTED / DECLINED / etc. applications.
+ */
+function PaymentActionsPanel({
+  application,
+  onUpdated,
+  onOpenRefund,
+  surfaceBg,
+  borderColor,
+  subduedText,
+}: {
+  application: AdminApplicationDetail;
+  onUpdated: (next: AdminApplicationDetail) => void;
+  onOpenRefund: () => void;
+  surfaceBg: string;
+  borderColor: string;
+  subduedText: string;
+}) {
+  const event = application.event;
+  const isPaidEvent = (event?.price_cents ?? 0) > 0;
+  const isFreeEvent = (event?.price_cents ?? 0) === 0;
+  const isAccepted = application.status === "accepted";
+  const isPaid = application.status === "paid";
+  const hasChargeId = Boolean(application.payment.stripe_charge_id);
+
+  const showSendLink = isPaidEvent && isAccepted;
+  const showConfirmFree = isFreeEvent && isAccepted;
+  const showRefund = isPaid && hasChargeId;
+
+  if (!showSendLink && !showConfirmFree && !showRefund) {
+    return null;
+  }
+
+  const currency = application.payment.paid_currency ?? event?.currency ?? "USD";
+  const formatCents = (cents: number) => {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency,
+      }).format(cents / 100);
+    } catch {
+      return `${(cents / 100).toFixed(2)} ${currency}`;
+    }
+  };
+
+  return (
+    <Box bg={surfaceBg} borderWidth={1} borderColor={borderColor} borderRadius="lg" p={4}>
+      <Heading size="sm" mb={3}>
+        Payment & registration
+      </Heading>
+
+      {/* Tiny summary of money-state when present */}
+      {(application.payment.amount_paid_cents ?? 0) > 0 && (
+        <VStack align="stretch" gap={1} mb={3}>
+          <Flex justify="space-between">
+            <Text fontSize="xs" color={subduedText} textTransform="uppercase">
+              Paid
+            </Text>
+            <Text fontSize="sm" fontWeight={500}>
+              {formatCents(application.payment.amount_paid_cents ?? 0)}
+            </Text>
+          </Flex>
+          {Boolean(application.payment.amount_refunded_cents) && (
+            <Flex justify="space-between">
+              <Text fontSize="xs" color={subduedText} textTransform="uppercase">
+                Refunded
+              </Text>
+              <Text fontSize="sm" fontWeight={500}>
+                {formatCents(application.payment.amount_refunded_cents ?? 0)}
+              </Text>
+            </Flex>
+          )}
+          {(application.payment.payment_link_sent_count ?? 0) > 0 && (
+            <Flex justify="space-between">
+              <Text fontSize="xs" color={subduedText} textTransform="uppercase">
+                Link sent
+              </Text>
+              <Text fontSize="sm" fontWeight={500}>
+                {application.payment.payment_link_sent_count}×
+              </Text>
+            </Flex>
+          )}
+        </VStack>
+      )}
+
+      <VStack align="stretch" gap={2}>
+        {showSendLink && (
+          <SendPaymentLinkButton application={application} onUpdated={onUpdated} />
+        )}
+        {showConfirmFree && (
+          <ConfirmRegistrationButton application={application} onUpdated={onUpdated} />
+        )}
+        {showRefund && (
+          <Button size="sm" px={4} variant="outline" colorPalette="red" onClick={onOpenRefund}>
+            Issue refund
+          </Button>
+        )}
+      </VStack>
     </Box>
   );
 }

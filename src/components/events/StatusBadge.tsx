@@ -12,6 +12,9 @@ const COLORS: Record<ApplicationStatus, string> = {
   info_requested: "purple",
   accepted: "green",
   paid: "teal",
+  // Free-event terminal-locked state. Distinct from paid (teal) so admins
+  // can scan the queue and tell paid vs free-confirmed apart at a glance.
+  confirmed: "cyan",
   waitlisted: "orange",
   declined: "red",
   cancelled: "gray",
