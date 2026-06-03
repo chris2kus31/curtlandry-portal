@@ -16,6 +16,7 @@ export type ApplicationStatus =
   | "info_requested"
   | "accepted"
   | "paid"
+  | "confirmed"
   | "waitlisted"
   | "declined"
   | "cancelled"
@@ -206,6 +207,16 @@ export interface AdminApplicationDetail extends AdminApplicationSummary {
         } | null;
         capacity: unknown;
         application_schema: ApplicationSchema | null;
+
+        // Pricing + refund policy + Stripe linkage. Drives conditional
+        // rendering of "Send payment link" vs "Confirm registration" and
+        // the refund-window preview in the refund modal.
+        currency: string;
+        price_cents: number;
+        stripe_price_id: string | null;
+        refund_full_until: string | null;
+        refund_partial_until: string | null;
+        refund_partial_pct: number | null;
       })
     | null;
   allowed_transitions: AllowedTransition[];
@@ -215,12 +226,21 @@ export interface AdminApplicationDetail extends AdminApplicationSummary {
     reviewed_at: string | null;
     decided_at: string | null;
     paid_at: string | null;
+    confirmed_at: string | null;
     cancelled_at: string | null;
     refunded_at: string | null;
   };
   payment: {
     stripe_checkout_session_id: string | null;
     stripe_payment_intent_id: string | null;
+    stripe_charge_id: string | null;
+    amount_paid_cents: number | null;
+    paid_currency: string | null;
+    amount_refunded_cents: number | null;
+    // Payment-link lifecycle, surfaced for badges + re-send affordance.
+    payment_link_sent_count: number;
+    payment_link_expired_at: string | null;
+    stripe_recovery_url: string | null;
   };
 }
 
@@ -343,6 +363,45 @@ export interface SendEmailPayload {
   body: string;
 }
 
+/**
+ * Response from POST /portal/events/applications/{id}/send-payment-link.
+ * Same shape on first send and re-send; sent_count distinguishes them.
+ */
+export interface SendPaymentLinkResponse {
+  session_url: string;
+  stripe_checkout_session_id: string;
+  payment_link_sent_count: number;
+  payment_link_expired_at: string | null;
+}
+
+/**
+ * Response from POST /portal/events/applications/{id}/confirm.
+ * Free-event terminal transition (price_cents=0).
+ */
+export interface ConfirmFreeRegistrationResponse {
+  id: string;
+  status: ApplicationStatus;
+  confirmed_at: string | null;
+}
+
+/**
+ * Optional fields on POST /portal/events/applications/{id}/refund.
+ * All are optional — default is full policy-driven refund.
+ */
+export interface IssueRefundPayload {
+  amount_cents?: number;
+  override_policy_window?: boolean;
+  reason?: string;
+}
+
+export interface IssueRefundResponse {
+  refund_id: string;
+  amount_cents: number;
+  is_full_refund: boolean;
+  total_refunded_cents: number;
+  application_status: ApplicationStatus;
+}
+
 /* ============================== Service =============================== */
 
 class AdminApplicationsService {
@@ -427,6 +486,50 @@ class AdminApplicationsService {
 
   async sendEmail(id: string, payload: SendEmailPayload): Promise<void> {
     await httpClient.post(`/portal/events/applications/${id}/email`, payload);
+  }
+
+  /**
+   * Create (or re-send) a Stripe Checkout Session for an ACCEPTED
+   * application on a PAID event. The applicant receives an email with
+   * the URL; this response also returns the URL so the portal can show
+   * a "copy link" affordance.
+   */
+  async sendPaymentLink(id: string): Promise<SendPaymentLinkResponse> {
+    const res = await httpClient.post<{ data: SendPaymentLinkResponse }>(
+      `/portal/events/applications/${id}/send-payment-link`,
+      {},
+    );
+    return res.data;
+  }
+
+  /**
+   * Terminal confirm for FREE events (event.price_cents === 0). No Stripe
+   * involved; transitions ACCEPTED → CONFIRMED via the state machine.
+   */
+  async confirmFreeRegistration(
+    id: string,
+  ): Promise<ConfirmFreeRegistrationResponse> {
+    const res = await httpClient.post<{ data: ConfirmFreeRegistrationResponse }>(
+      `/portal/events/applications/${id}/confirm`,
+      {},
+    );
+    return res.data;
+  }
+
+  /**
+   * Issue a Stripe refund. Default is policy-driven full refund. Use
+   * `amount_cents` to issue a custom partial; `override_policy_window` to
+   * bypass refund_full_until / refund_partial_until window checks.
+   */
+  async issueRefund(
+    id: string,
+    payload: IssueRefundPayload = {},
+  ): Promise<IssueRefundResponse> {
+    const res = await httpClient.post<{ data: IssueRefundResponse }>(
+      `/portal/events/applications/${id}/refund`,
+      payload,
+    );
+    return res.data;
   }
 
   /* ----------------------- Event management ---------------------------- */
