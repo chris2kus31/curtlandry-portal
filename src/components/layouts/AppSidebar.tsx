@@ -24,6 +24,7 @@ import {
   LuTag,
   LuGlobe,
   LuClipboardList,
+  LuMail,
 } from "react-icons/lu";
 import type { IconType } from "react-icons";
 import { useAuthStore } from "@/store/auth-store";
@@ -78,6 +79,12 @@ const LinkItems: LinkItemProps[] = [
     name: "Events",
     icon: LuClipboardList,
     href: "/events/applications",
+    requiredPermissions: ["applications.review"],
+  },
+  {
+    name: "Interest Signups",
+    icon: LuMail,
+    href: "/events/interest",
     requiredPermissions: ["applications.review"],
   },
 ];
@@ -137,11 +144,17 @@ export function SidebarContent({
     if (href === "/admin") {
       return pathname === "/admin";
     }
-    // The Events nav points to /events/applications but the whole /events
-    // subtree (detail pages, future event management) should keep the item
-    // visually active.
+    // The Events nav points to /events/applications and should also light
+    // up for the applications detail/manage subtrees. We intentionally do
+    // NOT match /events/interest here so the sibling "Interest Signups"
+    // nav item gets the active state when the user is on that page.
     if (href === "/events/applications") {
-      return pathname === href || pathname.startsWith("/events/");
+      return (
+        pathname === href ||
+        pathname.startsWith("/events/applications/") ||
+        pathname === "/events/manage" ||
+        pathname.startsWith("/events/manage/")
+      );
     }
     // For other routes, check exact match or starts with href/
     return pathname === href || pathname.startsWith(href + "/");
