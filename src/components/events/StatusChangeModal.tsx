@@ -148,7 +148,7 @@ export function StatusChangeModal({
                 {showPaymentUrl && (
                   <Box>
                     <Text fontSize="xs" color={subduedText} mb={1} textTransform="uppercase">
-                      Payment link (optional)
+                      Payment link (manual override — optional)
                     </Text>
                     <Input
                       placeholder="https://buy.stripe.com/..."
@@ -156,6 +156,15 @@ export function StatusChangeModal({
                       onChange={(e) => setPaymentUrl(e.target.value)}
                       px={4}
                     />
+                    <Text fontSize="xs" color={subduedText} mt={1.5}>
+                      Leave blank for the standard flow. After acceptance, use the{" "}
+                      <Text as="span" fontWeight={600}>
+                        Send payment link
+                      </Text>{" "}
+                      button on the application detail page — it creates a Stripe
+                      Checkout Session automatically. Only paste here if you need
+                      to override with a custom URL (e.g. wire-transfer link).
+                    </Text>
                   </Box>
                 )}
 
