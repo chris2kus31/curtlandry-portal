@@ -69,7 +69,10 @@ const LinkItems: LinkItemProps[] = [
     name: "Sites",
     icon: LuGlobe,
     href: "/sites",
-    requiredRoles: ["super_admin", "admin"],
+    // event_manager is an additive role that grants Sites + Events access
+    // without broader admin privileges. Kept in sync with the role
+    // allowlist on the API side (routes/api.php — portal.role middleware).
+    requiredRoles: ["super_admin", "admin", "event_manager"],
   },
   {
     name: "Events",
