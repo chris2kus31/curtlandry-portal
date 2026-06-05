@@ -51,8 +51,12 @@ interface RefundPreview {
  * authoritatively on the server (see IssueEventRefundAction.php).
  */
 export function RefundModal({ application, open, onClose, onUpdated }: Props) {
+  // All hooks must be called unconditionally at the top of the component —
+  // rules-of-hooks. Even color-mode values that are only used after an
+  // early return go up here.
   const subduedText = useColorModeValue("gray.600", "gray.400");
   const panelBg = useColorModeValue("gray.50", "gray.800");
+  const borderColor = useColorModeValue("gray.200", "gray.700");
 
   const [amountInput, setAmountInput] = useState<string>("");
   const [overridePolicy, setOverridePolicy] = useState(false);
@@ -230,7 +234,7 @@ export function RefundModal({ application, open, onClose, onUpdated }: Props) {
                   <Box>
                     <Text fontWeight={500}>Override refund-window policy</Text>
                     <Text fontSize="xs" color={subduedText}>
-                      Bypass the event's refund_full_until / refund_partial_until dates. Use
+                      Bypass the event&apos;s refund_full_until / refund_partial_until dates. Use
                       when leadership has approved an exception.
                     </Text>
                   </Box>
@@ -254,7 +258,7 @@ export function RefundModal({ application, open, onClose, onUpdated }: Props) {
                 {/* Effective summary */}
                 <Box
                   borderTop="1px solid"
-                  borderColor={useColorModeValue("gray.200", "gray.700")}
+                  borderColor={borderColor}
                   pt={3}
                 >
                   <PreviewLine
