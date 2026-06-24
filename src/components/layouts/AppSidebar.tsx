@@ -62,7 +62,8 @@ const LinkItems: LinkItemProps[] = [
     href: "/people-ops",
     // Unified onboarding + offboarding section (tabs gate per-capability inside).
     // Visible to managers (onboarding intake), HR (offboarding.submit), HR/IT
-    // (onboarding.manage), and super admins — any one grants access.
+    // (onboarding.manage), and super admins — any one grants access. (software.manage
+    // is bundled with onboarding.manage on the onboarding role, so it's covered.)
     requiresManager: true,
     requiredRoles: ["super_admin"],
     requiredPermissions: ["onboarding.manage", "offboarding.submit"],

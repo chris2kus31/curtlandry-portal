@@ -30,6 +30,8 @@ import {
   LuShieldAlert,
   LuBan,
   LuUser,
+  LuPackage,
+  LuTriangleAlert,
 } from "react-icons/lu";
 import { useAuthStore } from "@/store/auth-store";
 import { onboardingService } from "@/lib/api";
@@ -280,6 +282,7 @@ export default function OnboardingCaseDetailPage() {
     data.status !== "completed" && data.status !== "cancelled";
   const tasks = data.tasks ?? [];
   const notes = data.notes ?? [];
+  const software = data.software ?? [];
 
   return (
     <VStack gap={6} align="stretch">
@@ -444,6 +447,58 @@ export default function OnboardingCaseDetailPage() {
           </Card.Body>
         </Card.Root>
       </SimpleGrid>
+
+      {/* Software */}
+      {software.length > 0 && (
+        <Card.Root bg={cardBg} borderColor={borderColor} borderWidth="1px">
+          <Card.Body>
+            <HStack gap={2} mb={4}>
+              <Box color={iconColor}>
+                <LuPackage size={18} />
+              </Box>
+              <Text fontWeight="semibold" color={textPrimary}>
+                Software
+              </Text>
+            </HStack>
+            <Flex gap={2} flexWrap="wrap">
+              {software.map((sw) => (
+                <HStack
+                  key={sw.id}
+                  px={3}
+                  py={1.5}
+                  borderRadius="lg"
+                  border="1px solid"
+                  borderColor={borderColor}
+                  bg={subtleBg}
+                  gap={2}
+                >
+                  <Box color={sw.requires_approval ? "orange.400" : textMuted}>
+                    <LuPackage size={14} />
+                  </Box>
+                  <Text fontSize="sm" color={textPrimary} fontWeight="medium">
+                    {sw.name}
+                  </Text>
+                  {sw.requires_approval && (
+                    <HStack
+                      gap={1}
+                      px={1.5}
+                      py={0.5}
+                      borderRadius="md"
+                      bg="orange.500/10"
+                      color="orange.600"
+                    >
+                      <LuTriangleAlert size={11} />
+                      <Text fontSize="xs" fontWeight="medium">
+                        Approval
+                      </Text>
+                    </HStack>
+                  )}
+                </HStack>
+              ))}
+            </Flex>
+          </Card.Body>
+        </Card.Root>
+      )}
 
       {/* Tasks */}
       <Card.Root bg={cardBg} borderColor={borderColor} borderWidth="1px">

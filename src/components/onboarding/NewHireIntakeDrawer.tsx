@@ -27,6 +27,8 @@ import {
   LuCalendar,
   LuLaptop,
   LuSave,
+  LuPackage,
+  LuTriangleAlert,
 } from "react-icons/lu";
 import { onboardingService } from "@/lib/api";
 import type {
@@ -92,6 +94,7 @@ export function NewHireIntakeDrawer({
   optionsLoading = false,
 }: NewHireIntakeDrawerProps) {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
+  const [softwareIds, setSoftwareIds] = useState<number[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
 
@@ -110,6 +113,7 @@ export function NewHireIntakeDrawer({
   useEffect(() => {
     if (isOpen) {
       setForm(INITIAL_FORM);
+      setSoftwareIds([]);
       setErrors({});
     }
   }, [isOpen]);
@@ -176,6 +180,7 @@ export function NewHireIntakeDrawer({
           form.device_needed && form.requested_device_note.trim()
             ? form.requested_device_note.trim()
             : undefined,
+        software: softwareIds.length ? softwareIds : undefined,
       };
 
       const created = await onboardingService.submitIntake(payload);
@@ -377,6 +382,30 @@ export function NewHireIntakeDrawer({
   const employmentTypes = options?.employment_types ?? [];
   const managers = options?.managers ?? [];
   const assignableAssets = options?.assignable_assets ?? [];
+  const softwareCatalog = options?.software_catalog ?? [];
+
+  // Items offered for the chosen department: global (null department) + any
+  // scoped to the selected department.
+  const availableSoftware = softwareCatalog.filter(
+    (s) => !s.department || s.department === form.department,
+  );
+
+  const toggleSoftware = (id: number) => {
+    setSoftwareIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  // Drop selections that no longer apply when the department changes.
+  useEffect(() => {
+    const allowed = new Set(
+      softwareCatalog
+        .filter((s) => !s.department || s.department === form.department)
+        .map((s) => s.id),
+    );
+    setSoftwareIds((prev) => prev.filter((id) => allowed.has(id)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.department]);
 
   return (
     <Drawer.Root
@@ -725,6 +754,104 @@ export function NewHireIntakeDrawer({
                         </>
                       )}
                     </VStack>
+                  </Box>
+
+                  {/* Software */}
+                  <Box>
+                    <SectionTitle>Software</SectionTitle>
+                    {availableSoftware.length === 0 ? (
+                      <Text fontSize="sm" color={textSecondary}>
+                        No catalog software{" "}
+                        {form.department ? "for this department" : ""} yet.
+                      </Text>
+                    ) : (
+                      <VStack gap={2} align="stretch">
+                        <Text fontSize="xs" color={textSecondary} mb={1}>
+                          Pick the apps this hire needs. Items marked{" "}
+                          <Text as="span" color="orange.500" fontWeight="medium">
+                            Approval
+                          </Text>{" "}
+                          notify the approver when submitted.
+                        </Text>
+                        {availableSoftware.map((sw) => {
+                          const checked = softwareIds.includes(sw.id);
+                          return (
+                            <HStack
+                              key={sw.id}
+                              p={3}
+                              bg={inputBg}
+                              borderRadius="lg"
+                              border="1px solid"
+                              borderColor={checked ? "brand.400" : borderColor}
+                              cursor="pointer"
+                              onClick={() => toggleSoftware(sw.id)}
+                              _hover={{ borderColor: "brand.400" }}
+                              transition="all 0.15s"
+                              w="full"
+                            >
+                              <Box
+                                w={5}
+                                h={5}
+                                borderRadius="md"
+                                border="2px solid"
+                                borderColor={checked ? "brand.500" : borderColor}
+                                bg={checked ? "brand.500" : "transparent"}
+                                display="flex"
+                                alignItems="center"
+                                justifyContent="center"
+                                transition="all 0.15s"
+                                flexShrink={0}
+                              >
+                                {checked && (
+                                  <svg
+                                    width="12"
+                                    height="12"
+                                    viewBox="0 0 12 12"
+                                    fill="white"
+                                  >
+                                    <path
+                                      d="M10 3L4.5 8.5L2 6"
+                                      stroke="white"
+                                      strokeWidth="2"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      fill="none"
+                                    />
+                                  </svg>
+                                )}
+                              </Box>
+                              <Box color={iconColor} flexShrink={0}>
+                                <LuPackage size={16} />
+                              </Box>
+                              <Text
+                                flex={1}
+                                fontSize="sm"
+                                fontWeight="medium"
+                                color={textPrimary}
+                              >
+                                {sw.name}
+                              </Text>
+                              {sw.requires_approval && (
+                                <HStack
+                                  gap={1}
+                                  px={2}
+                                  py={0.5}
+                                  borderRadius="md"
+                                  bg="orange.500/10"
+                                  color="orange.600"
+                                  flexShrink={0}
+                                >
+                                  <LuTriangleAlert size={12} />
+                                  <Text fontSize="xs" fontWeight="medium">
+                                    Approval
+                                  </Text>
+                                </HStack>
+                              )}
+                            </HStack>
+                          );
+                        })}
+                      </VStack>
+                    )}
                   </Box>
                 </VStack>
               )}

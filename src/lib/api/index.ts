@@ -16,6 +16,8 @@ export type {
   OnboardingTaskStatus,
   OnboardingChecklistItem,
   OnboardingAsset,
+  SoftwareCatalogItem,
+  OnboardingCaseSoftware,
   OnboardingTask,
   OnboardingNote,
   OnboardingCase,
@@ -25,6 +27,11 @@ export type {
   OnboardingListFilters,
   UpdateTaskPayload,
 } from "./onboarding-service";
+export { softwareService } from "./software-service";
+export type {
+  SoftwareItemPayload,
+  SoftwareListFilters,
+} from "./software-service";
 export { offboardingService } from "./offboarding-service";
 export type {
   OffboardingStatus,

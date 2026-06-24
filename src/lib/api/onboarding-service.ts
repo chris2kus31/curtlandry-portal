@@ -35,6 +35,24 @@ export interface OnboardingAsset {
   is_assignable: boolean;
 }
 
+export interface SoftwareCatalogItem {
+  id: number;
+  name: string;
+  department: string | null;
+  is_active: boolean;
+  requires_approval: boolean;
+  notes: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+/** Snapshot stored on a case for the software a manager selected at intake. */
+export interface OnboardingCaseSoftware {
+  id: number;
+  name: string;
+  requires_approval: boolean;
+}
+
 export interface OnboardingTask {
   id: number;
   onboarding_case_id: number;
@@ -81,7 +99,7 @@ export interface OnboardingCase {
   purchase_needed: boolean;
   requested_device_note: string | null;
   service_setup: unknown[];
-  software: unknown[];
+  software: OnboardingCaseSoftware[] | null;
   completed_at: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -114,6 +132,7 @@ export interface OnboardingFormOptions {
   employment_types: string[];
   managers: OnboardingManager[];
   assignable_assets: OnboardingAsset[];
+  software_catalog: SoftwareCatalogItem[];
 }
 
 export interface IntakePayload {
@@ -132,7 +151,8 @@ export interface IntakePayload {
   purchase_needed?: boolean;
   requested_device_note?: string;
   service_setup?: unknown[];
-  software?: unknown[];
+  /** Catalog item IDs the manager selected. */
+  software?: number[];
 }
 
 interface ApiResponse<T> {

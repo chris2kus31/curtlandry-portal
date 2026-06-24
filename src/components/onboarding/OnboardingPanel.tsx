@@ -20,6 +20,7 @@ import {
   LuChevronRight,
   LuInbox,
   LuClipboardList,
+  LuPackage,
 } from "react-icons/lu";
 import { useAuthStore } from "@/store/auth-store";
 import { onboardingService } from "@/lib/api";
@@ -47,6 +48,8 @@ export function OnboardingPanel() {
   const canManage = hasPermission("onboarding.manage") || hasRole("super_admin");
   const canSubmit =
     canManage || !!user?.is_manager || !!user?.has_direct_reports;
+  const canManageSoftware =
+    hasPermission("software.manage") || hasRole("super_admin");
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [options, setOptions] = useState<OnboardingFormOptions | null>(null);
@@ -134,25 +137,48 @@ export function OnboardingPanel() {
             ? "Submit new hires and track their setup through HR & IT."
             : "Submit a new hire and HR & IT will take it from there."}
         </Text>
-        <Box
-          as="button"
-          onClick={() => setDrawerOpen(true)}
-          bg="brand.500"
-          color="white"
-          px={4}
-          py={2.5}
-          borderRadius="lg"
-          fontWeight="medium"
-          display="flex"
-          alignItems="center"
-          gap={2}
-          flexShrink={0}
-          _hover={{ bg: "brand.600" }}
-          transition="all 0.15s"
-        >
-          <LuUserPlus size={18} />
-          New Hire
-        </Box>
+        <HStack gap={3} flexShrink={0}>
+          {canManageSoftware && (
+            <Box
+              as="button"
+              onClick={() => router.push("/people-ops/software")}
+              px={4}
+              py={2.5}
+              borderRadius="lg"
+              fontWeight="medium"
+              border="1px solid"
+              borderColor={borderColor}
+              color={textPrimary}
+              bg="transparent"
+              display="flex"
+              alignItems="center"
+              gap={2}
+              _hover={{ bg: rowHoverBg }}
+              transition="all 0.15s"
+            >
+              <LuPackage size={18} />
+              Software Catalog
+            </Box>
+          )}
+          <Box
+            as="button"
+            onClick={() => setDrawerOpen(true)}
+            bg="brand.500"
+            color="white"
+            px={4}
+            py={2.5}
+            borderRadius="lg"
+            fontWeight="medium"
+            display="flex"
+            alignItems="center"
+            gap={2}
+            _hover={{ bg: "brand.600" }}
+            transition="all 0.15s"
+          >
+            <LuUserPlus size={18} />
+            New Hire
+          </Box>
+        </HStack>
       </Flex>
 
       {/* Manager-only quick explainer */}
