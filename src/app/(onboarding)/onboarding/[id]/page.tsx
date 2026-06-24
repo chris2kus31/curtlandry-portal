@@ -25,8 +25,6 @@ import {
   LuMapPin,
   LuCalendar,
   LuLaptop,
-  LuCircleCheck,
-  LuCircle,
   LuMessageSquare,
   LuSend,
   LuShieldAlert,
@@ -35,8 +33,14 @@ import {
 } from "react-icons/lu";
 import { useAuthStore } from "@/store/auth-store";
 import { onboardingService } from "@/lib/api";
-import type { OnboardingCase } from "@/lib/api";
+import type {
+  OnboardingCase,
+  OnboardingTaskStatus,
+  OnboardingChecklistItem,
+  UpdateTaskPayload,
+} from "@/lib/api";
 import { OnboardingStatusBadge } from "@/components/onboarding/OnboardingStatusBadge";
+import { OnboardingTaskCard } from "@/components/onboarding/OnboardingTaskCard";
 
 function formatStartDate(value: string | null): string {
   if (!value) return "—";
@@ -77,6 +81,7 @@ export default function OnboardingCaseDetailPage() {
   const [noteBody, setNoteBody] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [savingTaskId, setSavingTaskId] = useState<number | null>(null);
 
   // Colors
   const cardBg = useColorModeValue("white", "gray.900");
@@ -88,18 +93,21 @@ export default function OnboardingCaseDetailPage() {
   const subtleBg = useColorModeValue("gray.50", "gray.800");
   const iconColor = useColorModeValue("gray.400", "gray.500");
 
-  const load = useCallback(async () => {
-    if (!canManage || !caseId) return;
-    setLoading(true);
-    try {
-      const result = await onboardingService.get(caseId);
-      setData(result);
-    } catch {
-      setNotFound(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [canManage, caseId]);
+  const load = useCallback(
+    async (silent = false) => {
+      if (!canManage || !caseId) return;
+      if (!silent) setLoading(true);
+      try {
+        const result = await onboardingService.get(caseId);
+        setData(result);
+      } catch {
+        if (!silent) setNotFound(true);
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [canManage, caseId],
+  );
 
   useEffect(() => {
     load();
@@ -149,6 +157,44 @@ export default function OnboardingCaseDetailPage() {
       });
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const mutateTask = async (
+    taskId: number,
+    payload: UpdateTaskPayload,
+    reloadCase: boolean,
+  ) => {
+    if (!data) return;
+    setSavingTaskId(taskId);
+    try {
+      const updated = await onboardingService.updateTask(
+        data.id,
+        taskId,
+        payload,
+      );
+      if (reloadCase) {
+        // A status change can auto-complete/reopen the whole case.
+        await load(true);
+      } else {
+        setData((prev) =>
+          prev
+            ? {
+                ...prev,
+                tasks: prev.tasks?.map((t) => (t.id === taskId ? updated : t)),
+              }
+            : prev,
+        );
+      }
+    } catch (error) {
+      toaster.create({
+        title: "Failed to update task",
+        description: error instanceof Error ? error.message : "Try again",
+        type: "error",
+      });
+      await load(true);
+    } finally {
+      setSavingTaskId(null);
     }
   };
 
@@ -412,62 +458,20 @@ export default function OnboardingCaseDetailPage() {
           ) : (
             <VStack align="stretch" gap={3}>
               {tasks.map((task) => (
-                <Box
+                <OnboardingTaskCard
                   key={task.id}
-                  px={4}
-                  py={3}
-                  borderRadius="lg"
-                  border="1px solid"
-                  borderColor={borderColor}
-                  bg={subtleBg}
-                >
-                  <Flex justify="space-between" align="center" gap={3} mb={2}>
-                    <Text fontWeight="medium" color={textPrimary}>
-                      {task.title}
-                    </Text>
-                    <OnboardingStatusBadge
-                      label={task.status_label}
-                      color={task.status_color}
-                    />
-                  </Flex>
-                  {task.checklist.length > 0 && (
-                    <VStack align="stretch" gap={1.5} mt={2}>
-                      {task.checklist.map((item, idx) => (
-                        <HStack key={idx} gap={2} align="center">
-                          <Box color={item.done ? "green.500" : iconColor}>
-                            {item.done ? (
-                              <LuCircleCheck size={16} />
-                            ) : (
-                              <LuCircle size={16} />
-                            )}
-                          </Box>
-                          <Text
-                            fontSize="sm"
-                            color={item.done ? textMuted : textPrimary}
-                            textDecoration={
-                              item.done ? "line-through" : "none"
-                            }
-                          >
-                            {item.label}
-                          </Text>
-                        </HStack>
-                      ))}
-                    </VStack>
-                  )}
-                  {task.waiting_on && (
-                    <Text fontSize="xs" color="warning.strong" mt={2}>
-                      Waiting on: {task.waiting_on}
-                    </Text>
-                  )}
-                  {task.completed_at && (
-                    <Text fontSize="xs" color={textMuted} mt={2}>
-                      Completed {formatTimestamp(task.completed_at)}
-                      {task.completed_by_user
-                        ? ` by ${task.completed_by_user.name}`
-                        : ""}
-                    </Text>
-                  )}
-                </Box>
+                  task={task}
+                  saving={savingTaskId === task.id}
+                  onUpdateChecklist={(checklist: OnboardingChecklistItem[]) =>
+                    mutateTask(task.id, { checklist }, false)
+                  }
+                  onSetStatus={(status: OnboardingTaskStatus) =>
+                    mutateTask(task.id, { status }, true)
+                  }
+                  onSetWaitingOn={(text: string) =>
+                    mutateTask(task.id, { waiting_on: text }, false)
+                  }
+                />
               ))}
             </VStack>
           )}

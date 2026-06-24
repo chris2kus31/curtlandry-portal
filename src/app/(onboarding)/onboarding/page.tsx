@@ -29,7 +29,7 @@ import type { OnboardingCase, OnboardingFormOptions } from "@/lib/api";
 import { NewHireIntakeDrawer } from "@/components/onboarding/NewHireIntakeDrawer";
 import { OnboardingStatusBadge } from "@/components/onboarding/OnboardingStatusBadge";
 
-type QueueFilter = "active" | "all";
+type QueueFilter = "active" | "completed" | "all";
 
 function formatStartDate(value: string | null): string {
   if (!value) return "—";
@@ -88,7 +88,8 @@ export default function OnboardingPage() {
     setCasesLoading(true);
     try {
       const res = await onboardingService.list({
-        active: filter === "active",
+        active: filter === "active" || undefined,
+        status: filter === "completed" ? "completed" : undefined,
         per_page: 50,
         sort_by: "start_date",
         sort_dir: "asc",
@@ -235,7 +236,7 @@ export default function OnboardingPage() {
             >
               {/* Segmented filter */}
               <HStack gap={1} bg={segBg} p={1} borderRadius="lg" w="fit-content">
-                {(["active", "all"] as QueueFilter[]).map((key) => {
+                {(["active", "completed", "all"] as QueueFilter[]).map((key) => {
                   const active = filter === key;
                   return (
                     <Box
@@ -304,7 +305,9 @@ export default function OnboardingPage() {
                 <Text color={textSecondary} fontSize="sm">
                   {filter === "active"
                     ? "There are no active cases right now."
-                    : "Submit a new hire to get started."}
+                    : filter === "completed"
+                      ? "No completed cases yet."
+                      : "Submit a new hire to get started."}
                 </Text>
               </VStack>
             ) : (

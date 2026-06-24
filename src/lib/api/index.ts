@@ -23,6 +23,7 @@ export type {
   OnboardingFormOptions,
   IntakePayload,
   OnboardingListFilters,
+  UpdateTaskPayload,
 } from "./onboarding-service";
 
 // Time-off service types

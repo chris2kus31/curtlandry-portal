@@ -162,6 +162,13 @@ export interface OnboardingListFilters {
   per_page?: number;
 }
 
+export interface UpdateTaskPayload {
+  status?: OnboardingTaskStatus;
+  waiting_on?: string | null;
+  completion_note?: string | null;
+  checklist?: OnboardingChecklistItem[];
+}
+
 export const onboardingService = {
   /**
    * Options to populate the intake form (managers, departments, devices).
@@ -222,6 +229,22 @@ export const onboardingService = {
     const response = await httpClient.post<ApiResponse<OnboardingNote>>(
       `/portal/onboarding/cases/${id}/notes`,
       { body },
+    );
+    return response.data;
+  },
+
+  /**
+   * Update a task on a case — checklist toggles, status, notes
+   * (requires onboarding.manage).
+   */
+  async updateTask(
+    caseId: number,
+    taskId: number,
+    payload: UpdateTaskPayload,
+  ): Promise<OnboardingTask> {
+    const response = await httpClient.patch<ApiResponse<OnboardingTask>>(
+      `/portal/onboarding/cases/${caseId}/tasks/${taskId}`,
+      payload,
     );
     return response.data;
   },
