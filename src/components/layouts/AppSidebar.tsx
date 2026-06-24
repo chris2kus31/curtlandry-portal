@@ -25,6 +25,7 @@ import {
   LuGlobe,
   LuClipboardList,
   LuMail,
+  LuUserPlus,
 } from "react-icons/lu";
 import type { IconType } from "react-icons";
 import { useAuthStore } from "@/store/auth-store";
@@ -39,6 +40,7 @@ interface LinkItemProps {
   requiredRoles?: string[];
   requiredPermissions?: string[];
   requiresDirectReports?: boolean; // Only show if user has direct reports
+  requiresManager?: boolean; // Show if user is a manager (OR'd with roles/permissions)
 }
 
 const LinkItems: LinkItemProps[] = [
@@ -53,6 +55,16 @@ const LinkItems: LinkItemProps[] = [
     icon: LuUsers,
     href: "/team",
     requiresDirectReports: true, // Only show if user has people reporting to them
+  },
+  {
+    name: "Onboarding",
+    icon: LuUserPlus,
+    href: "/onboarding",
+    // Managers can submit new-hire intakes; HR/IT (onboarding.manage) and
+    // super admins manage the full queue. Any of these grants access.
+    requiresManager: true,
+    requiredRoles: ["super_admin"],
+    requiredPermissions: ["onboarding.manage"],
   },
   {
     name: "Admin",
@@ -116,22 +128,26 @@ export function SidebarContent({
   );
 
   const canAccess = (link: LinkItemProps) => {
-    // Check if requires direct reports (for Team page)
+    // Hard gate: Team page requires the user to have direct reports.
     if (link.requiresDirectReports && !user?.has_direct_reports) {
       return false;
     }
 
-    // Check role/permission requirements
-    if (!link.requiredRoles && !link.requiredPermissions) return true;
-    if (
-      link.requiredRoles?.length &&
-      roles.some((r) => link.requiredRoles!.includes(r))
-    )
-      return true;
-    return !!(
-      link.requiredPermissions?.length &&
-      permissions.some((p) => link.requiredPermissions!.includes(p))
-    );
+    // OR-style gates: visible when ANY declared condition is met. Items
+    // without any gate are visible to all authenticated users.
+    const gates: boolean[] = [];
+    if (link.requiresManager) {
+      gates.push(!!user?.has_direct_reports || !!user?.is_manager);
+    }
+    if (link.requiredRoles?.length) {
+      gates.push(roles.some((r) => link.requiredRoles!.includes(r)));
+    }
+    if (link.requiredPermissions?.length) {
+      gates.push(permissions.some((p) => link.requiredPermissions!.includes(p)));
+    }
+
+    if (gates.length === 0) return true;
+    return gates.some(Boolean);
   };
 
   const visibleLinks = LinkItems.filter(canAccess);

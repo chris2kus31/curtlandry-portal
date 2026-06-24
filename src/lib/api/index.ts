@@ -10,6 +10,20 @@ export { siteService } from "./site-service";
 export { adminApplicationsService } from "./admin-applications-service";
 export { mediaService } from "./media-service";
 export type { MediaAsset } from "./media-service";
+export { onboardingService } from "./onboarding-service";
+export type {
+  OnboardingStatus,
+  OnboardingTaskStatus,
+  OnboardingChecklistItem,
+  OnboardingAsset,
+  OnboardingTask,
+  OnboardingNote,
+  OnboardingCase,
+  OnboardingManager,
+  OnboardingFormOptions,
+  IntakePayload,
+  OnboardingListFilters,
+} from "./onboarding-service";
 
 // Time-off service types
 export type {
