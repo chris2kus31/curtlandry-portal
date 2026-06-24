@@ -25,6 +25,16 @@ export type {
   OnboardingListFilters,
   UpdateTaskPayload,
 } from "./onboarding-service";
+export { offboardingService } from "./offboarding-service";
+export type {
+  OffboardingStatus,
+  OffboardingCase,
+  OffboardingRecoveredDevice,
+  OffboardingEmployeeOption,
+  OffboardingFormOptions,
+  ResignationPayload,
+  OffboardingListFilters,
+} from "./offboarding-service";
 
 // Time-off service types
 export type {

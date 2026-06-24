@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   Box,
   Card,
-  Heading,
   HStack,
   Text,
   VStack,
@@ -20,7 +19,6 @@ import {
   LuLaptop,
   LuChevronRight,
   LuInbox,
-  LuShieldAlert,
   LuClipboardList,
 } from "react-icons/lu";
 import { useAuthStore } from "@/store/auth-store";
@@ -33,18 +31,16 @@ type QueueFilter = "active" | "completed" | "all";
 
 function formatStartDate(value: string | null): string {
   if (!value) return "—";
-  // start_date is a plain "YYYY-MM-DD" — parse as local to avoid TZ drift.
   const [year, month, day] = value.split("-").map(Number);
   if (!year || !month || !day) return value;
-  const date = new Date(year, month - 1, day);
-  return date.toLocaleDateString(undefined, {
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
 }
 
-export default function OnboardingPage() {
+export function OnboardingPanel() {
   const router = useRouter();
   const { user, hasRole, hasPermission } = useAuthStore();
 
@@ -61,7 +57,6 @@ export default function OnboardingPage() {
   const [filter, setFilter] = useState<QueueFilter>("active");
   const [search, setSearch] = useState("");
 
-  // Colors
   const cardBg = useColorModeValue("white", "gray.900");
   const borderColor = useColorModeValue("gray.200", "gray.800");
   const textPrimary = useColorModeValue("gray.900", "gray.50");
@@ -117,9 +112,7 @@ export default function OnboardingPage() {
       const name = c.new_hire?.name?.toLowerCase() ?? "";
       const email = c.new_hire?.email?.toLowerCase() ?? "";
       const dept = c.department?.toLowerCase() ?? "";
-      return (
-        name.includes(term) || email.includes(term) || dept.includes(term)
-      );
+      return name.includes(term) || email.includes(term) || dept.includes(term);
     });
   }, [cases, search]);
 
@@ -127,52 +120,20 @@ export default function OnboardingPage() {
     loadCases();
   }, [loadCases]);
 
-  // No access at all (defensive — nav already hides this route).
-  if (!canSubmit) {
-    return (
-      <VStack gap={6} align="stretch">
-        <Heading as="h1" size="xl" color={textPrimary} fontWeight="bold">
-          Onboarding
-        </Heading>
-        <Card.Root bg={cardBg} borderColor={borderColor} borderWidth="1px">
-          <Card.Body>
-            <VStack gap={3} py={10} textAlign="center">
-              <Box color={textMuted}>
-                <LuShieldAlert size={40} />
-              </Box>
-              <Text color={textPrimary} fontWeight="medium">
-                You don&apos;t have access to onboarding
-              </Text>
-              <Text color={textSecondary} fontSize="sm">
-                Onboarding is available to managers and HR/IT. Reach out to an
-                admin if you think this is a mistake.
-              </Text>
-            </VStack>
-          </Card.Body>
-        </Card.Root>
-      </VStack>
-    );
-  }
-
   return (
     <VStack gap={8} align="stretch">
-      {/* Header */}
+      {/* Sub-header + action */}
       <Flex
         justify="space-between"
         align={{ base: "flex-start", md: "center" }}
         direction={{ base: "column", md: "row" }}
         gap={4}
       >
-        <Box>
-          <Heading as="h1" size="xl" color={textPrimary} fontWeight="bold">
-            Onboarding
-          </Heading>
-          <Text color={textSecondary} mt={1}>
-            {canManage
-              ? "Submit new hires and track their setup through HR & IT."
-              : "Submit a new hire and HR & IT will take it from there."}
-          </Text>
-        </Box>
+        <Text color={textSecondary}>
+          {canManage
+            ? "Submit new hires and track their setup through HR & IT."
+            : "Submit a new hire and HR & IT will take it from there."}
+        </Text>
         <Box
           as="button"
           onClick={() => setDrawerOpen(true)}
@@ -185,6 +146,7 @@ export default function OnboardingPage() {
           display="flex"
           alignItems="center"
           gap={2}
+          flexShrink={0}
           _hover={{ bg: "brand.600" }}
           transition="all 0.15s"
         >
@@ -234,7 +196,6 @@ export default function OnboardingPage() {
               gap={3}
               mb={5}
             >
-              {/* Segmented filter */}
               <HStack gap={1} bg={segBg} p={1} borderRadius="lg" w="fit-content">
                 {(["active", "completed", "all"] as QueueFilter[]).map((key) => {
                   const active = filter === key;
@@ -260,7 +221,6 @@ export default function OnboardingPage() {
                 })}
               </HStack>
 
-              {/* Search */}
               <Box position="relative" maxW={{ base: "full", md: "280px" }} w="full">
                 <Box
                   position="absolute"
@@ -287,7 +247,6 @@ export default function OnboardingPage() {
               </Box>
             </Flex>
 
-            {/* Rows */}
             {casesLoading ? (
               <VStack gap={3} align="stretch">
                 {[0, 1, 2].map((i) => (
@@ -323,16 +282,12 @@ export default function OnboardingPage() {
                     border="1px solid"
                     borderColor={borderColor}
                     cursor="pointer"
-                    onClick={() => router.push(`/onboarding/${c.id}`)}
+                    onClick={() => router.push(`/people-ops/onboarding/${c.id}`)}
                     _hover={{ bg: rowHoverBg, borderColor: "brand.300" }}
                     transition="all 0.15s"
                   >
                     <Box flex={1} minW={0}>
-                      <Text
-                        fontWeight="semibold"
-                        color={textPrimary}
-                        truncate
-                      >
+                      <Text fontWeight="semibold" color={textPrimary} truncate>
                         {c.new_hire?.name ?? "New hire"}
                       </Text>
                       <Text fontSize="sm" color={textSecondary} truncate>

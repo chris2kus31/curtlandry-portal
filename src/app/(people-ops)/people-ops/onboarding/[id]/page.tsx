@@ -226,7 +226,7 @@ export default function OnboardingCaseDetailPage() {
   if (!canManage) {
     return (
       <VStack gap={6} align="stretch">
-        <BackButton onClick={() => router.push("/onboarding")} />
+        <BackButton onClick={() => router.push("/people-ops")} />
         <Card.Root bg={cardBg} borderColor={borderColor} borderWidth="1px">
           <Card.Body>
             <VStack gap={3} py={10} textAlign="center">
@@ -249,7 +249,7 @@ export default function OnboardingCaseDetailPage() {
   if (loading) {
     return (
       <VStack gap={6} align="stretch">
-        <BackButton onClick={() => router.push("/onboarding")} />
+        <BackButton onClick={() => router.push("/people-ops")} />
         <Skeleton height="120px" borderRadius="xl" />
         <Skeleton height="200px" borderRadius="xl" />
       </VStack>
@@ -259,7 +259,7 @@ export default function OnboardingCaseDetailPage() {
   if (notFound || !data) {
     return (
       <VStack gap={6} align="stretch">
-        <BackButton onClick={() => router.push("/onboarding")} />
+        <BackButton onClick={() => router.push("/people-ops")} />
         <Card.Root bg={cardBg} borderColor={borderColor} borderWidth="1px">
           <Card.Body>
             <VStack gap={2} py={10} textAlign="center">
@@ -283,7 +283,7 @@ export default function OnboardingCaseDetailPage() {
 
   return (
     <VStack gap={6} align="stretch">
-      <BackButton onClick={() => router.push("/onboarding")} />
+      <BackButton onClick={() => router.push("/people-ops")} />
 
       {/* Header */}
       <Flex

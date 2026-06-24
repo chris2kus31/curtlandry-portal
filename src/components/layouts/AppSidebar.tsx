@@ -25,7 +25,7 @@ import {
   LuGlobe,
   LuClipboardList,
   LuMail,
-  LuUserPlus,
+  LuUsersRound,
 } from "react-icons/lu";
 import type { IconType } from "react-icons";
 import { useAuthStore } from "@/store/auth-store";
@@ -57,14 +57,15 @@ const LinkItems: LinkItemProps[] = [
     requiresDirectReports: true, // Only show if user has people reporting to them
   },
   {
-    name: "Onboarding",
-    icon: LuUserPlus,
-    href: "/onboarding",
-    // Managers can submit new-hire intakes; HR/IT (onboarding.manage) and
-    // super admins manage the full queue. Any of these grants access.
+    name: "People Ops",
+    icon: LuUsersRound,
+    href: "/people-ops",
+    // Unified onboarding + offboarding section (tabs gate per-capability inside).
+    // Visible to managers (onboarding intake), HR (offboarding.submit), HR/IT
+    // (onboarding.manage), and super admins — any one grants access.
     requiresManager: true,
     requiredRoles: ["super_admin"],
-    requiredPermissions: ["onboarding.manage"],
+    requiredPermissions: ["onboarding.manage", "offboarding.submit"],
   },
   {
     name: "Admin",
