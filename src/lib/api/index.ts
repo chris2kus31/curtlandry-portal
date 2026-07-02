@@ -26,12 +26,21 @@ export type {
   IntakePayload,
   OnboardingListFilters,
   UpdateTaskPayload,
+  PeopleOpsStats,
 } from "./onboarding-service";
 export { softwareService } from "./software-service";
 export type {
   SoftwareItemPayload,
   SoftwareListFilters,
 } from "./software-service";
+export { assetService } from "./asset-service";
+export type {
+  Asset,
+  AssetAssignmentHistory,
+  AssetOptions,
+  AssetPayload,
+  AssetListFilters,
+} from "./asset-service";
 export { offboardingService } from "./offboarding-service";
 export type {
   OffboardingStatus,
@@ -48,6 +57,7 @@ export type {
   TimeOffType,
   TimeOffBalance,
   TimeOffRequest,
+  PtoEligibility,
 } from "./time-off-service";
 
 // Calendar service types

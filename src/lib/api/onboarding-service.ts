@@ -172,6 +172,33 @@ interface PaginatedResponse<T> {
   };
 }
 
+export interface PeopleOpsStats {
+  onboarding: {
+    active: number;
+    submitted: number;
+    in_progress: number;
+    starting_soon: number;
+    overdue: number;
+    completed_30d: number;
+  };
+  offboarding: {
+    active: number;
+    pending_device_recovery: number;
+    pending_deactivation: number;
+    last_day_soon: number;
+    overdue: number;
+  };
+  assets: {
+    total: number;
+    assignable: number;
+    by_status: Record<string, number>;
+  };
+  software: {
+    active: number;
+    requires_approval: number;
+  };
+}
+
 export interface OnboardingListFilters {
   status?: OnboardingStatus;
   active?: boolean;
@@ -275,6 +302,16 @@ export const onboardingService = {
   async cancel(id: number): Promise<OnboardingCase> {
     const response = await httpClient.post<ApiResponse<OnboardingCase>>(
       `/portal/onboarding/cases/${id}/cancel`,
+    );
+    return response.data;
+  },
+
+  /**
+   * People Ops dashboard counters (requires onboarding.manage).
+   */
+  async getStats(): Promise<PeopleOpsStats> {
+    const response = await httpClient.get<ApiResponse<PeopleOpsStats>>(
+      "/portal/people-ops/stats",
     );
     return response.data;
   },

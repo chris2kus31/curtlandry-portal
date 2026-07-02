@@ -8,6 +8,7 @@ import { LuShieldAlert, LuUserPlus, LuUserMinus } from "react-icons/lu";
 import { useAuthStore } from "@/store/auth-store";
 import { OnboardingPanel } from "@/components/onboarding/OnboardingPanel";
 import { OffboardingPanel } from "@/components/offboarding/OffboardingPanel";
+import { PeopleOpsStatsStrip } from "@/components/onboarding/PeopleOpsStatsStrip";
 
 type TabKey = "onboarding" | "offboarding";
 
@@ -82,6 +83,8 @@ function PeopleOpsContent() {
           New hire onboarding and resignation offboarding in one place.
         </Text>
       </Box>
+
+      {canManage && <PeopleOpsStatsStrip />}
 
       {tabs.length > 1 && (
         <HStack gap={1} bg={segBg} p={1} borderRadius="lg" w="fit-content">

@@ -50,6 +50,8 @@ export function OnboardingPanel() {
     canManage || !!user?.is_manager || !!user?.has_direct_reports;
   const canManageSoftware =
     hasPermission("software.manage") || hasRole("super_admin");
+  const canManageAssets =
+    hasPermission("assets.manage") || hasRole("super_admin");
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [options, setOptions] = useState<OnboardingFormOptions | null>(null);
@@ -138,6 +140,28 @@ export function OnboardingPanel() {
             : "Submit a new hire and HR & IT will take it from there."}
         </Text>
         <HStack gap={3} flexShrink={0}>
+          {canManageAssets && (
+            <Box
+              as="button"
+              onClick={() => router.push("/people-ops/assets")}
+              px={4}
+              py={2.5}
+              borderRadius="lg"
+              fontWeight="medium"
+              border="1px solid"
+              borderColor={borderColor}
+              color={textPrimary}
+              bg="transparent"
+              display="flex"
+              alignItems="center"
+              gap={2}
+              _hover={{ bg: rowHoverBg }}
+              transition="all 0.15s"
+            >
+              <LuLaptop size={18} />
+              Asset Inventory
+            </Box>
+          )}
           {canManageSoftware && (
             <Box
               as="button"

@@ -96,6 +96,18 @@ export interface TimeOffRequest {
   cancellation_reason?: string | null;
 }
 
+/** New-hire PTO usage waiting period status for the current user. */
+export interface PtoEligibility {
+  /** Whether the waiting period applies to this user (false = grandfathered/off). */
+  applies: boolean;
+  /** Whether the user may take PTO today. */
+  eligible: boolean;
+  /** First date the user may take PTO (ISO date), or null when not applicable. */
+  eligible_on: string | null;
+  waiting_period_months: number;
+  hire_date: string | null;
+}
+
 interface ApiResponse<T> {
   success: boolean;
   data: T;
@@ -109,6 +121,17 @@ export const timeOffService = {
   async getTypes(): Promise<TimeOffType[]> {
     const response = await httpClient.get<ApiResponse<TimeOffType[]>>(
       "/portal/time-off/types",
+    );
+    return response.data;
+  },
+
+  /**
+   * Get the current user's new-hire PTO usage eligibility (read-only; the
+   * request validation is the source of truth for enforcement).
+   */
+  async getEligibility(): Promise<PtoEligibility> {
+    const response = await httpClient.get<ApiResponse<PtoEligibility>>(
+      "/portal/time-off/eligibility",
     );
     return response.data;
   },
