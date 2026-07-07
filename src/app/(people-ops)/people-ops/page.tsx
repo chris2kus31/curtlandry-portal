@@ -23,6 +23,7 @@ function PeopleOpsContent() {
   const textSecondary = useColorModeValue("gray.600", "gray.400");
   const textMuted = useColorModeValue("gray.500", "gray.500");
   const segBg = useColorModeValue("gray.100", "gray.800");
+  const segHoverBg = useColorModeValue("gray.200", "gray.700");
 
   const canManage = hasPermission("onboarding.manage") || hasRole("super_admin");
   const canOnboard =
@@ -107,6 +108,8 @@ function PeopleOpsContent() {
                 display="flex"
                 alignItems="center"
                 gap={2}
+                cursor="pointer"
+                _hover={active ? undefined : { bg: segHoverBg, color: textPrimary }}
                 transition="all 0.15s"
               >
                 <Icon size={16} />

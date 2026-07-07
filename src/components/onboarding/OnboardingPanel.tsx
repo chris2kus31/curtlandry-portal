@@ -70,6 +70,7 @@ export function OnboardingPanel() {
   const rowHoverBg = useColorModeValue("gray.50", "gray.800");
   const inputBg = useColorModeValue("gray.50", "gray.800");
   const segBg = useColorModeValue("gray.100", "gray.800");
+  const segHoverBg = useColorModeValue("gray.200", "gray.700");
 
   const loadOptions = useCallback(async () => {
     setOptionsLoading(true);
@@ -263,6 +264,8 @@ export function OnboardingPanel() {
                       color={active ? textPrimary : textSecondary}
                       boxShadow={active ? "sm" : "none"}
                       onClick={() => setFilter(key)}
+                      cursor="pointer"
+                      _hover={active ? undefined : { bg: segHoverBg, color: textPrimary }}
                       transition="all 0.15s"
                     >
                       {key}

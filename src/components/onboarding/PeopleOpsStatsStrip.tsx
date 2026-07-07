@@ -118,7 +118,16 @@ export function PeopleOpsStatsStrip() {
             p={4}
             cursor={clickable ? "pointer" : "default"}
             onClick={clickable ? () => router.push(c.href!) : undefined}
-            _hover={clickable ? { bg: hoverBg } : undefined}
+            _hover={
+              clickable
+                ? {
+                    bg: hoverBg,
+                    borderColor: "brand.300",
+                    boxShadow: "sm",
+                    transform: "translateY(-1px)",
+                  }
+                : undefined
+            }
             transition="all 0.15s"
           >
             <HStack justify="space-between" mb={2}>

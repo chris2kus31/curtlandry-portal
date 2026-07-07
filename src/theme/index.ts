@@ -133,6 +133,18 @@ const makePalette = (palette: Record<number, string>) =>
 
 // --- Theme config ---
 const config = defineConfig({
+  // Chakra UI v3 does NOT set `cursor: pointer` on buttons by default, which
+  // makes clickable controls feel dead. Restore the expected affordance app-wide
+  // for real buttons, links, and role="button" elements, and show a disabled
+  // cursor when they're disabled.
+  globalCss: {
+    "button:not(:disabled), a[href], [role='button']:not([aria-disabled='true'])": {
+      cursor: "pointer",
+    },
+    "button:disabled, [aria-disabled='true']": {
+      cursor: "not-allowed",
+    },
+  },
   theme: {
     tokens: {
       colors: {
