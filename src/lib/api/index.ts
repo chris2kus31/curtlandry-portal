@@ -10,12 +10,54 @@ export { siteService } from "./site-service";
 export { adminApplicationsService } from "./admin-applications-service";
 export { mediaService } from "./media-service";
 export type { MediaAsset } from "./media-service";
+export { onboardingService } from "./onboarding-service";
+export type {
+  OnboardingStatus,
+  OnboardingTaskStatus,
+  OnboardingChecklistItem,
+  OnboardingAsset,
+  SoftwareCatalogItem,
+  OnboardingCaseSoftware,
+  OnboardingTask,
+  OnboardingNote,
+  OnboardingCase,
+  OnboardingManager,
+  OnboardingFormOptions,
+  IntakePayload,
+  OnboardingListFilters,
+  UpdateTaskPayload,
+  PeopleOpsStats,
+} from "./onboarding-service";
+export { softwareService } from "./software-service";
+export type {
+  SoftwareItemPayload,
+  SoftwareListFilters,
+} from "./software-service";
+export { assetService } from "./asset-service";
+export type {
+  Asset,
+  AssetAssignmentHistory,
+  AssetOptions,
+  AssetPayload,
+  AssetListFilters,
+} from "./asset-service";
+export { offboardingService } from "./offboarding-service";
+export type {
+  OffboardingStatus,
+  OffboardingCase,
+  OffboardingRecoveredDevice,
+  OffboardingEmployeeOption,
+  OffboardingFormOptions,
+  ResignationPayload,
+  OffboardingListFilters,
+} from "./offboarding-service";
 
 // Time-off service types
 export type {
   TimeOffType,
   TimeOffBalance,
   TimeOffRequest,
+  PtoEligibility,
 } from "./time-off-service";
 
 // Calendar service types

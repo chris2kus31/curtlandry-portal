@@ -45,6 +45,7 @@ import {
   type TimeOffBalance,
   type TimeOffRequest,
   type TimeOffType,
+  type PtoEligibility,
 } from "@/lib/api";
 import { DateRangePicker } from "@/components/ui/DateRangePicker";
 import { TimeOffCalendar } from "@/components/calendar";
@@ -173,6 +174,7 @@ function RequestTab({
   const [endTime, setEndTime] = useState<string>("17:00");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [selectedTypeId, setSelectedTypeId] = useState<number | null>(null);
+  const [eligibility, setEligibility] = useState<PtoEligibility | null>(null);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.100", "gray.700");
@@ -213,6 +215,14 @@ function RequestTab({
       setSelectedTypeId(defaultPtoType.id);
     }
   }, [defaultPtoType, selectedTypeId]);
+
+  // New-hire PTO usage waiting period (read-only; backend enforces).
+  useEffect(() => {
+    timeOffService
+      .getEligibility()
+      .then(setEligibility)
+      .catch(() => setEligibility(null));
+  }, []);
 
   // Memoize selected type
   const selectedType = useMemo(
@@ -306,6 +316,23 @@ function RequestTab({
     return `${year}-${month}-${day}`;
   };
 
+  // New-hire PTO usage waiting period (only gates accrual-based PTO; backend is
+  // the source of truth — this just makes the UI honest up front).
+  const eligibleOnLabel = eligibility?.eligible_on
+    ? new Date(`${eligibility.eligible_on}T00:00:00`).toLocaleDateString(
+        undefined,
+        { month: "long", day: "numeric", year: "numeric" },
+      )
+    : null;
+  const showWaitingBanner = !!eligibility?.applies && !eligibility?.eligible;
+  const startBeforeEligible =
+    usesAccrual &&
+    !!eligibility?.applies &&
+    !!eligibility?.eligible_on &&
+    !!startDate &&
+    formatDateForApi(startDate) < eligibility.eligible_on;
+  const formReady = isFormValid && !startBeforeEligible;
+
   const handleReset = () => {
     setStartDate(null);
     setEndDate(null);
@@ -321,7 +348,7 @@ function RequestTab({
   };
 
   const handleSubmit = async () => {
-    if (!selectedType || !isFormValid || !startDate) return;
+    if (!selectedType || !isFormValid || !startDate || startBeforeEligible) return;
 
     // For partial day, end date = start date
     const effectiveEndDate = requestType === "partial" ? startDate : endDate;
@@ -418,6 +445,45 @@ function RequestTab({
                 </IconButton>
               )}
             </HStack>
+
+            {/* New-hire PTO usage waiting period notice */}
+            {showWaitingBanner && (
+              <Box
+                p={4}
+                bg="amber.50"
+                border="1px solid"
+                borderColor="amber.200"
+                borderRadius="xl"
+                _dark={{ bg: "amber.950", borderColor: "amber.800" }}
+              >
+                <HStack gap={3} align="start">
+                  <Box color="amber.500" mt={0.5}>
+                    <LuClock size={20} />
+                  </Box>
+                  <VStack align="start" gap={1} flex={1}>
+                    <Text
+                      fontWeight="semibold"
+                      color="amber.700"
+                      _dark={{ color: "amber.300" }}
+                    >
+                      PTO usage starts {eligibleOnLabel ?? "after your waiting period"}
+                    </Text>
+                    <Text
+                      fontSize="sm"
+                      color="amber.600"
+                      _dark={{ color: "amber.400" }}
+                    >
+                      New hires accrue PTO from day one but can begin{" "}
+                      <strong>using</strong> it after a{" "}
+                      {eligibility?.waiting_period_months ?? 6}-month waiting
+                      period. You can still submit a request now for any PTO dates
+                      on or after {eligibleOnLabel ?? "that date"}. Other leave
+                      types are unaffected.
+                    </Text>
+                  </VStack>
+                </HStack>
+              </Box>
+            )}
 
             {/* Leave Type Selection */}
             <Box>
@@ -864,33 +930,41 @@ function RequestTab({
               </Box>
             )}
 
+            {/* Inline PTO waiting-period block on the chosen start date */}
+            {startBeforeEligible && (
+              <Text fontSize="xs" color="amber.600" _dark={{ color: "amber.400" }}>
+                Your PTO start date must be on or after{" "}
+                {eligibleOnLabel ?? "your eligibility date"}.
+              </Text>
+            )}
+
             {/* Submit */}
             <Box
               as="button"
-              onClick={!isFormValid || isSubmitting ? undefined : handleSubmit}
-              aria-disabled={!isFormValid || isSubmitting}
+              onClick={!formReady || isSubmitting ? undefined : handleSubmit}
+              aria-disabled={!formReady || isSubmitting}
               w="full"
               py={4}
-              bgGradient={!isFormValid ? undefined : "to-r"}
-              gradientFrom={!isFormValid ? undefined : "brand.500"}
-              gradientTo={!isFormValid ? undefined : "cyan.500"}
-              bg={!isFormValid ? disabledBg : undefined}
-              color={!isFormValid ? disabledColor : "white"}
+              bgGradient={!formReady ? undefined : "to-r"}
+              gradientFrom={!formReady ? undefined : "brand.500"}
+              gradientTo={!formReady ? undefined : "cyan.500"}
+              bg={!formReady ? disabledBg : undefined}
+              color={!formReady ? disabledColor : "white"}
               fontWeight="semibold"
               borderRadius="xl"
               display="flex"
               alignItems="center"
               justifyContent="center"
               gap={2}
-              cursor={!isFormValid || isSubmitting ? "not-allowed" : "pointer"}
+              cursor={!formReady || isSubmitting ? "not-allowed" : "pointer"}
               opacity={isSubmitting ? 0.7 : 1}
               _hover={{
-                opacity: isFormValid && !isSubmitting ? 0.9 : 1,
+                opacity: formReady && !isSubmitting ? 0.9 : 1,
                 transform:
-                  isFormValid && !isSubmitting ? "translateY(-1px)" : "none",
+                  formReady && !isSubmitting ? "translateY(-1px)" : "none",
               }}
               transition="all 0.2s"
-              shadow={isFormValid ? "lg" : "none"}
+              shadow={formReady ? "lg" : "none"}
             >
               <LuSend size={18} />
               {isSubmitting ? "Submitting..." : "Submit Request"}
