@@ -36,6 +36,7 @@ import {
 } from "@/lib/api/admin-applications-service";
 import { siteService, type Site } from "@/lib/api/site-service";
 import { ApplicationSchemaBuilder } from "./schema-builder/ApplicationSchemaBuilder";
+import { cloneDefaultApplicationSchema } from "./defaultApplicationSchema";
 import { ImagePicker } from "./ImagePicker";
 import { GalleryPicker } from "./GalleryPicker";
 import { EventPreview } from "./EventPreview";
@@ -243,7 +244,9 @@ function blankForm(): FormState {
     refund_partial_until: "",
     refund_partial_pct: "",
     application_status: "draft",
-    application_schema: null,
+    // New events inherit the standard application form. Editing it in the
+    // builder diverges it into a per-event custom schema.
+    application_schema: cloneDefaultApplicationSchema(),
   };
 }
 
@@ -612,7 +615,7 @@ export function EventForm({ mode, initial }: Props) {
           </Box>
         )}
         {/* Basics */}
-        <SectionCard title="Basics" surfaceBg={surfaceBg} borderColor={borderColor}>
+        <SectionCard title="Basics" surfaceBg={surfaceBg} borderColor={borderColor} onSave={handleSave} saving={saving} saveLabel={mode === "create" ? "Create" : "Save"}>
           <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
             {mode === "create" && (
               <FieldShell label="Site" required error={fe("site_id")}>
@@ -698,7 +701,7 @@ export function EventForm({ mode, initial }: Props) {
         </SectionCard>
 
         {/* Schedule + location */}
-        <SectionCard title="Schedule & location" surfaceBg={surfaceBg} borderColor={borderColor}>
+        <SectionCard title="Schedule & location" surfaceBg={surfaceBg} borderColor={borderColor} onSave={handleSave} saving={saving} saveLabel={mode === "create" ? "Create" : "Save"}>
           <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
             <FieldShell label="Start date" required error={fe("start_date")}>
               <Input
@@ -785,21 +788,21 @@ export function EventForm({ mode, initial }: Props) {
                 px={4}
               />
             </FieldShell>
-            <FieldShell label="Country" helpText="2-letter country code, e.g. US." error={fe("location_country")}>
+            <FieldShell label="Country" helpText="US only for now." error={fe("location_country")}>
               <Input
-                value={form.location_country}
-                onChange={(e) =>
-                  setField("location_country", e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2))
-                }
-                placeholder="US"
+                value="US"
+                disabled
+                readOnly
                 px={4}
+                cursor="not-allowed"
+                opacity={0.7}
               />
             </FieldShell>
           </SimpleGrid>
         </SectionCard>
 
         {/* Capacity & pricing */}
-        <SectionCard title="Capacity & pricing" surfaceBg={surfaceBg} borderColor={borderColor}>
+        <SectionCard title="Capacity & pricing" surfaceBg={surfaceBg} borderColor={borderColor} onSave={handleSave} saving={saving} saveLabel={mode === "create" ? "Create" : "Save"}>
           <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
             <FieldShell label="Capacity" required helpText="Max attendees. Whole number." error={fe("capacity")}>
               <Input
@@ -888,7 +891,7 @@ export function EventForm({ mode, initial }: Props) {
         </SectionCard>
 
         {/* Display labels + media */}
-        <SectionCard title="Display & media" surfaceBg={surfaceBg} borderColor={borderColor}>
+        <SectionCard title="Display & media" surfaceBg={surfaceBg} borderColor={borderColor} onSave={handleSave} saving={saving} saveLabel={mode === "create" ? "Create" : "Save"}>
           <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
             <FieldShell label="Format" helpText="e.g. In-person retreat" error={fe("format")}>
               <Input
@@ -951,7 +954,7 @@ export function EventForm({ mode, initial }: Props) {
         </SectionCard>
 
         {/* Refund */}
-        <SectionCard title="Refund policy" surfaceBg={surfaceBg} borderColor={borderColor}>
+        <SectionCard title="Refund policy" surfaceBg={surfaceBg} borderColor={borderColor} onSave={handleSave} saving={saving} saveLabel={mode === "create" ? "Create" : "Save"}>
           <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
             <FieldShell label="Full refund until" error={fe("refund_full_until")}>
               <Input
@@ -983,7 +986,7 @@ export function EventForm({ mode, initial }: Props) {
         </SectionCard>
 
         {/* Application schema */}
-        <SectionCard title="Application form" surfaceBg={surfaceBg} borderColor={borderColor}>
+        <SectionCard title="Application form" surfaceBg={surfaceBg} borderColor={borderColor} onSave={handleSave} saving={saving} saveLabel={mode === "create" ? "Create" : "Save"}>
           <Text fontSize="xs" color={subduedText} mb={4}>
             Compose the multi-step application form applicants will fill
             out. Add steps, sections, and fields visually — or switch to{" "}
@@ -1063,18 +1066,37 @@ function SectionCard({
   children,
   surfaceBg,
   borderColor,
+  onSave,
+  saving,
+  saveLabel = "Save",
 }: {
   title: string;
   children: React.ReactNode;
   surfaceBg: string;
   borderColor: string;
+  /** When provided, renders a Save button in the section header. */
+  onSave?: () => void;
+  saving?: boolean;
+  saveLabel?: string;
 }) {
   return (
     <Card.Root bg={surfaceBg} borderWidth={1} borderColor={borderColor}>
       <Card.Body p={5}>
-        <Heading size="sm" mb={4}>
-          {title}
-        </Heading>
+        <HStack mb={4} justify="space-between" align="center">
+          <Heading size="sm">{title}</Heading>
+          {onSave && (
+            <Button
+              size="xs"
+              variant="outline"
+              colorPalette="brand"
+              onClick={onSave}
+              loading={saving}
+              px={3}
+            >
+              <LuSave /> {saveLabel}
+            </Button>
+          )}
+        </HStack>
         {children}
       </Card.Body>
     </Card.Root>
