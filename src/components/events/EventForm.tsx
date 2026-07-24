@@ -12,17 +12,20 @@ import {
   HStack,
   Input,
   Portal,
+  Select as CSelect,
   SimpleGrid,
   Spacer,
   Text,
   Textarea,
   VStack,
   chakra,
+  createListCollection,
 } from "@chakra-ui/react";
-import { LuArrowLeft, LuEye, LuSave, LuTrash2 } from "react-icons/lu";
+import { LuArrowLeft, LuEye, LuSave, LuTrash2, LuTriangleAlert } from "react-icons/lu";
 import NextLink from "next/link";
 import { useColorModeValue } from "@/components/ui/color-mode";
 import { toaster } from "@/components/ui/toaster";
+import type { ApiError } from "@/types/api";
 import {
   adminApplicationsService,
   type AdminEvent,
@@ -55,6 +58,121 @@ const COMMON_TIMEZONES = [
   "Pacific/Honolulu",
   "UTC",
 ];
+
+// US states + DC + common territories, as {code, name}. Value stored is the
+// 2-letter code (matches how the API stores location_state, e.g. "FL").
+const US_STATES: { code: string; name: string }[] = [
+  { code: "AL", name: "Alabama" }, { code: "AK", name: "Alaska" },
+  { code: "AZ", name: "Arizona" }, { code: "AR", name: "Arkansas" },
+  { code: "CA", name: "California" }, { code: "CO", name: "Colorado" },
+  { code: "CT", name: "Connecticut" }, { code: "DE", name: "Delaware" },
+  { code: "DC", name: "District of Columbia" }, { code: "FL", name: "Florida" },
+  { code: "GA", name: "Georgia" }, { code: "HI", name: "Hawaii" },
+  { code: "ID", name: "Idaho" }, { code: "IL", name: "Illinois" },
+  { code: "IN", name: "Indiana" }, { code: "IA", name: "Iowa" },
+  { code: "KS", name: "Kansas" }, { code: "KY", name: "Kentucky" },
+  { code: "LA", name: "Louisiana" }, { code: "ME", name: "Maine" },
+  { code: "MD", name: "Maryland" }, { code: "MA", name: "Massachusetts" },
+  { code: "MI", name: "Michigan" }, { code: "MN", name: "Minnesota" },
+  { code: "MS", name: "Mississippi" }, { code: "MO", name: "Missouri" },
+  { code: "MT", name: "Montana" }, { code: "NE", name: "Nebraska" },
+  { code: "NV", name: "Nevada" }, { code: "NH", name: "New Hampshire" },
+  { code: "NJ", name: "New Jersey" }, { code: "NM", name: "New Mexico" },
+  { code: "NY", name: "New York" }, { code: "NC", name: "North Carolina" },
+  { code: "ND", name: "North Dakota" }, { code: "OH", name: "Ohio" },
+  { code: "OK", name: "Oklahoma" }, { code: "OR", name: "Oregon" },
+  { code: "PA", name: "Pennsylvania" }, { code: "RI", name: "Rhode Island" },
+  { code: "SC", name: "South Carolina" }, { code: "SD", name: "South Dakota" },
+  { code: "TN", name: "Tennessee" }, { code: "TX", name: "Texas" },
+  { code: "UT", name: "Utah" }, { code: "VT", name: "Vermont" },
+  { code: "VA", name: "Virginia" }, { code: "WA", name: "Washington" },
+  { code: "WV", name: "West Virginia" }, { code: "WI", name: "Wisconsin" },
+  { code: "WY", name: "Wyoming" }, { code: "PR", name: "Puerto Rico" },
+];
+
+// Supported currencies. USD is the default; the rest are here so multi-region
+// events don't require code changes.
+const CURRENCIES = ["USD", "CAD", "EUR", "GBP", "AUD"];
+
+/** Keep only digits (for capacity). */
+const digitsOnly = (v: string) => v.replace(/[^0-9]/g, "");
+
+/** Keep digits + a single optional hyphen, max 10 chars (US ZIP / ZIP+4). */
+const sanitizeZip = (v: string) => {
+  const cleaned = v.replace(/[^0-9-]/g, "");
+  // collapse to at most one hyphen
+  const parts = cleaned.split("-");
+  const joined = parts.length > 1 ? `${parts[0]}-${parts.slice(1).join("")}` : parts[0];
+  return joined.slice(0, 10);
+};
+
+/** Keep digits and a single decimal point, max 2 decimal places (for price). */
+const sanitizeMoney = (v: string) => {
+  let cleaned = v.replace(/[^0-9.]/g, "");
+  const firstDot = cleaned.indexOf(".");
+  if (firstDot !== -1) {
+    // remove any additional dots after the first
+    cleaned =
+      cleaned.slice(0, firstDot + 1) +
+      cleaned.slice(firstDot + 1).replace(/\./g, "");
+    // cap to 2 decimal places
+    const [whole, dec] = cleaned.split(".");
+    cleaned = dec !== undefined ? `${whole}.${dec.slice(0, 2)}` : whole;
+  }
+  return cleaned;
+};
+
+// State dropdown backing collection — a fixed-height, scrollable, type-to-search
+// popover (Chakra Select), so the full 50-state list never fills the screen.
+const STATE_COLLECTION = createListCollection({
+  items: US_STATES.map((s) => ({ label: `${s.name} (${s.code})`, value: s.code })),
+});
+
+// Friendly labels for API field keys, so server validation messages read like
+// English instead of snake_case. Used by humanizeMessage() and the error banner.
+const FIELD_LABELS: Record<string, string> = {
+  slug: "URL slug",
+  name: "Event name",
+  subtitle: "Subtitle",
+  description: "Description",
+  site_id: "Site",
+  start_date: "Start date",
+  end_date: "End date",
+  timezone: "Timezone",
+  location_venue_name: "Venue name",
+  location_street_1: "Street address",
+  location_street_2: "Street address line 2",
+  location_city: "City",
+  location_state: "State",
+  location_postal_code: "Postal code",
+  location_country: "Country",
+  capacity: "Capacity",
+  currency: "Currency",
+  price_cents: "Price",
+  refund_full_until: "Full-refund deadline",
+  refund_partial_until: "Partial-refund deadline",
+  refund_partial_pct: "Partial-refund percentage",
+  application_status: "Application status",
+  application_schema: "Application form",
+  format: "Format",
+  group_size_label: "Group size label",
+  length_label: "Length label",
+};
+
+// Rewrites Laravel's raw attribute phrases (e.g. "refund partial until") into the
+// friendly labels above so messages are readable. Longest keys first to avoid
+// partial overlaps.
+function humanizeMessage(msg: string): string {
+  let out = msg;
+  const entries = Object.entries(FIELD_LABELS).sort(
+    (a, b) => b[0].length - a[0].length,
+  );
+  for (const [key, label] of entries) {
+    const phrase = key.replace(/_/g, " ");
+    out = out.replace(new RegExp(`\\b${phrase}\\b`, "gi"), label);
+  }
+  return out;
+}
 
 interface FormState {
   site_id: string;
@@ -187,7 +305,8 @@ function buildPayload(
       ? form.application_schema
       : null;
 
-  const dollars = parseFloat(form.price_dollars);
+  // Empty price is treated as free ($0), not an error.
+  const dollars = form.price_dollars.trim() === "" ? 0 : parseFloat(form.price_dollars);
   if (Number.isNaN(dollars) || dollars < 0) {
     return { ok: false, error: "Price must be a non-negative number." };
   }
@@ -250,10 +369,19 @@ export function EventForm({ mode, initial }: Props) {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  // Server-side validation errors, keyed by API field name (already humanized).
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const surfaceBg = useColorModeValue("white", "gray.900");
   const subduedText = useColorModeValue("gray.600", "gray.400");
   const borderColor = useColorModeValue("gray.200", "gray.700");
+  const freeBannerBg = useColorModeValue("green.50", "green.900");
+  const freeBannerBorder = useColorModeValue("green.200", "green.700");
+  const freeBannerText = useColorModeValue("green.800", "green.200");
+  const errBannerBg = useColorModeValue("red.50", "red.950");
+  const errBannerBorder = useColorModeValue("red.300", "red.700");
+  const errText = useColorModeValue("red.700", "red.200");
+  const fe = (key: string): string | undefined => fieldErrors[key];
 
   useEffect(() => {
     if (mode === "create") {
@@ -271,6 +399,7 @@ export function EventForm({ mode, initial }: Props) {
   // and warnings inline.
 
   const handleSave = async () => {
+    setFieldErrors({});
     const built = buildPayload(form, mode);
     if (!built.ok) {
       toaster.error({ title: built.error });
@@ -292,14 +421,30 @@ export function EventForm({ mode, initial }: Props) {
         toaster.success({ title: "Event saved." });
       }
     } catch (err: unknown) {
-      const data = (err as {
-        response?: { data?: { message?: string; errors?: Record<string, string[]> } };
-      })?.response?.data;
-      // Surface the first server-side validation error for visibility.
-      const firstError = data?.errors
-        ? Object.values(data.errors).flat()[0]
-        : undefined;
-      toaster.error({ title: firstError ?? data?.message ?? "Failed to save event." });
+      // httpClient rejects with a flat ApiError ({ message, errors, status }),
+      // NOT an axios { response: { data } } wrapper — reading the wrong shape is
+      // why real validation errors used to collapse into a generic message.
+      const apiErr = err as Partial<ApiError>;
+      const raw = apiErr?.errors ?? {};
+      const next: Record<string, string> = {};
+      for (const [field, msgs] of Object.entries(raw)) {
+        if (Array.isArray(msgs) && msgs.length) {
+          next[field] = humanizeMessage(String(msgs[0]));
+        }
+      }
+      setFieldErrors(next);
+      const count = Object.keys(next).length;
+      toaster.error({
+        title:
+          count > 0
+            ? `Couldn't save — please fix ${count} field${count === 1 ? "" : "s"} highlighted below.`
+            : apiErr?.message
+              ? humanizeMessage(apiErr.message)
+              : "Failed to save event.",
+      });
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
     } finally {
       setSaving(false);
     }
@@ -314,10 +459,12 @@ export function EventForm({ mode, initial }: Props) {
       toaster.success({ title: "Event deleted." });
       router.push("/events/manage");
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        "Failed to delete event.";
-      toaster.error({ title: msg });
+      const apiErr = err as Partial<ApiError>;
+      toaster.error({
+        title: apiErr?.message
+          ? humanizeMessage(apiErr.message)
+          : "Failed to delete event.",
+      });
     } finally {
       setDeleting(false);
     }
@@ -441,11 +588,34 @@ export function EventForm({ mode, initial }: Props) {
       </Dialog.Root>
 
       <VStack align="stretch" gap={6}>
+        {Object.keys(fieldErrors).length > 0 && (
+          <Box
+            borderWidth={1}
+            borderColor={errBannerBorder}
+            bg={errBannerBg}
+            borderRadius="md"
+            p={4}
+          >
+            <HStack gap={2} mb={2} color={errText}>
+              <LuTriangleAlert />
+              <Text fontWeight="semibold">
+                Please fix the following before saving:
+              </Text>
+            </HStack>
+            <VStack as="ul" align="stretch" gap={1} pl={1}>
+              {Object.entries(fieldErrors).map(([field, msg]) => (
+                <Text as="li" key={field} fontSize="sm" color={errText} listStyleType="none">
+                  • {msg}
+                </Text>
+              ))}
+            </VStack>
+          </Box>
+        )}
         {/* Basics */}
         <SectionCard title="Basics" surfaceBg={surfaceBg} borderColor={borderColor}>
           <SimpleGrid columns={{ base: 1, md: 2 }} gap={4}>
             {mode === "create" && (
-              <FieldShell label="Site" required>
+              <FieldShell label="Site" required error={fe("site_id")}>
                 <Select
                   value={form.site_id}
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
@@ -468,7 +638,7 @@ export function EventForm({ mode, initial }: Props) {
                 </Select>
               </FieldShell>
             )}
-            <FieldShell label="Name" required>
+            <FieldShell label="Name" required error={fe("name")}>
               <Input
                 value={form.name}
                 onChange={(e) => setField("name", e.target.value)}
@@ -476,7 +646,7 @@ export function EventForm({ mode, initial }: Props) {
                 placeholder="Aligned: A Pastors' Retreat"
               />
             </FieldShell>
-            <FieldShell label="Slug" required helpText="lowercase, hyphens only">
+            <FieldShell label="Slug" required helpText="lowercase, hyphens only" error={fe("slug")}>
               <Input
                 value={form.slug}
                 onChange={(e) =>
@@ -486,14 +656,14 @@ export function EventForm({ mode, initial }: Props) {
                 placeholder="aligned"
               />
             </FieldShell>
-            <FieldShell label="Subtitle">
+            <FieldShell label="Subtitle" error={fe("subtitle")}>
               <Input
                 value={form.subtitle}
                 onChange={(e) => setField("subtitle", e.target.value)}
                 px={4}
               />
             </FieldShell>
-            <FieldShell label="Lifecycle status" required>
+            <FieldShell label="Lifecycle status" required error={fe("application_status")}>
               <Select
                 value={form.application_status}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
@@ -516,7 +686,7 @@ export function EventForm({ mode, initial }: Props) {
             </FieldShell>
           </SimpleGrid>
           <Box mt={4}>
-            <FieldShell label="Description">
+            <FieldShell label="Description" error={fe("description")}>
               <Textarea
                 value={form.description}
                 onChange={(e) => setField("description", e.target.value)}
@@ -530,7 +700,7 @@ export function EventForm({ mode, initial }: Props) {
         {/* Schedule + location */}
         <SectionCard title="Schedule & location" surfaceBg={surfaceBg} borderColor={borderColor}>
           <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
-            <FieldShell label="Start date" required>
+            <FieldShell label="Start date" required error={fe("start_date")}>
               <Input
                 type="date"
                 value={form.start_date}
@@ -538,7 +708,7 @@ export function EventForm({ mode, initial }: Props) {
                 px={4}
               />
             </FieldShell>
-            <FieldShell label="End date" required>
+            <FieldShell label="End date" required error={fe("end_date")}>
               <Input
                 type="date"
                 value={form.end_date}
@@ -546,7 +716,7 @@ export function EventForm({ mode, initial }: Props) {
                 px={4}
               />
             </FieldShell>
-            <FieldShell label="Timezone" required>
+            <FieldShell label="Timezone" required error={fe("timezone")}>
               <Select
                 value={form.timezone}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
@@ -568,54 +738,60 @@ export function EventForm({ mode, initial }: Props) {
               </Select>
             </FieldShell>
 
-            <FieldShell label="Venue">
+            <FieldShell label="Venue" error={fe("location_venue_name")}>
               <Input
                 value={form.location_venue_name}
                 onChange={(e) => setField("location_venue_name", e.target.value)}
                 px={4}
               />
             </FieldShell>
-            <FieldShell label="Street">
+            <FieldShell label="Street" error={fe("location_street_1")}>
               <Input
                 value={form.location_street_1}
                 onChange={(e) => setField("location_street_1", e.target.value)}
                 px={4}
               />
             </FieldShell>
-            <FieldShell label="Street (line 2)">
+            <FieldShell label="Street (line 2)" error={fe("location_street_2")}>
               <Input
                 value={form.location_street_2}
                 onChange={(e) => setField("location_street_2", e.target.value)}
                 px={4}
               />
             </FieldShell>
-            <FieldShell label="City" required>
+            <FieldShell label="City" required helpText="Where the retreat is held." error={fe("location_city")}>
               <Input
                 value={form.location_city}
                 onChange={(e) => setField("location_city", e.target.value)}
                 px={4}
               />
             </FieldShell>
-            <FieldShell label="State" required>
-              <Input
+            <FieldShell label="State" required helpText="Pick or type to search — avoids typos." error={fe("location_state")}>
+              <StateSelect
                 value={form.location_state}
-                onChange={(e) => setField("location_state", e.target.value)}
-                px={4}
+                onChange={(v) => setField("location_state", v)}
+                borderColor={borderColor}
+                surfaceBg={surfaceBg}
               />
             </FieldShell>
-            <FieldShell label="Postal code">
+            <FieldShell label="Postal code" helpText="Numbers only, e.g. 32550 or 32550-1234." error={fe("location_postal_code")}>
               <Input
                 value={form.location_postal_code}
-                onChange={(e) => setField("location_postal_code", e.target.value)}
+                onChange={(e) =>
+                  setField("location_postal_code", sanitizeZip(e.target.value))
+                }
+                inputMode="numeric"
+                placeholder="32550"
                 px={4}
               />
             </FieldShell>
-            <FieldShell label="Country" helpText="ISO 3166-1 alpha-2">
+            <FieldShell label="Country" helpText="2-letter country code, e.g. US." error={fe("location_country")}>
               <Input
                 value={form.location_country}
                 onChange={(e) =>
-                  setField("location_country", e.target.value.toUpperCase().slice(0, 2))
+                  setField("location_country", e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2))
                 }
+                placeholder="US"
                 px={4}
               />
             </FieldShell>
@@ -625,35 +801,73 @@ export function EventForm({ mode, initial }: Props) {
         {/* Capacity & pricing */}
         <SectionCard title="Capacity & pricing" surfaceBg={surfaceBg} borderColor={borderColor}>
           <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
-            <FieldShell label="Capacity" required>
+            <FieldShell label="Capacity" required helpText="Max attendees. Whole number." error={fe("capacity")}>
               <Input
-                type="number"
                 value={form.capacity}
-                onChange={(e) => setField("capacity", e.target.value)}
+                onChange={(e) => setField("capacity", digitsOnly(e.target.value))}
+                inputMode="numeric"
+                placeholder="24"
                 px={4}
-                min={1}
               />
             </FieldShell>
-            <FieldShell label="Currency" required>
-              <Input
+            <FieldShell label="Currency" required helpText="Almost always USD." error={fe("currency")}>
+              <Select
                 value={form.currency}
-                onChange={(e) =>
-                  setField("currency", e.target.value.toUpperCase().slice(0, 3))
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                  setField("currency", e.target.value)
                 }
+                borderWidth={1}
+                borderColor={borderColor}
+                borderRadius="md"
                 px={4}
-              />
+                py={2}
+                fontSize="sm"
+                bg={surfaceBg}
+              >
+                {CURRENCIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </Select>
             </FieldShell>
-            <FieldShell label="Price" required helpText="In dollars (e.g. 2500.00)">
+            <FieldShell
+              label="Price"
+              required
+              error={fe("price_cents")}
+              helpText={
+                Number(form.price_dollars) > 0
+                  ? "Dollars, e.g. 2500.00."
+                  : "Set to 0 for a FREE event — no payment, applicants are confirmed directly."
+              }
+            >
               <Input
-                type="number"
                 value={form.price_dollars}
-                onChange={(e) => setField("price_dollars", e.target.value)}
+                onChange={(e) =>
+                  setField("price_dollars", sanitizeMoney(e.target.value))
+                }
+                inputMode="decimal"
+                placeholder="0.00"
                 px={4}
-                min={0}
-                step={0.01}
               />
             </FieldShell>
           </SimpleGrid>
+          {(form.price_dollars.trim() === "" || Number(form.price_dollars) === 0) && (
+            <Box
+              mt={3}
+              px={4}
+              py={2}
+              borderRadius="md"
+              bg={freeBannerBg}
+              borderWidth={1}
+              borderColor={freeBannerBorder}
+            >
+              <Text fontSize="sm" color={freeBannerText}>
+                This is a <strong>free event</strong> — no payment is collected. Applicants
+                are confirmed directly without a Stripe checkout.
+              </Text>
+            </Box>
+          )}
           <HStack mt={4} gap={6}>
             <CheckRow
               label="Show capacity publicly"
@@ -676,21 +890,21 @@ export function EventForm({ mode, initial }: Props) {
         {/* Display labels + media */}
         <SectionCard title="Display & media" surfaceBg={surfaceBg} borderColor={borderColor}>
           <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
-            <FieldShell label="Format" helpText="e.g. In-person retreat">
+            <FieldShell label="Format" helpText="e.g. In-person retreat" error={fe("format")}>
               <Input
                 value={form.format}
                 onChange={(e) => setField("format", e.target.value)}
                 px={4}
               />
             </FieldShell>
-            <FieldShell label="Group size label" helpText="e.g. Up to 12 leaders">
+            <FieldShell label="Group size label" helpText="e.g. Up to 12 leaders" error={fe("group_size_label")}>
               <Input
                 value={form.group_size_label}
                 onChange={(e) => setField("group_size_label", e.target.value)}
                 px={4}
               />
             </FieldShell>
-            <FieldShell label="Length label" helpText="e.g. 3 days, 2 nights">
+            <FieldShell label="Length label" helpText="e.g. 3 days, 2 nights" error={fe("length_label")}>
               <Input
                 value={form.length_label}
                 onChange={(e) => setField("length_label", e.target.value)}
@@ -739,7 +953,7 @@ export function EventForm({ mode, initial }: Props) {
         {/* Refund */}
         <SectionCard title="Refund policy" surfaceBg={surfaceBg} borderColor={borderColor}>
           <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
-            <FieldShell label="Full refund until">
+            <FieldShell label="Full refund until" error={fe("refund_full_until")}>
               <Input
                 type="date"
                 value={form.refund_full_until}
@@ -747,7 +961,7 @@ export function EventForm({ mode, initial }: Props) {
                 px={4}
               />
             </FieldShell>
-            <FieldShell label="Partial refund until">
+            <FieldShell label="Partial refund until" error={fe("refund_partial_until")}>
               <Input
                 type="date"
                 value={form.refund_partial_until}
@@ -755,7 +969,7 @@ export function EventForm({ mode, initial }: Props) {
                 px={4}
               />
             </FieldShell>
-            <FieldShell label="Partial refund %" helpText="0-100">
+            <FieldShell label="Partial refund %" helpText="0-100" error={fe("refund_partial_pct")}>
               <Input
                 type="number"
                 value={form.refund_partial_pct}
@@ -789,6 +1003,61 @@ export function EventForm({ mode, initial }: Props) {
 
 /* --------------------------------- bits ------------------------------- */
 
+/**
+ * State picker built on Chakra's Select. Unlike a native <select>, the popover
+ * is a fixed-height, scrollable list with built-in type-to-search — so the full
+ * 50-state list stays compact instead of filling the screen.
+ */
+function StateSelect({
+  value,
+  onChange,
+  borderColor,
+  surfaceBg,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  borderColor: string;
+  surfaceBg: string;
+}) {
+  return (
+    <CSelect.Root
+      collection={STATE_COLLECTION}
+      value={value ? [value] : []}
+      onValueChange={(d) => onChange(d.value[0] ?? "")}
+      size="sm"
+    >
+      <CSelect.HiddenSelect />
+      <CSelect.Control>
+        <CSelect.Trigger
+          borderWidth={1}
+          borderColor={borderColor}
+          borderRadius="md"
+          bg={surfaceBg}
+          px={4}
+          py={2}
+        >
+          <CSelect.ValueText placeholder="Select a state…" />
+          <CSelect.IndicatorGroup>
+            <CSelect.Indicator />
+          </CSelect.IndicatorGroup>
+        </CSelect.Trigger>
+      </CSelect.Control>
+      <Portal>
+        <CSelect.Positioner>
+          <CSelect.Content maxH="288px" overflowY="auto">
+            {STATE_COLLECTION.items.map((item) => (
+              <CSelect.Item item={item} key={item.value}>
+                {item.label}
+                <CSelect.ItemIndicator />
+              </CSelect.Item>
+            ))}
+          </CSelect.Content>
+        </CSelect.Positioner>
+      </Portal>
+    </CSelect.Root>
+  );
+}
+
 function SectionCard({
   title,
   children,
@@ -817,11 +1086,13 @@ function FieldShell({
   children,
   required,
   helpText,
+  error,
 }: {
   label: string;
   children: React.ReactNode;
   required?: boolean;
   helpText?: string;
+  error?: string;
 }) {
   const subduedText = useColorModeValue("gray.600", "gray.400");
   return (
@@ -841,11 +1112,15 @@ function FieldShell({
         )}
       </Text>
       {children}
-      {helpText && (
+      {error ? (
+        <Text fontSize="xs" color="red.500" mt={1}>
+          {error}
+        </Text>
+      ) : helpText ? (
         <Text fontSize="xs" color={subduedText} mt={1}>
           {helpText}
         </Text>
-      )}
+      ) : null}
     </Box>
   );
 }
