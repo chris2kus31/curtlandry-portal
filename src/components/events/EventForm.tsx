@@ -774,7 +774,8 @@ export function EventForm({ mode, initial }: Props) {
             Compose the multi-step application form applicants will fill
             out. Add steps, sections, and fields visually — or switch to{" "}
             <chakra.b>Raw JSON</chakra.b> to import/export a complete schema.
-            Leave empty to skip (the public wizard will render a generic form).
+            An application form is required for this event to accept
+            applicants — an event with no form can&rsquo;t be applied to.
           </Text>
           <ApplicationSchemaBuilder
             value={form.application_schema}
