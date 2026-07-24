@@ -15,7 +15,7 @@ import {
 } from "@chakra-ui/react";
 import { LuGripVertical, LuPlus, LuTrash2, LuUpload } from "react-icons/lu";
 import { useColorModeValue } from "@/components/ui/color-mode";
-import { mediaService } from "@/lib/api/media-service";
+import { mediaService, extractUploadErrorMessage } from "@/lib/api/media-service";
 import { toaster } from "@/components/ui/toaster";
 
 interface GalleryPickerProps {
@@ -66,9 +66,9 @@ export function GalleryPicker({ value, onChange, siteId }: GalleryPickerProps) {
           } catch (err) {
             toaster.create({
               title: `Failed to upload ${file.name}`,
-              description: err instanceof Error ? err.message : "Unknown error",
+              description: extractUploadErrorMessage(err),
               type: "error",
-              duration: 5000,
+              duration: 6000,
             });
           } finally {
             setUploadingCount((c) => c - 1);

@@ -45,3 +45,31 @@ export const mediaService = {
     await httpClient.delete(`/portal/admin/media/${id}`);
   },
 };
+
+/**
+ * Pulls a human-readable message out of whatever the upload threw. The
+ * httpClient rejects with a plain ApiError object ({ message, errors }),
+ * NOT an Error instance — so `err.message` alone (guarded by
+ * `instanceof Error`) silently drops the real reason. This prefers the
+ * field-level validation message (e.g. the mimes error), then the top-level
+ * message, then a generic fallback.
+ */
+export function extractUploadErrorMessage(err: unknown): string {
+  if (err && typeof err === "object") {
+    const e = err as {
+      message?: unknown;
+      errors?: Record<string, unknown>;
+    };
+    if (e.errors && typeof e.errors === "object") {
+      const first = Object.values(e.errors)[0];
+      if (Array.isArray(first) && typeof first[0] === "string") {
+        return first[0];
+      }
+    }
+    if (typeof e.message === "string" && e.message.trim()) {
+      return e.message;
+    }
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return "Something went wrong uploading the image. Please try again.";
+}

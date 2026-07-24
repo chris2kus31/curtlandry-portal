@@ -12,7 +12,7 @@ import {
 } from "@chakra-ui/react";
 import { LuUpload, LuX } from "react-icons/lu";
 import { useColorModeValue } from "@/components/ui/color-mode";
-import { mediaService } from "@/lib/api/media-service";
+import { mediaService, extractUploadErrorMessage } from "@/lib/api/media-service";
 import { toaster } from "@/components/ui/toaster";
 
 interface ImagePickerProps {
@@ -77,9 +77,9 @@ export function ImagePicker({
       } catch (err) {
         toaster.create({
           title: "Upload failed",
-          description: err instanceof Error ? err.message : "Unknown error",
+          description: extractUploadErrorMessage(err),
           type: "error",
-          duration: 5000,
+          duration: 6000,
         });
       } finally {
         setIsUploading(false);
