@@ -1,5 +1,11 @@
 // src/lib/api/offboarding-service.ts
 import { httpClient } from "./http-client";
+import { getDevEmployees, isDevAuthToken } from "@/lib/dev-auth";
+
+function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("auth_token");
+}
 import type { OnboardingAsset } from "./onboarding-service";
 
 // ---------------------------------------------------------------------------
@@ -97,6 +103,10 @@ export const offboardingService = {
    * Options to populate the resignation form (active employees to pick from).
    */
   async getOptions(): Promise<OffboardingFormOptions> {
+    if (isDevAuthToken(getStoredToken())) {
+      return { employees: getDevEmployees() };
+    }
+
     const response = await httpClient.get<ApiResponse<OffboardingFormOptions>>(
       "/portal/offboarding/cases/options",
     );

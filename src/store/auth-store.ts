@@ -5,15 +5,25 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { authService } from "@/lib/api/auth-service";
 import type { User } from "@/types/auth";
+import {
+  DEV_AUTH_TOKEN,
+  DEV_MANAGER_USER,
+  DEV_PERMISSIONS,
+  DEV_ROLES,
+  isDevAuthEnabled,
+  isDevAuthToken,
+} from "@/lib/dev-auth";
 
 function setSessionCookie(hasToken: boolean) {
   if (typeof document === "undefined") return;
+  // Secure cookies are dropped on http://localhost — omit Secure in local/dev.
+  const isSecure =
+    typeof window !== "undefined" && window.location.protocol === "https:";
+  const secureFlag = isSecure ? "; Secure" : "";
   if (hasToken) {
-    document.cookie =
-      "auth_session=1; path=/; max-age=604800; SameSite=Lax; Secure";
+    document.cookie = `auth_session=1; path=/; max-age=604800; SameSite=Lax${secureFlag}`;
   } else {
-    document.cookie =
-      "auth_session=; path=/; max-age=0; SameSite=Lax; Secure";
+    document.cookie = `auth_session=; path=/; max-age=0; SameSite=Lax${secureFlag}`;
   }
 }
 
@@ -30,6 +40,7 @@ interface AuthState {
   // Actions
   loginWithGoogle: () => void;
   loginWithGoogleHod: () => void;
+  loginAsDev: () => void;
   logout: () => Promise<void>;
   setUser: (user: User) => void;
   setToken: (token: string) => void;
@@ -67,9 +78,32 @@ export const useAuthStore = create<AuthState>()(
         authService.initiateHodGoogleLogin();
       },
 
+      loginAsDev: () => {
+        if (!isDevAuthEnabled()) {
+          set({ error: "Dev login is disabled" });
+          return;
+        }
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem("auth_token", DEV_AUTH_TOKEN);
+        }
+        setSessionCookie(true);
+        set({
+          user: DEV_MANAGER_USER,
+          roles: DEV_ROLES,
+          permissions: DEV_PERMISSIONS,
+          token: DEV_AUTH_TOKEN,
+          isLoading: false,
+          isInitialized: true,
+          error: null,
+        });
+      },
+
       logout: async () => {
         try {
-          await authService.logout();
+          if (!isDevAuthToken(get().token)) {
+            await authService.logout();
+          }
         } finally {
           if (typeof window !== "undefined") {
             localStorage.removeItem("auth_token");
@@ -114,6 +148,20 @@ export const useAuthStore = create<AuthState>()(
             // Ensure token is in localStorage for http-client
             if (typeof window !== "undefined") {
               localStorage.setItem("auth_token", storedToken);
+            }
+
+            // Local UI preview without Laravel API
+            if (isDevAuthToken(storedToken)) {
+              setSessionCookie(true);
+              set({
+                user: DEV_MANAGER_USER,
+                roles: DEV_ROLES,
+                permissions: DEV_PERMISSIONS,
+                token: storedToken,
+                isLoading: false,
+                isInitialized: true,
+              });
+              return;
             }
 
             // Fetch fresh user data from API

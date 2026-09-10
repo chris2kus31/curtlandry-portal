@@ -121,7 +121,15 @@ export function AssetDetailDrawer({
   };
 
   const handleStatusChange = async () => {
-    if (!asset || !statusTarget) return;
+    if (!asset) return;
+    if (!statusTarget) {
+      toaster.create({
+        title: "Select a status first",
+        description: "Choose the new status before updating.",
+        type: "warning",
+      });
+      return;
+    }
     setBusy(true);
     try {
       await assetService.changeStatus(asset.id, statusTarget, statusNote || undefined);
@@ -141,11 +149,19 @@ export function AssetDetailDrawer({
   };
 
   const handleAssign = async () => {
-    if (!asset || !assignUser) return;
+    if (!asset) return;
+    if (!assignUser) {
+      toaster.create({
+        title: "Select an employee first",
+        description: "You must choose who this device is going to before assigning.",
+        type: "warning",
+      });
+      return;
+    }
     setBusy(true);
     try {
       await assetService.assign(asset.id, Number(assignUser), assignNote || undefined);
-      toaster.create({ title: "Asset assigned", type: "success" });
+      toaster.create({ title: "Device assigned", type: "success" });
       setAssignUser("");
       setAssignNote("");
       await refresh();
@@ -165,7 +181,7 @@ export function AssetDetailDrawer({
     setBusy(true);
     try {
       await assetService.release(asset.id, releaseTarget, releaseNote || undefined);
-      toaster.create({ title: "Asset released", type: "success" });
+      toaster.create({ title: "Device returned to inventory", type: "success" });
       setReleaseNote("");
       await refresh();
     } catch (error) {
@@ -238,10 +254,12 @@ export function AssetDetailDrawer({
                   </Box>
                   <Box>
                     <Text fontWeight="semibold" color={textPrimary}>
-                      {asset?.name ?? "Asset"}
+                      {asset?.name ?? "Device"}
                     </Text>
                     <Text fontSize="sm" color={textSecondary}>
-                      {asset?.type_label ?? "Device details"}
+                      {asset?.type_label
+                        ? `${asset.type_label} details`
+                        : "Device details"}
                     </Text>
                   </Box>
                 </HStack>
@@ -254,7 +272,7 @@ export function AssetDetailDrawer({
                       color={textSecondary}
                       _hover={{ bg: hoverBg }}
                       onClick={() => onEdit(asset)}
-                      title="Edit asset"
+                      title="Edit device"
                     >
                       <LuPencil size={18} />
                     </Box>
@@ -306,7 +324,7 @@ export function AssetDetailDrawer({
                   <Box bg={cardBg} borderRadius="lg" p={4}>
                     <VStack gap={2} align="stretch" fontSize="sm">
                       <HStack justify="space-between">
-                        <Text color={textSecondary}>Asset Tag</Text>
+                        <Text color={textSecondary}>Device tag</Text>
                         <Text color={textPrimary}>{asset.asset_tag || "—"}</Text>
                       </HStack>
                       <HStack justify="space-between">
@@ -357,6 +375,7 @@ export function AssetDetailDrawer({
                             value={assignUser}
                             onChange={(e) => setAssignUser(e.target.value)}
                             style={selectStyle}
+                            required
                           >
                             <option value="">Select employee…</option>
                             {employees.map((emp) => (
@@ -367,6 +386,11 @@ export function AssetDetailDrawer({
                             ))}
                           </select>
                         </SelectShell>
+                        {!assignUser && (
+                          <Text fontSize="xs" color={textSecondary}>
+                            Choose an employee before you can assign this device.
+                          </Text>
+                        )}
                         <Textarea
                           value={assignNote}
                           onChange={(e) => setAssignNote(e.target.value)}
@@ -382,7 +406,7 @@ export function AssetDetailDrawer({
                         />
                         <ActionButton
                           label="Assign"
-                          disabled={!assignUser || busy}
+                          disabled={!assignUser || busy || employees.length === 0}
                           busy={busy}
                           onClick={handleAssign}
                         />
@@ -454,6 +478,7 @@ export function AssetDetailDrawer({
                             value={statusTarget}
                             onChange={(e) => setStatusTarget(e.target.value)}
                             style={selectStyle}
+                            required
                           >
                             <option value="">Select new status…</option>
                             {transitions.map((t) => (
@@ -463,6 +488,12 @@ export function AssetDetailDrawer({
                             ))}
                           </select>
                         </SelectShell>
+                        {!statusTarget && (
+                          <Text fontSize="xs" color={textSecondary}>
+                            Choose a status before updating. To give a device to
+                            someone, use Assign to employee instead.
+                          </Text>
+                        )}
                         <Textarea
                           value={statusNote}
                           onChange={(e) => setStatusNote(e.target.value)}
@@ -491,12 +522,12 @@ export function AssetDetailDrawer({
                     <HStack gap={2} mb={2} color={textPrimary}>
                       <LuHistory size={16} />
                       <Text fontSize="sm" fontWeight="semibold">
-                        Assignment history
+                        Who had this device
                       </Text>
                     </HStack>
                     {sortedHistory.length === 0 ? (
                       <Text fontSize="sm" color={textSecondary}>
-                        No assignment history yet.
+                        No one has been assigned this device yet.
                       </Text>
                     ) : (
                       <VStack gap={2} align="stretch">

@@ -1,18 +1,30 @@
 "use client";
 
-import { Box, Card, VStack, Text, HStack } from "@chakra-ui/react";
+import { Box, Card, VStack, Text, HStack, Button } from "@chakra-ui/react";
 import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
 import { GoogleLoginButton } from "@/components/auth/GoogleLoginButton";
 import { HodGoogleLoginButton } from "@/components/auth/HodGoogleLoginButton";
 import { ColorModeButton, useColorModeValue } from "@/components/ui/color-mode";
+import { isDevAuthEnabled } from "@/lib/dev-auth";
+import { useAuthStore } from "@/store/auth-store";
 
 export function LoginForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const loginAsDev = useAuthStore((s) => s.loginAsDev);
   const cardBg = useColorModeValue("white", "gray.900");
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const textPrimary = useColorModeValue("gray.900", "gray.50");
   const textSecondary = useColorModeValue("gray.600", "gray.400");
   const bgPrimary = useColorModeValue("gray.50", "gray.950");
   const domainHintBg = useColorModeValue("gray.50", "gray.800");
+
+  const handleDevLogin = () => {
+    loginAsDev();
+    const redirect = searchParams.get("redirect") || "/people-ops?tab=onboarding";
+    router.replace(redirect);
+  };
 
   return (
     <Box
@@ -143,6 +155,34 @@ export function LoginForm() {
                 </Box>
                 <HodGoogleLoginButton />
               </Box>
+
+              {isDevAuthEnabled() && (
+                <>
+                  <HStack w="full" gap={4}>
+                    <Box flex={1} h="1px" bg={borderColor} />
+                    <Text
+                      fontSize="xs"
+                      color={textSecondary}
+                      textTransform="uppercase"
+                      letterSpacing="wider"
+                      fontWeight="medium"
+                    >
+                      local only
+                    </Text>
+                    <Box flex={1} h="1px" bg={borderColor} />
+                  </HStack>
+                  <Button
+                    w="full"
+                    size="lg"
+                    variant="outline"
+                    borderColor={borderColor}
+                    color={textPrimary}
+                    onClick={handleDevLogin}
+                  >
+                    Dev Login (preview People Ops)
+                  </Button>
+                </>
+              )}
             </VStack>
 
             {/* Footer text */}

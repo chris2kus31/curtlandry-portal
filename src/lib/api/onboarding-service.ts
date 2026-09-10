@@ -1,5 +1,15 @@
 // src/lib/api/onboarding-service.ts
 import { httpClient } from "./http-client";
+import {
+  buildDevSubmittedCase,
+  getDevOnboardingOptions,
+  isDevAuthToken,
+} from "@/lib/dev-auth";
+
+function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("auth_token");
+}
 
 // ---------------------------------------------------------------------------
 // Types (mirror the Laravel API resources under app/Http/Resources/Portal/Onboarding)
@@ -33,6 +43,8 @@ export interface OnboardingAsset {
   status_label: string | null;
   status_color: string | null;
   is_assignable: boolean;
+  /** Optional product/preview image (Asset Tiger or local mock). */
+  image_url?: string | null;
 }
 
 export interface SoftwareCatalogItem {
@@ -221,6 +233,10 @@ export const onboardingService = {
    * Options to populate the intake form (managers, departments, devices).
    */
   async getOptions(): Promise<OnboardingFormOptions> {
+    if (isDevAuthToken(getStoredToken())) {
+      return getDevOnboardingOptions();
+    }
+
     const response = await httpClient.get<ApiResponse<OnboardingFormOptions>>(
       "/portal/onboarding/cases/options",
     );
@@ -233,6 +249,10 @@ export const onboardingService = {
   async list(
     filters: OnboardingListFilters = {},
   ): Promise<PaginatedResponse<OnboardingCase>> {
+    if (isDevAuthToken(getStoredToken())) {
+      return { data: [], meta: { current_page: 1, last_page: 1, per_page: 50, total: 0 } };
+    }
+
     const params = new URLSearchParams();
     if (filters.status) params.append("status", filters.status);
     if (filters.active) params.append("active", "1");
@@ -262,6 +282,10 @@ export const onboardingService = {
    * Submit a new-hire intake (managers + onboarding.manage).
    */
   async submitIntake(payload: IntakePayload): Promise<OnboardingCase> {
+    if (isDevAuthToken(getStoredToken())) {
+      return buildDevSubmittedCase(payload);
+    }
+
     const response = await httpClient.post<ApiResponse<OnboardingCase>>(
       "/portal/onboarding/cases",
       payload,
@@ -310,6 +334,38 @@ export const onboardingService = {
    * People Ops dashboard counters (requires onboarding.manage).
    */
   async getStats(): Promise<PeopleOpsStats> {
+    if (isDevAuthToken(getStoredToken())) {
+      const assignable = getDevOnboardingOptions().assignable_assets.length;
+      return {
+        onboarding: {
+          active: 0,
+          submitted: 0,
+          in_progress: 0,
+          starting_soon: 0,
+          overdue: 0,
+          completed_30d: 0,
+        },
+        offboarding: {
+          active: 0,
+          pending_device_recovery: 0,
+          pending_deactivation: 0,
+          last_day_soon: 0,
+          overdue: 0,
+        },
+        assets: {
+          total: assignable,
+          assignable,
+          by_status: { available: assignable },
+        },
+        software: {
+          active: getDevOnboardingOptions().software_catalog.length,
+          requires_approval: getDevOnboardingOptions().software_catalog.filter(
+            (s) => s.requires_approval,
+          ).length,
+        },
+      };
+    }
+
     const response = await httpClient.get<ApiResponse<PeopleOpsStats>>(
       "/portal/people-ops/stats",
     );

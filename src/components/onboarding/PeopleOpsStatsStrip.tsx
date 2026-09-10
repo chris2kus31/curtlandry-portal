@@ -85,9 +85,9 @@ export function PeopleOpsStatsStrip() {
     },
     {
       key: "assets",
-      label: "Assignable devices",
+      label: "Devices ready to assign",
       value: stats.assets.assignable,
-      hint: `${stats.assets.total} total`,
+      hint: `${stats.assets.total} in inventory`,
       icon: LuLaptop,
       accent: "teal",
       href: "/people-ops/assets",
