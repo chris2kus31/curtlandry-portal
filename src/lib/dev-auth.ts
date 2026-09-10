@@ -258,6 +258,32 @@ export function getDevAssignableAssets(): OnboardingAsset[] {
       is_assignable: true,
       image_url: "/devices/tablet.svg",
     },
+    {
+      id: 9006,
+      asset_tag: "AT-IPHONE-15-002",
+      serial_number: "F2LX9PHONE001",
+      type: "phone",
+      type_label: "Phone",
+      name: "iPhone 15",
+      status: "available",
+      status_label: "Available",
+      status_color: "green",
+      is_assignable: true,
+      image_url: null,
+    },
+    {
+      id: 9007,
+      asset_tag: "AT-HOTSPOT-001",
+      serial_number: "HS-77821",
+      type: "other",
+      type_label: "Other",
+      name: "Verizon Mobile Hotspot",
+      status: "available",
+      status_label: "Available",
+      status_color: "green",
+      is_assignable: true,
+      image_url: null,
+    },
   ];
 }
 

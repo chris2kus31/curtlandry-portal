@@ -37,6 +37,7 @@ import {
   LuCheck,
   LuMonitor,
   LuTablet,
+  LuSmartphone,
   LuArrowLeft,
 } from "react-icons/lu";
 import { onboardingService } from "@/lib/api";
@@ -89,7 +90,14 @@ const INITIAL_FORM: FormState = {
   requested_device_note: "",
 };
 
-type DeviceCategory = "laptop" | "desktop" | "ipad" | "tablet";
+/** Matches Asset Tiger / portal asset types, plus iPad as a tablet subtype. */
+type DeviceCategory =
+  | "laptop"
+  | "desktop"
+  | "ipad"
+  | "tablet"
+  | "phone"
+  | "other";
 
 const DEVICE_CATEGORIES: {
   id: DeviceCategory;
@@ -100,15 +108,25 @@ const DEVICE_CATEGORIES: {
   { id: "desktop", label: "Desktop", icon: LuMonitor },
   { id: "ipad", label: "iPad", icon: LuTablet },
   { id: "tablet", label: "Tablet", icon: LuTablet },
+  { id: "phone", label: "Phone", icon: LuSmartphone },
+  { id: "other", label: "Other", icon: LuPackage },
 ];
 
-function getAssetCategory(asset: OnboardingAsset): DeviceCategory | null {
+function getAssetCategory(asset: OnboardingAsset): DeviceCategory {
   const type = (asset.type || "").toLowerCase();
   const name = (asset.name || "").toLowerCase();
   const label = (asset.type_label || "").toLowerCase();
 
   if (type === "laptop" || label === "laptop") return "laptop";
   if (type === "desktop" || label === "desktop") return "desktop";
+  if (
+    type === "phone" ||
+    label === "phone" ||
+    name.includes("iphone") ||
+    (name.includes("phone") && !name.includes("headphones"))
+  ) {
+    return "phone";
+  }
   if (
     type === "tablet" ||
     label === "tablet" ||
@@ -117,7 +135,9 @@ function getAssetCategory(asset: OnboardingAsset): DeviceCategory | null {
   ) {
     return name.includes("ipad") ? "ipad" : "tablet";
   }
-  return null;
+  // Include every other Asset Tiger assignable asset (phone already handled;
+  // unknown / missing / custom types land in Other so nothing is hidden).
+  return "other";
 }
 
 function assetMatchesCategory(

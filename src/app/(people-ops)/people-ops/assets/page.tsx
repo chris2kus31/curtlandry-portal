@@ -56,6 +56,8 @@ export default function AssetInventoryPage() {
   const canManage = hasPermission("assets.manage") || hasRole("super_admin");
 
   const [assets, setAssets] = useState<Asset[]>([]);
+  /** Unfiltered inventory for headline stats (not affected by list filters). */
+  const [inventory, setInventory] = useState<Asset[]>([]);
   const [options, setOptions] = useState<AssetOptions | null>(null);
   const [loading, setLoading] = useState(canManage);
   const [statusFilter, setStatusFilter] = useState("");
@@ -90,6 +92,20 @@ export default function AssetInventoryPage() {
     }
   }, []);
 
+  const loadInventory = useCallback(async () => {
+    if (!canManage) return;
+    try {
+      const res = await assetService.list({
+        per_page: 100,
+        sort_by: "name",
+        sort_dir: "asc",
+      });
+      setInventory(res.data ?? []);
+    } catch {
+      setInventory([]);
+    }
+  }, [canManage]);
+
   const loadAssets = useCallback(async () => {
     if (!canManage) return;
     setLoading(true);
@@ -110,9 +126,16 @@ export default function AssetInventoryPage() {
     }
   }, [canManage, statusFilter, typeFilter, search]);
 
+  const refreshAssets = useCallback(async () => {
+    await Promise.all([loadAssets(), loadInventory()]);
+  }, [loadAssets, loadInventory]);
+
   useEffect(() => {
-    if (canManage) loadOptions();
-  }, [canManage, loadOptions]);
+    if (canManage) {
+      loadOptions();
+      loadInventory();
+    }
+  }, [canManage, loadOptions, loadInventory]);
 
   useEffect(() => {
     const t = setTimeout(loadAssets, 250);
@@ -120,14 +143,14 @@ export default function AssetInventoryPage() {
   }, [loadAssets]);
 
   const summary = useMemo(() => {
-    const ready = assets.filter((a) => a.is_assignable).length;
-    const withSomeone = assets.filter((a) => !!a.assigned_user_id).length;
+    const ready = inventory.filter((a) => a.is_assignable).length;
+    const withSomeone = inventory.filter((a) => !!a.assigned_user_id).length;
     return {
-      total: assets.length,
+      total: inventory.length,
       ready,
       withSomeone,
     };
-  }, [assets]);
+  }, [inventory]);
 
   const openCreate = () => {
     setEditing(null);
@@ -158,6 +181,7 @@ export default function AssetInventoryPage() {
     try {
       await assetService.remove(asset.id);
       setAssets((prev) => prev.filter((a) => a.id !== asset.id));
+      setInventory((prev) => prev.filter((a) => a.id !== asset.id));
       toaster.create({ title: "Device removed", type: "success" });
     } catch (error) {
       toaster.create({
@@ -619,7 +643,7 @@ export default function AssetInventoryPage() {
       <AssetFormDrawer
         isOpen={formOpen}
         onClose={() => setFormOpen(false)}
-        onSaved={loadAssets}
+        onSaved={refreshAssets}
         item={editing}
         options={options}
       />
@@ -629,7 +653,7 @@ export default function AssetInventoryPage() {
         onClose={() => setDetailOpen(false)}
         assetId={detailId}
         options={options}
-        onChanged={loadAssets}
+        onChanged={refreshAssets}
         onEdit={openEditFromDetail}
       />
     </VStack>
