@@ -73,6 +73,15 @@ interface FormState {
   requested_device_note: string;
 }
 
+/** Matches Asset Tiger / portal asset types, plus iPad as a tablet subtype. */
+type DeviceCategory =
+  | "laptop"
+  | "desktop"
+  | "ipad"
+  | "tablet"
+  | "phone"
+  | "other";
+
 const INITIAL_FORM: FormState = {
   email: "",
   first_name: "",
@@ -90,14 +99,78 @@ const INITIAL_FORM: FormState = {
   requested_device_note: "",
 };
 
-/** Matches Asset Tiger / portal asset types, plus iPad as a tablet subtype. */
-type DeviceCategory =
-  | "laptop"
-  | "desktop"
-  | "ipad"
-  | "tablet"
-  | "phone"
-  | "other";
+const INTAKE_DRAFT_KEY = "people-ops:new-hire-intake-draft";
+
+interface IntakeDraft {
+  form: FormState;
+  softwareIds: number[];
+  deviceCategory: DeviceCategory | null;
+  savedAt: string;
+}
+
+function isMeaningfulDraft(
+  form: FormState,
+  softwareIds: number[],
+  deviceCategory: DeviceCategory | null,
+): boolean {
+  if (softwareIds.length > 0 || deviceCategory) return true;
+  return (
+    !!form.email.trim() ||
+    !!form.first_name.trim() ||
+    !!form.last_name.trim() ||
+    !!form.job_title.trim() ||
+    !!form.department ||
+    !!form.work_location ||
+    !!form.start_date ||
+    !!form.reports_to ||
+    form.employment_type !== INITIAL_FORM.employment_type ||
+    form.weekly_hours !== INITIAL_FORM.weekly_hours ||
+    form.device_needed ||
+    !!form.requested_asset_id ||
+    form.purchase_needed ||
+    !!form.requested_device_note.trim()
+  );
+}
+
+function readIntakeDraft(): IntakeDraft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(INTAKE_DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as IntakeDraft;
+    if (!parsed?.form || typeof parsed.form !== "object") return null;
+    return {
+      form: { ...INITIAL_FORM, ...parsed.form },
+      softwareIds: Array.isArray(parsed.softwareIds)
+        ? parsed.softwareIds.filter((id) => typeof id === "number")
+        : [],
+      deviceCategory: parsed.deviceCategory ?? null,
+      savedAt: parsed.savedAt ?? new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeIntakeDraft(
+  form: FormState,
+  softwareIds: number[],
+  deviceCategory: DeviceCategory | null,
+): void {
+  if (typeof window === "undefined") return;
+  const draft: IntakeDraft = {
+    form,
+    softwareIds,
+    deviceCategory,
+    savedAt: new Date().toISOString(),
+  };
+  localStorage.setItem(INTAKE_DRAFT_KEY, JSON.stringify(draft));
+}
+
+function clearIntakeDraft(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(INTAKE_DRAFT_KEY);
+}
 
 const DEVICE_CATEGORIES: {
   id: DeviceCategory;
@@ -171,6 +244,8 @@ export function NewHireIntakeDrawer({
   const [deviceCategory, setDeviceCategory] = useState<DeviceCategory | null>(
     null,
   );
+  const [draftHydrated, setDraftHydrated] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
 
   // Colors — all hooks before any conditional return
   const drawerBg = useColorModeValue("white", "gray.900");
@@ -187,16 +262,61 @@ export function NewHireIntakeDrawer({
   const imageBg = useColorModeValue("gray.100", "gray.800");
   const selectedCardBg = useColorModeValue("brand.50", "whiteAlpha.100");
   const previewBackdrop = useColorModeValue("blackAlpha.700", "blackAlpha.800");
+  const draftBannerBg = useColorModeValue("blue.50", "whiteAlpha.100");
+  const draftBannerBorder = useColorModeValue("blue.100", "whiteAlpha.200");
 
+  // Restore draft when opening; reset only when there isn't one.
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) {
+      setDraftHydrated(false);
+      return;
+    }
+
+    const draft = readIntakeDraft();
+    if (
+      draft &&
+      isMeaningfulDraft(draft.form, draft.softwareIds, draft.deviceCategory)
+    ) {
+      setForm(draft.form);
+      setSoftwareIds(draft.softwareIds);
+      setDeviceCategory(draft.deviceCategory);
+      setDraftRestored(true);
+    } else {
       setForm(INITIAL_FORM);
       setSoftwareIds([]);
-      setErrors({});
-      setPreviewAsset(null);
       setDeviceCategory(null);
+      setDraftRestored(false);
     }
+    setErrors({});
+    setPreviewAsset(null);
+    setDraftHydrated(true);
   }, [isOpen]);
+
+  // Autosave while the drawer is open.
+  useEffect(() => {
+    if (!isOpen || !draftHydrated) return;
+
+    const timer = window.setTimeout(() => {
+      if (isMeaningfulDraft(form, softwareIds, deviceCategory)) {
+        writeIntakeDraft(form, softwareIds, deviceCategory);
+      } else {
+        clearIntakeDraft();
+        setDraftRestored(false);
+      }
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [isOpen, draftHydrated, form, softwareIds, deviceCategory]);
+
+  const discardDraft = () => {
+    clearIntakeDraft();
+    setForm(INITIAL_FORM);
+    setSoftwareIds([]);
+    setDeviceCategory(null);
+    setErrors({});
+    setPreviewAsset(null);
+    setDraftRestored(false);
+  };
 
   const selectAsset = (assetId: string) => {
     setForm((prev) => ({
@@ -292,6 +412,9 @@ export function NewHireIntakeDrawer({
       };
 
       const created = await onboardingService.submitIntake(payload);
+
+      clearIntakeDraft();
+      setDraftRestored(false);
 
       toaster.create({
         title: "Intake submitted",
@@ -584,6 +707,34 @@ export function NewHireIntakeDrawer({
                 </Flex>
               ) : (
                 <VStack gap={5} align="stretch">
+                  {draftRestored && (
+                    <HStack
+                      p={3}
+                      borderRadius="lg"
+                      border="1px solid"
+                      borderColor={draftBannerBorder}
+                      bg={draftBannerBg}
+                      justify="space-between"
+                      align="center"
+                      gap={3}
+                    >
+                      <Text fontSize="sm" color={textPrimary}>
+                        Draft restored — pick up where you left off.
+                      </Text>
+                      <Box
+                        as="button"
+                        type="button"
+                        fontSize="xs"
+                        fontWeight="medium"
+                        color="brand.500"
+                        whiteSpace="nowrap"
+                        _hover={{ color: "brand.600" }}
+                        onClick={discardDraft}
+                      >
+                        Start fresh
+                      </Box>
+                    </HStack>
+                  )}
                   {/* Basic info */}
                   <Box>
                     <SectionTitle>Basic Information</SectionTitle>

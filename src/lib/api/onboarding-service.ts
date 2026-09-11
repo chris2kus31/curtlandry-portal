@@ -1,9 +1,14 @@
 // src/lib/api/onboarding-service.ts
 import { httpClient } from "./http-client";
 import {
+  addDevCaseNote,
   buildDevSubmittedCase,
+  cancelDevCase,
+  findDevCase,
   getDevOnboardingOptions,
   isDevAuthToken,
+  listDevCases,
+  updateDevCaseTask,
 } from "@/lib/dev-auth";
 
 function getStoredToken(): string | null {
@@ -250,7 +255,21 @@ export const onboardingService = {
     filters: OnboardingListFilters = {},
   ): Promise<PaginatedResponse<OnboardingCase>> {
     if (isDevAuthToken(getStoredToken())) {
-      return { data: [], meta: { current_page: 1, last_page: 1, per_page: 50, total: 0 } };
+      const data = listDevCases({
+        status: filters.status,
+        active: filters.active,
+        department: filters.department,
+        search: filters.search,
+      });
+      return {
+        data,
+        meta: {
+          current_page: 1,
+          last_page: 1,
+          per_page: filters.per_page ?? data.length,
+          total: data.length,
+        },
+      };
     }
 
     const params = new URLSearchParams();
@@ -272,6 +291,12 @@ export const onboardingService = {
    * Get a single case with tasks + notes (requires onboarding.manage).
    */
   async get(id: number): Promise<OnboardingCase> {
+    if (isDevAuthToken(getStoredToken())) {
+      const found = findDevCase(id);
+      if (!found) throw new Error("Onboarding case not found");
+      return found;
+    }
+
     const response = await httpClient.get<ApiResponse<OnboardingCase>>(
       `/portal/onboarding/cases/${id}`,
     );
@@ -297,6 +322,10 @@ export const onboardingService = {
    * Add an internal note to a case (requires onboarding.manage).
    */
   async addNote(id: number, body: string): Promise<OnboardingNote> {
+    if (isDevAuthToken(getStoredToken())) {
+      return addDevCaseNote(id, body);
+    }
+
     const response = await httpClient.post<ApiResponse<OnboardingNote>>(
       `/portal/onboarding/cases/${id}/notes`,
       { body },
@@ -313,6 +342,10 @@ export const onboardingService = {
     taskId: number,
     payload: UpdateTaskPayload,
   ): Promise<OnboardingTask> {
+    if (isDevAuthToken(getStoredToken())) {
+      return updateDevCaseTask(caseId, taskId, payload);
+    }
+
     const response = await httpClient.patch<ApiResponse<OnboardingTask>>(
       `/portal/onboarding/cases/${caseId}/tasks/${taskId}`,
       payload,
@@ -324,6 +357,10 @@ export const onboardingService = {
    * Cancel an onboarding case (requires onboarding.manage).
    */
   async cancel(id: number): Promise<OnboardingCase> {
+    if (isDevAuthToken(getStoredToken())) {
+      return cancelDevCase(id);
+    }
+
     const response = await httpClient.post<ApiResponse<OnboardingCase>>(
       `/portal/onboarding/cases/${id}/cancel`,
     );
@@ -335,15 +372,19 @@ export const onboardingService = {
    */
   async getStats(): Promise<PeopleOpsStats> {
     if (isDevAuthToken(getStoredToken())) {
+      const cases = listDevCases();
+      const activeCases = cases.filter(
+        (c) => c.status === "submitted" || c.status === "in_progress",
+      );
       const assignable = getDevOnboardingOptions().assignable_assets.length;
       return {
         onboarding: {
-          active: 0,
-          submitted: 0,
-          in_progress: 0,
+          active: activeCases.length,
+          submitted: cases.filter((c) => c.status === "submitted").length,
+          in_progress: cases.filter((c) => c.status === "in_progress").length,
           starting_soon: 0,
           overdue: 0,
-          completed_30d: 0,
+          completed_30d: cases.filter((c) => c.status === "completed").length,
         },
         offboarding: {
           active: 0,

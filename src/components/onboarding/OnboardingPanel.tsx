@@ -122,9 +122,14 @@ export function OnboardingPanel() {
     });
   }, [cases, search]);
 
-  const handleCreated = useCallback(() => {
-    loadCases();
-  }, [loadCases]);
+  const handleCreated = useCallback(
+    (created: OnboardingCase) => {
+      setCases((prev) => [created, ...prev.filter((c) => c.id !== created.id)]);
+      loadCases();
+      loadOptions();
+    },
+    [loadCases, loadOptions],
+  );
 
   return (
     <VStack gap={8} align="stretch">

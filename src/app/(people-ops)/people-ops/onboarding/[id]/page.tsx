@@ -517,14 +517,27 @@ export default function OnboardingCaseDetailPage() {
                   key={task.id}
                   task={task}
                   saving={savingTaskId === task.id}
+                  hireName={data.new_hire?.name}
                   onUpdateChecklist={(checklist: OnboardingChecklistItem[]) =>
                     mutateTask(task.id, { checklist }, false)
                   }
                   onSetStatus={(status: OnboardingTaskStatus) =>
-                    mutateTask(task.id, { status }, true)
+                    mutateTask(
+                      task.id,
+                      {
+                        status,
+                        // Clearing the blocker when work resumes.
+                        ...(status === "in_progress" ? { waiting_on: null } : {}),
+                      },
+                      true,
+                    )
                   }
                   onSetWaitingOn={(text: string) =>
-                    mutateTask(task.id, { waiting_on: text }, false)
+                    mutateTask(
+                      task.id,
+                      { status: "waiting_on", waiting_on: text },
+                      true,
+                    )
                   }
                 />
               ))}
