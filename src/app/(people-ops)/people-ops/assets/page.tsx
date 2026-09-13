@@ -14,6 +14,7 @@ import {
   Skeleton,
   Badge,
   SimpleGrid,
+  Image,
 } from "@chakra-ui/react";
 import { useColorModeValue } from "@/components/ui/color-mode";
 import { toaster } from "@/components/ui/toaster";
@@ -38,11 +39,15 @@ import { AssetFormDrawer } from "@/components/onboarding/AssetFormDrawer";
 import { AssetDetailDrawer } from "@/components/onboarding/AssetDetailDrawer";
 
 const STATUS_HELP: Record<string, string> = {
-  available: "Ready to give to a new hire",
+  assignable: "Marked ready in Asset Tiger / hire-ready pool",
+  available: "In stock, but not marked ready for a new hire",
+  ready_for_reassignment: "Wipe complete — ready to give to a new hire",
   assigned: "Currently with a staff member",
+  in_repair: "Being fixed — not ready to assign",
   repair: "Being fixed — not ready to assign",
   retired: "Taken out of service",
   needs_backup: "Returned — needs data backup before reuse",
+  needs_wipe: "Returned — needs wipe before reuse",
 };
 
 function plainStatusHelp(status: string | null, label: string | null): string {
@@ -60,7 +65,8 @@ export default function AssetInventoryPage() {
   const [inventory, setInventory] = useState<Asset[]>([]);
   const [options, setOptions] = useState<AssetOptions | null>(null);
   const [loading, setLoading] = useState(canManage);
-  const [statusFilter, setStatusFilter] = useState("");
+  /** Default: hire-ready pool (AT Ready for Reassignment), not bare "available". */
+  const [statusFilter, setStatusFilter] = useState("assignable");
   const [typeFilter, setTypeFilter] = useState("");
   const [search, setSearch] = useState("");
 
@@ -111,7 +117,11 @@ export default function AssetInventoryPage() {
     setLoading(true);
     try {
       const res = await assetService.list({
-        status: statusFilter || undefined,
+        assignable: statusFilter === "assignable" ? true : undefined,
+        status:
+          statusFilter && statusFilter !== "assignable"
+            ? statusFilter
+            : undefined,
         type: typeFilter || undefined,
         search: search.trim() || undefined,
         per_page: 100,
@@ -144,13 +154,31 @@ export default function AssetInventoryPage() {
 
   const summary = useMemo(() => {
     const ready = inventory.filter((a) => a.is_assignable).length;
-    const withSomeone = inventory.filter((a) => !!a.assigned_user_id).length;
+    const withSomeone = inventory.filter(
+      (a) =>
+        a.status === "assigned" ||
+        !!a.assigned_user_id ||
+        !!a.at_assigned_person_name,
+    ).length;
     return {
       total: inventory.length,
       ready,
       withSomeone,
     };
   }, [inventory]);
+
+  const holderLabel = (asset: Asset): string => {
+    if (asset.assigned_user?.name) {
+      return `With ${asset.assigned_user.name}`;
+    }
+    if (asset.at_assigned_person_name) {
+      return `With ${asset.at_assigned_person_name}`;
+    }
+    if (asset.status === "assigned") {
+      return "Checked out in Asset Tiger";
+    }
+    return plainStatusHelp(asset.status, asset.status_label);
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -340,15 +368,12 @@ export default function AssetInventoryPage() {
             </Text>
             <Text fontSize="sm" color={textSecondary}>
               Click any device to see details, assign it to someone, or update
-              its status.{" "}
+              its status. This page defaults to{" "}
               <Text as="span" fontWeight="medium" color={textPrimary}>
-                Available
+                Ready for new hires
               </Text>{" "}
-              means it can be offered during new-hire intake.{" "}
-              <Text as="span" fontWeight="medium" color={textPrimary}>
-                Assigned
-              </Text>{" "}
-              means a staff member currently has it.
+              (Asset Tiger &quot;Ready for Reassignment&quot;). Use the status
+              filter to see assigned devices or the full inventory.
             </Text>
           </Box>
         </HStack>
@@ -433,14 +458,21 @@ export default function AssetInventoryPage() {
                 value={statusFilter}
                 onChange={setStatusFilter}
                 placeholder="All statuses"
-                entries={Object.entries(options?.statuses ?? {}).map(
-                  ([value, label]) => [
-                    value,
-                    STATUS_HELP[value]
-                      ? `${label} — ${STATUS_HELP[value]}`
-                      : label,
+                entries={[
+                  [
+                    "assignable",
+                    "Ready for new hires — can be offered during intake",
                   ],
-                )}
+                  ...Object.entries(options?.statuses ?? {}).map(
+                    ([value, label]) =>
+                      [
+                        value,
+                        STATUS_HELP[value]
+                          ? `${label} — ${STATUS_HELP[value]}`
+                          : label,
+                      ] as [string, string],
+                  ),
+                ]}
               />
               <FilterSelect
                 value={typeFilter}
@@ -492,31 +524,56 @@ export default function AssetInventoryPage() {
                 <LuInbox size={40} />
               </Box>
               <Text color={textPrimary} fontWeight="medium">
-                No devices match these filters
+                {statusFilter === "assignable"
+                  ? "No devices ready for new hires"
+                  : "No devices match these filters"}
               </Text>
               <Text color={textSecondary} fontSize="sm" maxW="360px">
-                Try clearing filters, or add a laptop, desktop, or tablet so IT
-                can track who has what.
+                {statusFilter === "assignable"
+                  ? "Only devices marked Ready for Reassignment in Asset Tiger appear here. Switch the status filter to see the rest of inventory."
+                  : "Try clearing filters, or add a laptop, desktop, or tablet so IT can track who has what."}
               </Text>
-              <Box
-                as="button"
-                mt={2}
-                onClick={openCreate}
-                bg="brand.500"
-                color="white"
-                px={4}
-                py={2}
-                borderRadius="lg"
-                fontWeight="medium"
-                fontSize="sm"
-                display="inline-flex"
-                alignItems="center"
-                gap={2}
-                _hover={{ bg: "brand.600" }}
-              >
-                <LuPlus size={16} />
-                Add your first device
-              </Box>
+              {statusFilter === "assignable" ? (
+                <Box
+                  as="button"
+                  mt={2}
+                  onClick={() => setStatusFilter("")}
+                  border="1px solid"
+                  borderColor={borderColor}
+                  color={textPrimary}
+                  px={4}
+                  py={2}
+                  borderRadius="lg"
+                  fontWeight="medium"
+                  fontSize="sm"
+                  display="inline-flex"
+                  alignItems="center"
+                  gap={2}
+                  _hover={{ bg: rowHoverBg }}
+                >
+                  Show all statuses
+                </Box>
+              ) : (
+                <Box
+                  as="button"
+                  mt={2}
+                  onClick={openCreate}
+                  bg="brand.500"
+                  color="white"
+                  px={4}
+                  py={2}
+                  borderRadius="lg"
+                  fontWeight="medium"
+                  fontSize="sm"
+                  display="inline-flex"
+                  alignItems="center"
+                  gap={2}
+                  _hover={{ bg: "brand.600" }}
+                >
+                  <LuPlus size={16} />
+                  Add your first device
+                </Box>
+              )}
             </VStack>
           ) : (
             <VStack gap={2} align="stretch">
@@ -549,15 +606,12 @@ export default function AssetInventoryPage() {
                     justifyContent="center"
                   >
                     {asset.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <Image
                         src={asset.image_url}
                         alt=""
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                        }}
+                        w="100%"
+                        h="100%"
+                        fit="cover"
                       />
                     ) : asset.status === "repair" ? (
                       <Box color={textMuted}>
@@ -585,14 +639,15 @@ export default function AssetInventoryPage() {
                         asset.serial_number
                           ? `Serial ${asset.serial_number}`
                           : null,
+                        asset.cost != null
+                          ? `$${Number(asset.cost).toLocaleString()}`
+                          : null,
                       ]
                         .filter(Boolean)
                         .join(" · ") || "No tag or serial yet"}
                     </Text>
                     <Text fontSize="xs" color={textSecondary} mt={1}>
-                      {asset.assigned_user
-                        ? `With ${asset.assigned_user.name}`
-                        : plainStatusHelp(asset.status, asset.status_label)}
+                      {holderLabel(asset)}
                     </Text>
                   </Box>
 

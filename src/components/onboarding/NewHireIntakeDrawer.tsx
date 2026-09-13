@@ -16,6 +16,7 @@ import {
   CloseButton,
   Badge,
   SimpleGrid,
+  Image,
 } from "@chakra-ui/react";
 import { useColorModeValue } from "@/components/ui/color-mode";
 import { toaster } from "@/components/ui/toaster";
@@ -1187,15 +1188,12 @@ export function NewHireIntakeDrawer({
                                           >
                                             {asset.image_url ? (
                                               <>
-                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img
+                                                <Image
                                                   src={asset.image_url}
                                                   alt={asset.name}
-                                                  style={{
-                                                    width: "100%",
-                                                    height: "100%",
-                                                    objectFit: "cover",
-                                                  }}
+                                                  w="100%"
+                                                  h="100%"
+                                                  fit="cover"
                                                 />
                                                 <Box
                                                   position="absolute"
@@ -1602,15 +1600,12 @@ export function NewHireIntakeDrawer({
                   border="1px solid"
                   borderColor={borderColor}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={previewAsset.image_url}
                     alt={previewAsset.name}
-                    style={{
-                      width: "100%",
-                      height: "auto",
-                      display: "block",
-                    }}
+                    w="100%"
+                    h="auto"
+                    display="block"
                   />
                 </Box>
               )}

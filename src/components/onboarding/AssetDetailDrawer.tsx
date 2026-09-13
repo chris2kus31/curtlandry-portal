@@ -313,6 +313,15 @@ export function AssetDetailDrawer({
                         <LuUser size={14} />
                         <Text>{asset.assigned_user.name}</Text>
                       </HStack>
+                    ) : asset.at_assigned_person_name ? (
+                      <HStack gap={1.5} color={textSecondary} fontSize="sm">
+                        <LuUser size={14} />
+                        <Text>{asset.at_assigned_person_name}</Text>
+                      </HStack>
+                    ) : asset.status === "assigned" ? (
+                      <Text fontSize="sm" color={textSecondary}>
+                        Checked out in Asset Tiger
+                      </Text>
                     ) : (
                       <Text fontSize="sm" color={textSecondary}>
                         Unassigned

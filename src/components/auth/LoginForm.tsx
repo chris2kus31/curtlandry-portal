@@ -13,6 +13,9 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const loginAsDev = useAuthStore((s) => s.loginAsDev);
+  const loginAgainstLocalApi = useAuthStore((s) => s.loginAgainstLocalApi);
+  const authError = useAuthStore((s) => s.error);
+  const isLoading = useAuthStore((s) => s.isLoading);
   const cardBg = useColorModeValue("white", "gray.900");
   const borderColor = useColorModeValue("gray.200", "gray.700");
   const textPrimary = useColorModeValue("gray.900", "gray.50");
@@ -23,6 +26,14 @@ export function LoginForm() {
   const handleDevLogin = () => {
     loginAsDev();
     const redirect = searchParams.get("redirect") || "/people-ops?tab=onboarding";
+    router.replace(redirect);
+  };
+
+  const handleLocalApiLogin = async () => {
+    await loginAgainstLocalApi();
+    const { error } = useAuthStore.getState();
+    if (error) return;
+    const redirect = searchParams.get("redirect") || "/people-ops/assets";
     router.replace(redirect);
   };
 
@@ -179,8 +190,22 @@ export function LoginForm() {
                     color={textPrimary}
                     onClick={handleDevLogin}
                   >
-                    Dev Login (preview People Ops)
+                    Dev Login (mock inventory)
                   </Button>
+                  <Button
+                    w="full"
+                    size="lg"
+                    colorPalette="teal"
+                    loading={isLoading}
+                    onClick={handleLocalApiLogin}
+                  >
+                    Local API Login (live Asset Tiger data)
+                  </Button>
+                  {authError && (
+                    <Text fontSize="sm" color="red.500" textAlign="center">
+                      {authError}
+                    </Text>
+                  )}
                 </>
               )}
             </VStack>

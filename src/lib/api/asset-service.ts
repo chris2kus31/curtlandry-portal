@@ -42,6 +42,9 @@ export interface Asset {
   status_color: string | null;
   is_assignable: boolean;
   image_url?: string | null;
+  asset_tiger_ref_id?: number | null;
+  at_ready_for_reassignment?: boolean;
+  at_assigned_person_name?: string | null;
   assigned_user_id: number | null;
   purchase_date: string | null;
   cost: number | null;

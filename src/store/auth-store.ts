@@ -41,6 +41,7 @@ interface AuthState {
   loginWithGoogle: () => void;
   loginWithGoogleHod: () => void;
   loginAsDev: () => void;
+  loginAgainstLocalApi: () => Promise<void>;
   logout: () => Promise<void>;
   setUser: (user: User) => void;
   setToken: (token: string) => void;
@@ -97,6 +98,49 @@ export const useAuthStore = create<AuthState>()(
           isInitialized: true,
           error: null,
         });
+      },
+
+      loginAgainstLocalApi: async () => {
+        if (!isDevAuthEnabled()) {
+          set({ error: "Dev login is disabled" });
+          return;
+        }
+
+        set({ isLoading: true, error: null });
+
+        try {
+          const data = await authService.localDevLogin();
+          const accessToken = data.tokens.access_token;
+          const refreshToken = data.tokens.refresh_token;
+          const { roles = [], permissions = [], ...user } = data.user;
+
+          if (typeof window !== "undefined") {
+            localStorage.setItem("auth_token", accessToken);
+            if (refreshToken) {
+              localStorage.setItem("refresh_token", refreshToken);
+            }
+          }
+
+          setSessionCookie(true);
+          set({
+            user: user as User,
+            roles,
+            permissions,
+            token: accessToken,
+            isLoading: false,
+            isInitialized: true,
+            error: null,
+          });
+        } catch (error) {
+          console.error("Local API login failed:", error);
+          set({
+            isLoading: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : "Local API login failed. Is the Laravel API running on :8001?",
+          });
+        }
       },
 
       logout: async () => {
