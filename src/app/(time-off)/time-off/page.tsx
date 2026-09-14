@@ -33,6 +33,7 @@ import {
   type TimeOffType,
 } from "@/lib/api";
 import { DateRangePicker } from "@/components/ui/DateRangePicker";
+import { TimeOffCalendar } from "@/components/calendar";
 import {
   getTimeOffViewPreference,
   setTimeOffViewPreference,
@@ -269,7 +270,8 @@ export default function TimeOffPage() {
 
   return (
     <Box bg={pageBg} minH="100%" mx={{ base: -4, md: -6 }} px={{ base: 4, md: 6 }} py={6}>
-      <VStack align="stretch" gap={8} maxW="720px" mx="auto">
+      <VStack align="stretch" gap={10} maxW="1100px" mx="auto">
+        <VStack align="stretch" gap={8} maxW="720px" w="full" mx="auto">
         {/* Nav */}
         <HStack justify="space-between" flexWrap="wrap" gap={3}>
           <Text fontSize="md" color={textSecondary}>
@@ -738,6 +740,18 @@ export default function TimeOffPage() {
               )}
             </VStack>
           )}
+        </Box>
+        </VStack>
+
+        {/* Company calendar */}
+        <Box>
+          <Heading as="h2" fontSize="2xl" color={textPrimary} mb={2}>
+            Company time off
+          </Heading>
+          <Text fontSize="lg" color={textSecondary} mb={4}>
+            See who else is out so you can plan around the team.
+          </Text>
+          <TimeOffCalendar title="Company Time Off" />
         </Box>
       </VStack>
     </Box>
