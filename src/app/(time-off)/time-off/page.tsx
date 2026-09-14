@@ -13,6 +13,8 @@ import {
   Flex,
   Skeleton,
   Badge,
+  Input,
+  SimpleGrid,
 } from "@chakra-ui/react";
 import { useColorModeValue } from "@/components/ui/color-mode";
 import { toaster } from "@/components/ui/toaster";
@@ -101,8 +103,11 @@ export default function TimeOffPage() {
   const [showForm, setShowForm] = useState(false);
 
   const [selectedTypeId, setSelectedTypeId] = useState<number | null>(null);
+  const [requestType, setRequestType] = useState<"full" | "partial">("full");
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("13:00");
   const [notes, setNotes] = useState("");
 
   const pageBg = useColorModeValue("gray.50", "gray.950");
@@ -173,23 +178,48 @@ export default function TimeOffPage() {
     return count;
   }, [startDate, endDate]);
 
+  const partialHours = useMemo(() => {
+    if (!startTime || !endTime) return 0;
+    const [startH, startM] = startTime.split(":").map(Number);
+    const [endH, endM] = endTime.split(":").map(Number);
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+    const diffMinutes = endMinutes - startMinutes;
+    return diffMinutes > 0 ? Math.round((diffMinutes / 60) * 100) / 100 : 0;
+  }, [startTime, endTime]);
+
+  const totalHours = useMemo(
+    () => (requestType === "partial" ? partialHours : totalDays * 8),
+    [requestType, partialHours, totalDays],
+  );
+
   const canSubmit =
-    !!selectedType && !!startDate && !!endDate && totalDays > 0 && !submitting;
+    !!selectedType &&
+    !submitting &&
+    (requestType === "full"
+      ? !!startDate && !!endDate && totalDays > 0
+      : !!startDate && partialHours > 0 && partialHours <= 8);
 
   const handleSubmit = async () => {
-    if (!canSubmit || !selectedType || !startDate || !endDate) return;
+    if (!canSubmit || !selectedType || !startDate) return;
     setSubmitting(true);
     try {
       const toIso = (d: Date) =>
         `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
+      const effectiveEnd = requestType === "partial" ? startDate : endDate;
+      if (!effectiveEnd) return;
+
       await timeOffService.createRequest({
         time_off_type_id: selectedType.id,
         start_date: toIso(startDate),
-        end_date: toIso(endDate),
-        total_hours: totalDays * 8,
+        end_date: toIso(effectiveEnd),
+        total_hours: totalHours,
         notes: notes.trim() || undefined,
         submit: true,
+        ...(requestType === "partial"
+          ? { start_time: startTime, end_time: endTime }
+          : {}),
       });
 
       toaster.create({
@@ -198,8 +228,11 @@ export default function TimeOffPage() {
         type: "success",
       });
       setShowForm(false);
+      setRequestType("full");
       setStartDate(null);
       setEndDate(null);
+      setStartTime("09:00");
+      setEndTime("13:00");
       setNotes("");
       await load();
     } catch (error) {
@@ -409,24 +442,163 @@ export default function TimeOffPage() {
 
                 <Box>
                   <Text fontSize="lg" fontWeight="semibold" color={textPrimary} mb={3}>
-                    Which days?
+                    Full day or part of a day?
                   </Text>
-                  <DateRangePicker
-                    startDate={startDate}
-                    endDate={endDate}
-                    onStartDateChange={setStartDate}
-                    onEndDateChange={setEndDate}
-                    showDuration
-                  />
-                  {totalDays > 0 && (
+                  <SimpleGrid columns={{ base: 1, sm: 2 }} gap={3}>
+                    <Box
+                      as="button"
+                      type="button"
+                      onClick={() => setRequestType("full")}
+                      textAlign="left"
+                      p={4}
+                      borderRadius="xl"
+                      border="2px solid"
+                      borderColor={requestType === "full" ? "brand.500" : borderColor}
+                      bg={requestType === "full" ? softBg : typeIdleBg}
+                      _hover={{ borderColor: "brand.400" }}
+                    >
+                      <Text fontSize="lg" fontWeight="semibold" color={textPrimary}>
+                        Full day(s)
+                      </Text>
+                      <Text fontSize="md" color={textSecondary} mt={1}>
+                        Take one or more whole workdays off
+                      </Text>
+                    </Box>
+                    <Box
+                      as="button"
+                      type="button"
+                      onClick={() => {
+                        setRequestType("partial");
+                        if (startDate) setEndDate(startDate);
+                      }}
+                      textAlign="left"
+                      p={4}
+                      borderRadius="xl"
+                      border="2px solid"
+                      borderColor={
+                        requestType === "partial" ? "brand.500" : borderColor
+                      }
+                      bg={requestType === "partial" ? softBg : typeIdleBg}
+                      _hover={{ borderColor: "brand.400" }}
+                    >
+                      <Text fontSize="lg" fontWeight="semibold" color={textPrimary}>
+                        Part of a day
+                      </Text>
+                      <Text fontSize="md" color={textSecondary} mt={1}>
+                        Take a half day or a few hours
+                      </Text>
+                    </Box>
+                  </SimpleGrid>
+                </Box>
+
+                <Box>
+                  <Text fontSize="lg" fontWeight="semibold" color={textPrimary} mb={3}>
+                    {requestType === "full" ? "Which days?" : "Which day?"}
+                  </Text>
+                  {requestType === "full" ? (
+                    <DateRangePicker
+                      startDate={startDate}
+                      endDate={endDate}
+                      onStartDateChange={setStartDate}
+                      onEndDateChange={setEndDate}
+                      showDuration
+                    />
+                  ) : (
+                    <VStack align="stretch" gap={4}>
+                      <DateRangePicker
+                        startDate={startDate}
+                        endDate={startDate}
+                        onStartDateChange={(date) => {
+                          setStartDate(date);
+                          setEndDate(date);
+                        }}
+                        onEndDateChange={() => {}}
+                        singleDate
+                      />
+                      <SimpleGrid columns={{ base: 1, sm: 2 }} gap={3}>
+                        <Box>
+                          <Text
+                            fontSize="md"
+                            fontWeight="semibold"
+                            color={textPrimary}
+                            mb={2}
+                          >
+                            Start time
+                          </Text>
+                          <Input
+                            type="time"
+                            value={startTime}
+                            onChange={(e) => setStartTime(e.target.value)}
+                            fontSize="lg"
+                            borderRadius="xl"
+                            border="1px solid"
+                            borderColor={borderColor}
+                            bg={typeIdleBg}
+                            px={4}
+                            py={3}
+                            h="auto"
+                            _focus={{ borderColor: "brand.500" }}
+                          />
+                        </Box>
+                        <Box>
+                          <Text
+                            fontSize="md"
+                            fontWeight="semibold"
+                            color={textPrimary}
+                            mb={2}
+                          >
+                            End time
+                          </Text>
+                          <Input
+                            type="time"
+                            value={endTime}
+                            onChange={(e) => setEndTime(e.target.value)}
+                            fontSize="lg"
+                            borderRadius="xl"
+                            border="1px solid"
+                            borderColor={borderColor}
+                            bg={typeIdleBg}
+                            px={4}
+                            py={3}
+                            h="auto"
+                            _focus={{ borderColor: "brand.500" }}
+                          />
+                        </Box>
+                      </SimpleGrid>
+                    </VStack>
+                  )}
+                  {requestType === "full" && totalDays > 0 && (
                     <Text fontSize="lg" color={textPrimary} mt={3} fontWeight="medium">
                       You are requesting{" "}
                       <Text as="span" color="brand.500" fontWeight="bold">
                         {totalDays} {totalDays === 1 ? "workday" : "workdays"}
                       </Text>
-                      {" "}({totalDays * 8} hours)
+                      {" "}({totalHours} hours)
                     </Text>
                   )}
+                  {requestType === "partial" && partialHours > 0 && partialHours <= 8 && (
+                    <Text fontSize="lg" color={textPrimary} mt={3} fontWeight="medium">
+                      You are requesting{" "}
+                      <Text as="span" color="brand.500" fontWeight="bold">
+                        {partialHours} {partialHours === 1 ? "hour" : "hours"}
+                      </Text>
+                      {" "}on that day
+                    </Text>
+                  )}
+                  {requestType === "partial" && partialHours > 8 && (
+                    <Text fontSize="md" color="red.500" mt={3}>
+                      Part of a day can be at most 8 hours. For a full day, choose
+                      “Full day(s)” instead.
+                    </Text>
+                  )}
+                  {requestType === "partial" &&
+                    startTime &&
+                    endTime &&
+                    partialHours <= 0 && (
+                      <Text fontSize="md" color="red.500" mt={3}>
+                        End time must be after start time.
+                      </Text>
+                    )}
                 </Box>
 
                 <Box>
@@ -460,7 +632,15 @@ export default function TimeOffPage() {
                     fontSize="lg"
                     fontWeight="semibold"
                     color={textPrimary}
-                    onClick={() => setShowForm(false)}
+                    onClick={() => {
+                      setShowForm(false);
+                      setRequestType("full");
+                      setStartDate(null);
+                      setEndDate(null);
+                      setStartTime("09:00");
+                      setEndTime("13:00");
+                      setNotes("");
+                    }}
                     _hover={{ bg: typeIdleBg }}
                   >
                     Cancel
