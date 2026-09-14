@@ -26,6 +26,7 @@ import {
   LuClipboardList,
   LuMail,
   LuUsersRound,
+  LuVideo,
 } from "react-icons/lu";
 import type { IconType } from "react-icons";
 import { useAuthStore } from "@/store/auth-store";
@@ -55,6 +56,11 @@ const LinkItems: LinkItemProps[] = [
     icon: LuUsers,
     href: "/team",
     requiresDirectReports: true, // Only show if user has people reporting to them
+  },
+  {
+    name: "Meetings",
+    icon: LuVideo,
+    href: "/meetings",
   },
   {
     name: "People Ops",

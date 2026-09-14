@@ -26,6 +26,8 @@ export const config = {
     "/dashboard/:path*",
     "/time-off/:path*",
     "/team/:path*",
+    "/meetings",
+    "/meetings/:path*",
     "/admin/:path*",
     "/woo-discounts/:path*",
   ],

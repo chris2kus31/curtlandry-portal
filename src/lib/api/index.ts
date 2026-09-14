@@ -3,6 +3,7 @@ export { httpClient } from "./http-client";
 export { authService } from "./auth-service";
 export { timeOffService } from "./time-off-service";
 export { calendarService } from "./calendar-service";
+export { meetingsService, isFirefliesMeetingsAdmin } from "./meetings-service";
 export { adminService } from "./admin-service";
 export { approvalService } from "./approval-service";
 export { wooService } from "./woo-service";
@@ -62,6 +63,14 @@ export type {
 
 // Calendar service types
 export type { CalendarEvent, CalendarStatus } from "./calendar-service";
+
+// Meetings (Fireflies inbox) types
+export type {
+  Meeting,
+  MeetingActionItem,
+  MeetingActionStatus,
+  MeetingsInboxResponse,
+} from "./meetings-service";
 
 // Admin service types
 export type {
