@@ -327,7 +327,7 @@ export function SidebarContent({
         borderColor={borderColor}
       >
         <Text fontSize="xs" color={textSecondary} textAlign="center">
-          {collapsed ? "©" : "© 2025 Curt Landry Ministries"}
+          {collapsed ? "©" : "© 2026 Curt Landry Ministries"}
         </Text>
       </Box>
     </Box>

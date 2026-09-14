@@ -1,5 +1,21 @@
 // src/lib/api/time-off-service.ts
 import { httpClient } from "./http-client";
+import {
+  cancelDevTimeOffRequest,
+  createDevTimeOffRequest,
+  getDevPtoEligibility,
+  getDevTimeOffBalances,
+  getDevTimeOffRequests,
+  getDevTimeOffStats,
+  getDevTimeOffTypes,
+  getDevUpcomingTimeOff,
+} from "@/lib/dev-time-off";
+import { isDevAuthToken } from "@/lib/dev-auth";
+
+function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("auth_token");
+}
 
 export interface TimeOffType {
   id: number;
@@ -119,6 +135,10 @@ export const timeOffService = {
    * Get available time-off types
    */
   async getTypes(): Promise<TimeOffType[]> {
+    if (isDevAuthToken(getStoredToken())) {
+      return getDevTimeOffTypes();
+    }
+
     const response = await httpClient.get<ApiResponse<TimeOffType[]>>(
       "/portal/time-off/types",
     );
@@ -130,6 +150,10 @@ export const timeOffService = {
    * request validation is the source of truth for enforcement).
    */
   async getEligibility(): Promise<PtoEligibility> {
+    if (isDevAuthToken(getStoredToken())) {
+      return getDevPtoEligibility();
+    }
+
     const response = await httpClient.get<ApiResponse<PtoEligibility>>(
       "/portal/time-off/eligibility",
     );
@@ -140,6 +164,10 @@ export const timeOffService = {
    * Get user's PTO balances
    */
   async getBalances(year?: number): Promise<TimeOffBalance[]> {
+    if (isDevAuthToken(getStoredToken())) {
+      return getDevTimeOffBalances(year);
+    }
+
     const params = year ? `?year=${year}` : "";
     const response = await httpClient.get<
       ApiResponse<
@@ -175,6 +203,19 @@ export const timeOffService = {
     year?: number;
     per_page?: number;
   }): Promise<{ data: TimeOffRequest[]; meta?: unknown }> {
+    if (isDevAuthToken(getStoredToken())) {
+      const data = getDevTimeOffRequests(filters);
+      return {
+        data,
+        meta: {
+          current_page: 1,
+          last_page: 1,
+          per_page: filters?.per_page ?? data.length,
+          total: data.length,
+        },
+      };
+    }
+
     const params = new URLSearchParams();
     if (filters?.status) {
       if (Array.isArray(filters.status)) {
@@ -197,6 +238,10 @@ export const timeOffService = {
    * Get upcoming approved time off
    */
   async getUpcoming(limit?: number): Promise<TimeOffRequest[]> {
+    if (isDevAuthToken(getStoredToken())) {
+      return getDevUpcomingTimeOff(limit);
+    }
+
     const params = limit ? `?limit=${limit}` : "";
     const response = await httpClient.get<ApiResponse<TimeOffRequest[]>>(
       `/portal/time-off/upcoming${params}`,
@@ -217,6 +262,10 @@ export const timeOffService = {
     notes?: string;
     submit?: boolean;
   }): Promise<TimeOffRequest> {
+    if (isDevAuthToken(getStoredToken())) {
+      return createDevTimeOffRequest(data);
+    }
+
     // Transform notes to reason for API compatibility
     const { notes, ...rest } = data;
     const payload = {
@@ -234,6 +283,10 @@ export const timeOffService = {
    * Cancel a time-off request
    */
   async cancelRequest(id: number, reason?: string): Promise<TimeOffRequest> {
+    if (isDevAuthToken(getStoredToken())) {
+      return cancelDevTimeOffRequest(id, reason);
+    }
+
     const response = await httpClient.post<ApiResponse<TimeOffRequest>>(
       `/portal/time-off/requests/${id}/cancel`,
       { reason },
@@ -245,6 +298,10 @@ export const timeOffService = {
    * Get stats/counts for the user's requests (lightweight for badge counts)
    */
   async getStats(): Promise<{ pending_count: number; total_count: number }> {
+    if (isDevAuthToken(getStoredToken())) {
+      return getDevTimeOffStats();
+    }
+
     const response = await httpClient.get<
       ApiResponse<{ pending_count: number; total_count: number }>
     >("/portal/time-off/stats");
