@@ -65,10 +65,11 @@ export default function AssetInventoryPage() {
   const [inventory, setInventory] = useState<Asset[]>([]);
   const [options, setOptions] = useState<AssetOptions | null>(null);
   const [loading, setLoading] = useState(canManage);
-  /** Default: hire-ready pool (AT Ready for Reassignment), not bare "available". */
-  const [statusFilter, setStatusFilter] = useState("assignable");
+  /** Default: full synced inventory. Use "Ready for new hires" to narrow to AT hire-ready. */
+  const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Asset | null>(null);
@@ -138,6 +139,7 @@ export default function AssetInventoryPage() {
 
   const refreshAssets = useCallback(async () => {
     await Promise.all([loadAssets(), loadInventory()]);
+    setLastRefreshedAt(new Date());
   }, [loadAssets, loadInventory]);
 
   useEffect(() => {
@@ -148,9 +150,22 @@ export default function AssetInventoryPage() {
   }, [canManage, loadOptions, loadInventory]);
 
   useEffect(() => {
-    const t = setTimeout(loadAssets, 250);
+    const t = setTimeout(async () => {
+      await loadAssets();
+      setLastRefreshedAt(new Date());
+    }, 250);
     return () => clearTimeout(t);
   }, [loadAssets]);
+
+  // Keep the inventory list in sync with the Laravel / Asset Tiger backend.
+  useEffect(() => {
+    if (!canManage) return;
+    const HOUR_MS = 60 * 60 * 1000;
+    const id = window.setInterval(() => {
+      void refreshAssets();
+    }, HOUR_MS);
+    return () => window.clearInterval(id);
+  }, [canManage, refreshAssets]);
 
   const summary = useMemo(() => {
     const ready = inventory.filter((a) => a.is_assignable).length;
@@ -325,10 +340,19 @@ export default function AssetInventoryPage() {
             Device Inventory
           </Heading>
           <Text color={textSecondary} mt={1} maxW="640px">
-            A simple list of company devices — what we have, who has each one,
-            and which are ready for a new hire. (Later this will sync from Asset
-            Tiger.)
+            Synced from Asset Tiger — what we have, who has each one, and which
+            are ready for a new hire. This list refreshes automatically every
+            hour.
           </Text>
+          {lastRefreshedAt && (
+            <Text color={textMuted} fontSize="xs" mt={1}>
+              Last refreshed{" "}
+              {lastRefreshedAt.toLocaleTimeString([], {
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+            </Text>
+          )}
         </Box>
         <Box
           as="button"
@@ -368,12 +392,12 @@ export default function AssetInventoryPage() {
             </Text>
             <Text fontSize="sm" color={textSecondary}>
               Click any device to see details, assign it to someone, or update
-              its status. This page defaults to{" "}
+              its status. Inventory is synced from Asset Tiger. Use the status
+              filter to focus on{" "}
               <Text as="span" fontWeight="medium" color={textPrimary}>
                 Ready for new hires
               </Text>{" "}
-              (Asset Tiger &quot;Ready for Reassignment&quot;). Use the status
-              filter to see assigned devices or the full inventory.
+              (Asset Tiger &quot;Ready for Reassignment&quot;) during intake.
             </Text>
           </Box>
         </HStack>
@@ -612,6 +636,7 @@ export default function AssetInventoryPage() {
                         w="100%"
                         h="100%"
                         fit="cover"
+                        referrerPolicy="no-referrer"
                       />
                     ) : asset.status === "repair" ? (
                       <Box color={textMuted}>
