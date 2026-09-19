@@ -70,7 +70,9 @@ export type {
   MeetingActionItem,
   MeetingActionStatus,
   MeetingsInboxResponse,
+  MeetingsStatusResponse,
 } from "./meetings-service";
+export { FIREFLIES_ADMIN_EMAILS } from "./meetings-service";
 
 // Admin service types
 export type {

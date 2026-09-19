@@ -5,7 +5,8 @@ export type MeetingActionStatus =
   | "open"
   | "ready"
   | "synced"
-  | "needs_approval";
+  | "needs_approval"
+  | "dismissed";
 
 export interface MeetingActionItem {
   id: string;
@@ -38,7 +39,43 @@ export interface MeetingsInboxResponse {
   is_fireflies_admin: boolean;
   meetings: Meeting[];
   using_mock?: boolean;
+  asana_enabled?: boolean;
+  fireflies_enabled?: boolean;
+  source?: string;
+  week?: {
+    start: string;
+    end: string;
+    label: string;
+    timezone: string;
+  };
+  error?: string;
 }
+
+export type MeetingActionPayload = {
+  action: string;
+  assignee_email?: string | null;
+  assignee_name?: string | null;
+  meeting_id?: string;
+  meeting_title?: string;
+  due_on?: string | null;
+};
+
+export interface MeetingsStatusResponse {
+  is_fireflies_admin: boolean;
+  is_super_admin: boolean;
+  has_meetings_manage: boolean;
+  email_on_admin_allowlist: boolean;
+  email_on_member_roster: boolean;
+}
+
+/** Fireflies workspace admins (portal allowlist mirror). */
+export const FIREFLIES_ADMIN_EMAILS = [
+  "media@curtlandry.com",
+  "bkelly@curtlandry.com",
+  "dtannous@curtlandry.com",
+  "tdunlavey@curtlandry.com",
+  "sdunlavey@curtlandry.com",
+] as const;
 
 function getStoredToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -60,7 +97,7 @@ function isoDaysAgo(days: number, hour = 9): string {
 }
 
 /**
- * Local preview corpus until /portal/meetings exists.
+ * Local preview corpus until /portal/meetings responds.
  * Scoped to the signed-in person's name/email when possible.
  */
 export function getMockMeetingsInbox(options: {
@@ -81,13 +118,20 @@ export function getMockMeetingsInbox(options: {
       source: "fireflies",
       attendees: [
         { name: me, email, user_id: userId },
-        { name: "Sarah Chen", email: "sarah.chen@curtlandry.com", user_id: null },
-        { name: "Marcus Lee", email: "marcus.lee@curtlandry.com", user_id: null },
         {
-          name: isFirefliesAdmin ? "Zach" : "Shauna",
-          email: isFirefliesAdmin
-            ? "zach@curtlandry.com"
-            : "shauna@curtlandry.com",
+          name: "Shauna Dunlavey",
+          email: "sdunlavey@curtlandry.com",
+          user_id: null,
+        },
+        {
+          name: "Tucker Dunlavey",
+          email: "tdunlavey@curtlandry.com",
+          user_id: null,
+        },
+        { name: "Bob Kelly", email: "bkelly@curtlandry.com", user_id: null },
+        {
+          name: "Paul Marcellino",
+          email: "paul@curtlandry.com",
           user_id: null,
         },
       ],
@@ -111,18 +155,18 @@ export function getMockMeetingsInbox(options: {
           status: "open",
         },
         {
-          id: "ai_marcus_1",
-          assignee_name: "Marcus Lee",
-          assignee_email: "marcus.lee@curtlandry.com",
+          id: "ai_paul_1",
+          assignee_name: "Paul Marcellino",
+          assignee_email: "paul@curtlandry.com",
           assignee_user_id: null,
           is_mine: false,
           action: "Update donor follow-up list from last week’s calls",
           status: "needs_approval",
         },
         {
-          id: "ai_sarah_1",
-          assignee_name: "Sarah Chen",
-          assignee_email: "sarah.chen@curtlandry.com",
+          id: "ai_bob_1",
+          assignee_name: "Bob Kelly",
+          assignee_email: "bkelly@curtlandry.com",
           assignee_user_id: null,
           is_mine: false,
           action: "Draft Q2 budget summary and share with leadership",
@@ -132,14 +176,19 @@ export function getMockMeetingsInbox(options: {
     },
     {
       id: "mtg_creative",
-      title: "Creative Team Standup",
+      title: "Creative / Media Standup",
       started_at: isoDaysAgo(3, 11),
       duration_minutes: 28,
       source: "fireflies",
       attendees: [
         { name: me, email, user_id: userId },
-        { name: "Ava Brooks", email: "ava.brooks@curtlandry.com", user_id: null },
-        { name: "Marcus Lee", email: "marcus.lee@curtlandry.com", user_id: null },
+        {
+          name: "Aaron Reeves",
+          email: "areeves@curtlandry.com",
+          user_id: null,
+        },
+        { name: "Clay Harper", email: "charper@curtlandry.com", user_id: null },
+        { name: "Toni Hill", email: "thill@curtlandry.com", user_id: null },
       ],
       action_items: [
         {
@@ -153,25 +202,39 @@ export function getMockMeetingsInbox(options: {
           asana_task_id: "mock_asana_1",
         },
         {
-          id: "ai_ava_1",
-          assignee_name: "Ava Brooks",
-          assignee_email: "ava.brooks@curtlandry.com",
+          id: "ai_aaron_1",
+          assignee_name: "Aaron Reeves",
+          assignee_email: "areeves@curtlandry.com",
           assignee_user_id: null,
           is_mine: false,
           action: "Send caption draft for social clips",
           status: "open",
         },
+        {
+          id: "ai_clay_1",
+          assignee_name: "Clay Harper",
+          assignee_email: "charper@curtlandry.com",
+          assignee_user_id: null,
+          is_mine: false,
+          action: "Publish cutdown to Asana review column",
+          status: "needs_approval",
+        },
       ],
     },
     {
-      id: "mtg_donor",
-      title: "Donor Care Huddle",
+      id: "mtg_ops",
+      title: "Ops Huddle",
       started_at: isoDaysAgo(4, 14),
       duration_minutes: 35,
       source: "fireflies",
       attendees: [
         { name: me, email, user_id: userId },
-        { name: "Sarah Chen", email: "sarah.chen@curtlandry.com", user_id: null },
+        {
+          name: "Shauna Dunlavey",
+          email: "sdunlavey@curtlandry.com",
+          user_id: null,
+        },
+        { name: "Toni Hill", email: "thill@curtlandry.com", user_id: null },
       ],
       action_items: [
         {
@@ -184,9 +247,9 @@ export function getMockMeetingsInbox(options: {
           status: "open",
         },
         {
-          id: "ai_sarah_2",
-          assignee_name: "Sarah Chen",
-          assignee_email: "sarah.chen@curtlandry.com",
+          id: "ai_toni_1",
+          assignee_name: "Toni Hill",
+          assignee_email: "thill@curtlandry.com",
           assignee_user_id: null,
           is_mine: false,
           action: "Log donor thank-you calls in the CRM",
@@ -197,19 +260,18 @@ export function getMockMeetingsInbox(options: {
   ];
 
   if (!isFirefliesAdmin) {
-    // Member inbox: only meetings they attended (all of corpus includes them),
-    // and only their own action items.
     return {
       is_fireflies_admin: false,
       using_mock: true,
-      meetings: corpus.map((meeting) => ({
-        ...meeting,
-        action_items: meeting.action_items.filter((item) => item.is_mine),
-      })),
+      meetings: corpus
+        .map((meeting) => ({
+          ...meeting,
+          action_items: meeting.action_items.filter((item) => item.is_mine),
+        }))
+        .filter((meeting) => meeting.action_items.length > 0),
     };
   }
 
-  // Fireflies admin: meetings they were on + everyone's items on those calls.
   return {
     is_fireflies_admin: true,
     using_mock: true,
@@ -220,7 +282,7 @@ export function getMockMeetingsInbox(options: {
 export const meetingsService = {
   /**
    * Load the signed-in user's meetings inbox.
-   * Falls back to mock data until the portal API ships.
+   * Prefers API; falls back to mock when offline / local-dev.
    */
   async getInbox(context: {
     userId: number;
@@ -238,48 +300,131 @@ export const meetingsService = {
       );
       return {
         ...response,
-        using_mock: false,
+        using_mock: response.using_mock ?? false,
       };
     } catch {
       return getMockMeetingsInbox(context);
     }
   },
 
-  async createAsanaTask(actionItemId: string): Promise<{ asana_task_id: string }> {
+  async getStatus(): Promise<MeetingsStatusResponse | null> {
     if (isDevAuthToken(getStoredToken())) {
-      return { asana_task_id: `mock_${actionItemId}` };
+      return null;
     }
     try {
-      return await httpClient.post<{ asana_task_id: string }>(
-        `/portal/meetings/action-items/${actionItemId}/asana`,
+      return await httpClient.get<MeetingsStatusResponse>(
+        "/portal/meetings/status",
       );
     } catch {
-      return { asana_task_id: `local_${actionItemId}` };
+      return null;
     }
+  },
+
+  async createAsanaTask(
+    actionItemId: string,
+    payload: MeetingActionPayload,
+  ): Promise<{ asana_task_id: string; permalink_url?: string | null }> {
+    if (isDevAuthToken(getStoredToken())) {
+      // Still hit local API when available; otherwise mock.
+      try {
+        return await httpClient.post<{
+          asana_task_id: string;
+          permalink_url?: string | null;
+        }>(`/portal/meetings/action-items/${actionItemId}/asana`, payload);
+      } catch {
+        return { asana_task_id: `mock_${actionItemId}` };
+      }
+    }
+    return await httpClient.post<{
+      asana_task_id: string;
+      permalink_url?: string | null;
+    }>(`/portal/meetings/action-items/${actionItemId}/asana`, payload);
   },
 
   async approveActionItem(
     actionItemId: string,
-  ): Promise<{ asana_task_id: string }> {
+    payload: MeetingActionPayload,
+  ): Promise<{ asana_task_id: string; permalink_url?: string | null }> {
     if (isDevAuthToken(getStoredToken())) {
-      return { asana_task_id: `mock_approved_${actionItemId}` };
+      try {
+        return await httpClient.post<{
+          asana_task_id: string;
+          permalink_url?: string | null;
+        }>(`/portal/meetings/action-items/${actionItemId}/approve`, payload);
+      } catch {
+        return { asana_task_id: `mock_approved_${actionItemId}` };
+      }
     }
-    try {
-      return await httpClient.post<{ asana_task_id: string }>(
-        `/portal/meetings/action-items/${actionItemId}/approve`,
-      );
-    } catch {
-      return { asana_task_id: `local_approved_${actionItemId}` };
+    return await httpClient.post<{
+      asana_task_id: string;
+      permalink_url?: string | null;
+    }>(`/portal/meetings/action-items/${actionItemId}/approve`, payload);
+  },
+
+  async dismissActionItem(
+    actionItemId: string,
+    payload: MeetingActionPayload & { reason?: string },
+  ): Promise<{ ok: boolean; status: string }> {
+    if (isDevAuthToken(getStoredToken())) {
+      try {
+        return await httpClient.post<{ ok: boolean; status: string }>(
+          `/portal/meetings/action-items/${actionItemId}/dismiss`,
+          payload,
+        );
+      } catch {
+        return { ok: true, status: "dismissed" };
+      }
     }
+    return await httpClient.post<{ ok: boolean; status: string }>(
+      `/portal/meetings/action-items/${actionItemId}/dismiss`,
+      payload,
+    );
+  },
+
+  async reviseActionItem(
+    actionItemId: string,
+    payload: MeetingActionPayload,
+  ): Promise<{ ok: boolean; status: string; action: string }> {
+    if (isDevAuthToken(getStoredToken())) {
+      try {
+        return await httpClient.post<{
+          ok: boolean;
+          status: string;
+          action: string;
+        }>(`/portal/meetings/action-items/${actionItemId}/revise`, payload);
+      } catch {
+        return { ok: true, status: "ready", action: payload.action };
+      }
+    }
+    return await httpClient.post<{
+      ok: boolean;
+      status: string;
+      action: string;
+    }>(`/portal/meetings/action-items/${actionItemId}/revise`, payload);
   },
 };
 
-/** Fireflies account admins (e.g. Shauna) can review others' items on their meetings. */
+/**
+ * Fireflies admin view for Meetings.
+ * - meetings.manage / fireflies_admin role
+ * - portal super_admin (Zach verification path)
+ * - Fireflies admin email allowlist
+ */
 export function isFirefliesMeetingsAdmin(
   roles: string[],
   permissions: string[],
+  email?: string | null,
 ): boolean {
   if (permissions.includes("meetings.manage")) return true;
   if (roles.includes("super_admin")) return true;
+  if (roles.includes("fireflies_admin")) return true;
+  if (email) {
+    const normalized = email.trim().toLowerCase();
+    if (
+      (FIREFLIES_ADMIN_EMAILS as readonly string[]).includes(normalized)
+    ) {
+      return true;
+    }
+  }
   return false;
 }

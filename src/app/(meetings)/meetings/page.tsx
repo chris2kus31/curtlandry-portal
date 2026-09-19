@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
 import {
   Badge,
   Box,
@@ -27,7 +27,6 @@ import {
   LuCheck,
   LuChevronDown,
   LuListTodo,
-  LuMessageSquare,
   LuShield,
   LuSparkles,
   LuUser,
@@ -56,7 +55,31 @@ function statusMeta(status: MeetingActionStatus) {
       return { label: "In Asana", color: "green" };
     case "needs_approval":
       return { label: "Needs your approval", color: "purple" };
+    case "dismissed":
+      return { label: "Denied", color: "gray" };
   }
+}
+
+function toActionPayload(
+  item: MeetingActionItem,
+  meeting: Meeting,
+  dueOn?: string | null,
+): {
+  action: string;
+  assignee_email: string | null;
+  assignee_name: string;
+  meeting_id: string;
+  meeting_title: string;
+  due_on: string | null;
+} {
+  return {
+    action: item.action,
+    assignee_email: item.assignee_email,
+    assignee_name: item.assignee_name,
+    meeting_id: meeting.id,
+    meeting_title: meeting.title,
+    due_on: dueOn?.trim() ? dueOn.trim() : null,
+  };
 }
 
 export default function MeetingsPage() {
@@ -64,11 +87,13 @@ export default function MeetingsPage() {
   const roles = useAuthStore((s) => s.roles);
   const permissions = useAuthStore((s) => s.permissions);
 
-  const isAdmin = isFirefliesMeetingsAdmin(roles, permissions);
+  const isAdmin = isFirefliesMeetingsAdmin(roles, permissions, user?.email);
 
   const [loading, setLoading] = useState(true);
   const [usingMock, setUsingMock] = useState(false);
+  const [weekLabel, setWeekLabel] = useState<string>("");
   const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [apiSaysAdmin, setApiSaysAdmin] = useState<boolean | null>(null);
   const [scope, setScope] = useState<AdminScope>("all");
   const [openId, setOpenId] = useState<string>("");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -94,30 +119,45 @@ export default function MeetingsPage() {
       });
       setMeetings(inbox.meetings);
       setUsingMock(!!inbox.using_mock);
-      setOpenId((prev) => prev || inbox.meetings[0]?.id || "");
+      setWeekLabel(inbox.week?.label || "");
+      setApiSaysAdmin(inbox.is_fireflies_admin);
+      // Keep meetings collapsed until the user expands one.
+      setOpenId("");
     } finally {
       setLoading(false);
     }
   }, [user, isAdmin]);
+
+  /** Prefer API scoping when present; fall back to local roster/role checks. */
+  const effectiveAdmin = apiSaysAdmin ?? isAdmin;
 
   useEffect(() => {
     load();
   }, [load]);
 
   const visibleMeetings = useMemo(() => {
-    if (!isAdmin || scope === "all") return meetings;
-    return meetings
+    const base =
+      !effectiveAdmin || scope === "all"
+        ? meetings
+        : meetings
+            .map((meeting) => ({
+              ...meeting,
+              action_items:
+                scope === "mine"
+                  ? meeting.action_items.filter((i) => i.is_mine)
+                  : meeting.action_items.filter(
+                      (i) => !i.is_mine && i.status === "needs_approval",
+                    ),
+            }))
+            .filter((meeting) => meeting.action_items.length > 0);
+
+    return base
       .map((meeting) => ({
         ...meeting,
-        action_items:
-          scope === "mine"
-            ? meeting.action_items.filter((i) => i.is_mine)
-            : meeting.action_items.filter(
-                (i) => !i.is_mine && i.status === "needs_approval",
-              ),
+        action_items: meeting.action_items.filter((i) => i.status !== "dismissed"),
       }))
       .filter((meeting) => meeting.action_items.length > 0);
-  }, [meetings, isAdmin, scope]);
+  }, [meetings, effectiveAdmin, scope]);
 
   const stats = useMemo(() => {
     const items = meetings.flatMap((m) => m.action_items);
@@ -148,14 +188,37 @@ export default function MeetingsPage() {
     );
   };
 
-  const handleCreateMine = async (item: MeetingActionItem) => {
+  const patchItem = (
+    actionItemId: string,
+    patch: Partial<MeetingActionItem>,
+  ) => {
+    setMeetings((prev) =>
+      prev.map((meeting) => ({
+        ...meeting,
+        action_items: meeting.action_items.map((item) =>
+          item.id === actionItemId ? { ...item, ...patch } : item,
+        ),
+      })),
+    );
+  };
+
+  const handleCreateMine = async (
+    item: MeetingActionItem,
+    meeting: Meeting,
+    dueOn?: string | null,
+  ) => {
     setBusyId(item.id);
     try {
-      const result = await meetingsService.createAsanaTask(item.id);
+      const result = await meetingsService.createAsanaTask(
+        item.id,
+        toActionPayload(item, meeting, dueOn),
+      );
       markSynced(item.id, result.asana_task_id);
       toaster.create({
         title: "Asana task created",
-        description: "Your action item is now in Asana.",
+        description: dueOn
+          ? `Added to your Asana My Tasks (due ${dueOn}).`
+          : "Added to your Asana My Tasks.",
         type: "success",
       });
     } catch (error) {
@@ -169,19 +232,92 @@ export default function MeetingsPage() {
     }
   };
 
-  const handleApprove = async (item: MeetingActionItem) => {
+  const handleApprove = async (
+    item: MeetingActionItem,
+    meeting: Meeting,
+    dueOn?: string | null,
+  ) => {
     setBusyId(item.id);
     try {
-      const result = await meetingsService.approveActionItem(item.id);
+      const result = await meetingsService.approveActionItem(
+        item.id,
+        toActionPayload(item, meeting, dueOn),
+      );
       markSynced(item.id, result.asana_task_id);
       toaster.create({
         title: "Approved",
-        description: `${item.assignee_name}'s item was sent to Asana.`,
+        description: dueOn
+          ? `${item.assignee_name}'s item was added to their My Tasks (due ${dueOn}).`
+          : `${item.assignee_name}'s item was added to their Asana My Tasks.`,
         type: "success",
       });
     } catch (error) {
       toaster.create({
         title: "Could not approve item",
+        description: error instanceof Error ? error.message : "Please try again",
+        type: "error",
+      });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleRevise = async (
+    item: MeetingActionItem,
+    meeting: Meeting,
+    nextAction: string,
+  ) => {
+    const trimmed = nextAction.trim();
+    if (trimmed.length < 3) {
+      toaster.create({
+        title: "Revision too short",
+        description: "Enter a clearer action item before saving.",
+        type: "error",
+      });
+      return;
+    }
+    setBusyId(item.id);
+    try {
+      const result = await meetingsService.reviseActionItem(item.id, {
+        ...toActionPayload(item, meeting),
+        action: trimmed,
+      });
+      patchItem(item.id, {
+        action: result.action,
+        status: item.is_mine ? "ready" : "needs_approval",
+      });
+      toaster.create({
+        title: "Revision saved",
+        description: "Review the updated text, then create/approve in Asana.",
+        type: "success",
+      });
+    } catch (error) {
+      toaster.create({
+        title: "Could not save revision",
+        description: error instanceof Error ? error.message : "Please try again",
+        type: "error",
+      });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleDeny = async (item: MeetingActionItem, meeting: Meeting) => {
+    setBusyId(item.id);
+    try {
+      await meetingsService.dismissActionItem(item.id, {
+        ...toActionPayload(item, meeting),
+        reason: "denied_in_portal",
+      });
+      patchItem(item.id, { status: "dismissed" });
+      toaster.create({
+        title: "Denied",
+        description: "This action item was dismissed and will not go to Asana.",
+        type: "success",
+      });
+    } catch (error) {
+      toaster.create({
+        title: "Could not deny item",
         description: error instanceof Error ? error.message : "Please try again",
         type: "error",
       });
@@ -198,15 +334,19 @@ export default function MeetingsPage() {
         <Box>
           <HStack gap={2} mb={2} flexWrap="wrap">
             <Badge
-              colorPalette={isAdmin ? "orange" : "brand"}
+              colorPalette={effectiveAdmin ? "orange" : "brand"}
               variant="subtle"
               borderRadius="md"
             >
-              {isAdmin ? "Fireflies admin" : "Personal inbox"}
+              {effectiveAdmin ? "Fireflies admin" : "Personal inbox"}
             </Badge>
-            {usingMock && (
-              <Badge colorPalette="gray" variant="subtle" borderRadius="md">
-                Sample data until Fireflies API is connected
+            {usingMock ? (
+              <Badge colorPalette="orange" variant="subtle" borderRadius="md">
+                Sample data — Fireflies live sync unavailable
+              </Badge>
+            ) : (
+              <Badge colorPalette="green" variant="subtle" borderRadius="md">
+                Live Fireflies
               </Badge>
             )}
           </HStack>
@@ -214,9 +354,10 @@ export default function MeetingsPage() {
             Meetings
           </Heading>
           <Text fontSize="md" color={textSecondary} mt={1}>
-            {isAdmin
+            {effectiveAdmin
               ? `Hi ${displayName} — meetings you were on, plus action items you can approve for others.`
               : `Hi ${displayName} — only meetings you attended, and only action items assigned to you.`}
+            {weekLabel ? ` Showing ${weekLabel} (Mon–Fri).` : ""}
           </Text>
         </Box>
 
@@ -224,14 +365,14 @@ export default function MeetingsPage() {
           <Card.Body py={4} px={5}>
             <HStack align="flex-start" gap={3}>
               <Box p={2} borderRadius="lg" bg={cardBg} color="brand.600" flexShrink={0}>
-                {isAdmin ? <LuShield size={18} /> : <LuUser size={18} />}
+                {effectiveAdmin ? <LuShield size={18} /> : <LuUser size={18} />}
               </Box>
               <Box>
                 <Text fontWeight="semibold" color={textPrimary}>
-                  {isAdmin ? "Admin inbox" : "Your inbox"}
+                  {effectiveAdmin ? "Admin inbox" : "Your inbox"}
                 </Text>
                 <Text fontSize="sm" color={textSecondary} mt={1}>
-                  {isAdmin
+                  {effectiveAdmin
                     ? "You only see meetings you were invited to — not the whole organization. On those meetings you can manage your own items and approve other people’s before they go to Asana or Slack."
                     : "Action items for other people never appear here. When Fireflies assigns something to you, it shows up in this inbox."}
                 </Text>
@@ -247,7 +388,7 @@ export default function MeetingsPage() {
             ))}
           </SimpleGrid>
         ) : (
-          <SimpleGrid columns={{ base: 2, md: isAdmin ? 4 : 3 }} gap={3}>
+          <SimpleGrid columns={{ base: 2, md: effectiveAdmin ? 4 : 3 }} gap={3}>
             <StatCard
               label="My meetings"
               value={stats.meetings}
@@ -264,7 +405,7 @@ export default function MeetingsPage() {
               textPrimary={textPrimary}
               textSecondary={textSecondary}
             />
-            {isAdmin && (
+            {effectiveAdmin && (
               <StatCard
                 label="Awaiting my approval"
                 value={stats.needsApproval}
@@ -285,7 +426,7 @@ export default function MeetingsPage() {
           </SimpleGrid>
         )}
 
-        {isAdmin && !loading && (
+        {effectiveAdmin && !loading && (
           <HStack gap={2} flexWrap="wrap">
             {(
               [
@@ -383,7 +524,9 @@ export default function MeetingsPage() {
                             meeting.started_at,
                             meeting.duration_minutes,
                           )}{" "}
-                          · Fireflies
+                          · Fireflies · {meeting.action_items.length} task
+                          {meeting.action_items.length === 1 ? "" : "s"}
+                          {!open ? " · click to expand" : ""}
                         </Text>
                         <Text fontSize="sm" color={textSecondary} mt={1}>
                           You were on this call
@@ -397,7 +540,7 @@ export default function MeetingsPage() {
                           {myCount} for you
                         </Badge>
                       )}
-                      {isAdmin && otherCount > 0 && (
+                      {effectiveAdmin && otherCount > 0 && (
                         <Badge colorPalette="purple" borderRadius="md">
                           {otherCount} to review
                         </Badge>
@@ -427,22 +570,25 @@ export default function MeetingsPage() {
                           fontWeight="semibold"
                           color={textSecondary}
                         >
-                          {isAdmin
+                          {effectiveAdmin
                             ? "Action items on this meeting"
                             : "Your action items only"}
                         </Text>
                       </HStack>
 
-                      {isAdmin ? (
+                      {effectiveAdmin ? (
                         <VStack align="stretch" gap={5}>
                           {myCount > 0 && (
                             <ItemGroup
                               title="Assigned to you"
+                              meeting={meeting}
                               items={meeting.action_items.filter((i) => i.is_mine)}
-                              isAdmin={isAdmin}
+                              isAdmin={effectiveAdmin}
                               busyId={busyId}
                               onCreateMine={handleCreateMine}
                               onApprove={handleApprove}
+                              onRevise={handleRevise}
+                              onDeny={handleDeny}
                               cardBg={cardBg}
                               borderColor={borderColor}
                               textPrimary={textPrimary}
@@ -451,12 +597,15 @@ export default function MeetingsPage() {
                           )}
                           {otherCount > 0 && (
                             <ItemGroup
-                              title="Others — approve before Asana / Slack"
+                              title="Others — revise, deny, or approve to Asana"
+                              meeting={meeting}
                               items={meeting.action_items.filter((i) => !i.is_mine)}
-                              isAdmin={isAdmin}
+                              isAdmin={effectiveAdmin}
                               busyId={busyId}
                               onCreateMine={handleCreateMine}
                               onApprove={handleApprove}
+                              onRevise={handleRevise}
+                              onDeny={handleDeny}
                               cardBg={cardBg}
                               borderColor={borderColor}
                               textPrimary={textPrimary}
@@ -467,11 +616,14 @@ export default function MeetingsPage() {
                       ) : (
                         <ItemGroup
                           title=""
+                          meeting={meeting}
                           items={meeting.action_items}
-                          isAdmin={isAdmin}
+                          isAdmin={effectiveAdmin}
                           busyId={busyId}
                           onCreateMine={handleCreateMine}
                           onApprove={handleApprove}
+                          onRevise={handleRevise}
+                          onDeny={handleDeny}
                           cardBg={cardBg}
                           borderColor={borderColor}
                           textPrimary={textPrimary}
@@ -521,27 +673,49 @@ function StatCard({
 
 function ItemGroup({
   title,
+  meeting,
   items,
   isAdmin,
   busyId,
   onCreateMine,
   onApprove,
+  onRevise,
+  onDeny,
   cardBg,
   borderColor,
   textPrimary,
   textSecondary,
 }: {
   title: string;
+  meeting: Meeting;
   items: MeetingActionItem[];
   isAdmin: boolean;
   busyId: string | null;
-  onCreateMine: (item: MeetingActionItem) => void;
-  onApprove: (item: MeetingActionItem) => void;
+  onCreateMine: (
+    item: MeetingActionItem,
+    meeting: Meeting,
+    dueOn?: string | null,
+  ) => void;
+  onApprove: (
+    item: MeetingActionItem,
+    meeting: Meeting,
+    dueOn?: string | null,
+  ) => void;
+  onRevise: (
+    item: MeetingActionItem,
+    meeting: Meeting,
+    nextAction: string,
+  ) => void;
+  onDeny: (item: MeetingActionItem, meeting: Meeting) => void;
   cardBg: string;
   borderColor: string;
   textPrimary: string;
   textSecondary: string;
 }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [dueById, setDueById] = useState<Record<string, string>>({});
+
   return (
     <Box>
       {title ? (
@@ -554,6 +728,8 @@ function ItemGroup({
           const meta = statusMeta(item.status);
           const isOther = isAdmin && !item.is_mine;
           const busy = busyId === item.id;
+          const editing = editingId === item.id;
+          const dueOn = dueById[item.id] ?? "";
           return (
             <Box
               key={item.id}
@@ -571,7 +747,7 @@ function ItemGroup({
                 direction={{ base: "column", sm: "row" }}
                 gap={4}
                 justify="space-between"
-                align={{ sm: "center" }}
+                align={{ sm: editing ? "flex-start" : "center" }}
               >
                 <Box flex={1} minW={0}>
                   <HStack gap={2} mb={2} flexWrap="wrap">
@@ -584,18 +760,57 @@ function ItemGroup({
                       {meta.label}
                     </Badge>
                   </HStack>
-                  <Text color={textPrimary} fontWeight="medium">
-                    {item.action}
-                  </Text>
+                  {editing ? (
+                    <Box
+                      as="textarea"
+                      value={draft}
+                      onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                        setDraft(e.target.value)
+                      }
+                      rows={3}
+                      w="100%"
+                      p={3}
+                      borderWidth="1px"
+                      borderColor={borderColor}
+                      borderRadius="lg"
+                      fontSize="sm"
+                      color={textPrimary}
+                      bg="transparent"
+                    />
+                  ) : (
+                    <Text color={textPrimary} fontWeight="medium">
+                      {item.action}
+                    </Text>
+                  )}
+                  {item.status !== "synced" && !editing && (
+                    <HStack mt={3} gap={2} align="center" flexWrap="wrap">
+                      <Text fontSize="xs" fontWeight="semibold" color={textSecondary}>
+                        Due date
+                      </Text>
+                      <Box
+                        as="input"
+                        type="date"
+                        value={dueOn}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                          setDueById((prev) => ({
+                            ...prev,
+                            [item.id]: e.target.value,
+                          }))
+                        }
+                        borderWidth="1px"
+                        borderColor={borderColor}
+                        borderRadius="lg"
+                        px={3}
+                        py={1.5}
+                        fontSize="sm"
+                        color={textPrimary}
+                        bg="transparent"
+                      />
+                    </HStack>
+                  )}
                 </Box>
                 <VStack align={{ base: "stretch", sm: "flex-end" }} gap={2}>
                   <HStack gap={2} flexWrap="wrap">
-                    <Badge colorPalette="green" variant="subtle" borderRadius="md">
-                      <HStack gap={1}>
-                        <LuMessageSquare size={12} />
-                        <Text>Slack</Text>
-                      </HStack>
-                    </Badge>
                     <Badge colorPalette="blue" variant="subtle" borderRadius="md">
                       <HStack gap={1}>
                         <LuCheck size={12} />
@@ -607,44 +822,123 @@ function ItemGroup({
                     <Text fontSize="sm" color="green.600" fontWeight="medium">
                       Already synced
                     </Text>
-                  ) : isOther ? (
-                    <Box
-                      as="button"
-                      px={4}
-                      py={2}
-                      borderRadius="lg"
-                      bg="brand.500"
-                      color="white"
-                      fontSize="sm"
-                      fontWeight="semibold"
-                      opacity={busy ? 0.7 : 1}
-                      cursor={busy ? "wait" : "pointer"}
-                      onClick={() => !busy && onApprove(item)}
-                      _hover={{ bg: "brand.600" }}
-                    >
-                      {busy ? "Approving…" : "Approve → Asana"}
-                    </Box>
+                  ) : editing ? (
+                    <HStack gap={2} flexWrap="wrap">
+                      <Box
+                        as="button"
+                        px={4}
+                        py={2}
+                        borderRadius="lg"
+                        bg="brand.500"
+                        color="white"
+                        fontSize="sm"
+                        fontWeight="semibold"
+                        opacity={busy ? 0.7 : 1}
+                        cursor={busy ? "wait" : "pointer"}
+                        onClick={() => {
+                          if (busy) return;
+                          onRevise(item, meeting, draft);
+                          setEditingId(null);
+                        }}
+                        _hover={{ bg: "brand.600" }}
+                      >
+                        Save revision
+                      </Box>
+                      <Box
+                        as="button"
+                        px={4}
+                        py={2}
+                        borderRadius="lg"
+                        borderWidth="1px"
+                        borderColor={borderColor}
+                        fontSize="sm"
+                        fontWeight="semibold"
+                        onClick={() => setEditingId(null)}
+                      >
+                        Cancel
+                      </Box>
+                    </HStack>
                   ) : (
-                    <Box
-                      as="button"
-                      px={4}
-                      py={2}
-                      borderRadius="lg"
-                      bg="brand.500"
-                      color="white"
-                      fontSize="sm"
-                      fontWeight="semibold"
-                      opacity={busy ? 0.7 : 1}
-                      cursor={busy ? "wait" : "pointer"}
-                      onClick={() => !busy && onCreateMine(item)}
-                      _hover={{ bg: "brand.600" }}
-                    >
-                      {busy
-                        ? "Creating…"
-                        : item.status === "ready"
-                          ? "Create my Asana task"
-                          : "Confirm & create in Asana"}
-                    </Box>
+                    <HStack gap={2} flexWrap="wrap" justify="flex-end">
+                      <Box
+                        as="button"
+                        px={3}
+                        py={2}
+                        borderRadius="lg"
+                        borderWidth="1px"
+                        borderColor={borderColor}
+                        fontSize="sm"
+                        fontWeight="semibold"
+                        opacity={busy ? 0.7 : 1}
+                        cursor={busy ? "wait" : "pointer"}
+                        onClick={() => {
+                          if (busy) return;
+                          setEditingId(item.id);
+                          setDraft(item.action);
+                        }}
+                      >
+                        Revise
+                      </Box>
+                      <Box
+                        as="button"
+                        px={3}
+                        py={2}
+                        borderRadius="lg"
+                        borderWidth="1px"
+                        borderColor="red.300"
+                        color="red.600"
+                        fontSize="sm"
+                        fontWeight="semibold"
+                        opacity={busy ? 0.7 : 1}
+                        cursor={busy ? "wait" : "pointer"}
+                        onClick={() => !busy && onDeny(item, meeting)}
+                      >
+                        Deny
+                      </Box>
+                      {isOther ? (
+                        <Box
+                          as="button"
+                          px={4}
+                          py={2}
+                          borderRadius="lg"
+                          bg="brand.500"
+                          color="white"
+                          fontSize="sm"
+                          fontWeight="semibold"
+                          opacity={busy ? 0.7 : 1}
+                          cursor={busy ? "wait" : "pointer"}
+                          onClick={() =>
+                            !busy && onApprove(item, meeting, dueOn || null)
+                          }
+                          _hover={{ bg: "brand.600" }}
+                        >
+                          {busy ? "Approving…" : "Approve → Asana"}
+                        </Box>
+                      ) : (
+                        <Box
+                          as="button"
+                          px={4}
+                          py={2}
+                          borderRadius="lg"
+                          bg="brand.500"
+                          color="white"
+                          fontSize="sm"
+                          fontWeight="semibold"
+                          opacity={busy ? 0.7 : 1}
+                          cursor={busy ? "wait" : "pointer"}
+                          onClick={() =>
+                            !busy && onCreateMine(item, meeting, dueOn || null)
+                          }
+                          _hover={{ bg: "brand.600" }}
+                        >
+                          {busy
+                            ? "Creating…"
+                            : item.status === "ready"
+                              ? "Create my Asana task"
+                              : "Confirm & create in Asana"}
+                        </Box>
+                      )}
+                    </HStack>
                   )}
                 </VStack>
               </Flex>
