@@ -1,7 +1,7 @@
 // src/components/layouts/AppSidebar.tsx
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import NextLink from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -20,6 +20,7 @@ import {
   LuUsers,
   LuChevronLeft,
   LuChevronRight,
+  LuChevronDown,
   LuShieldCheck,
   LuTag,
   LuGlobe,
@@ -41,6 +42,7 @@ interface LinkItemProps {
   requiredPermissions?: string[];
   requiresDirectReports?: boolean; // Only show if user has direct reports
   requiresManager?: boolean; // Show if user is a manager (OR'd with roles/permissions)
+  children?: LinkItemProps[];
 }
 
 const LinkItems: LinkItemProps[] = [
@@ -72,13 +74,18 @@ const LinkItems: LinkItemProps[] = [
     name: "Admin",
     icon: LuShieldCheck,
     href: "/admin",
+    // Parent page is super_admin-only; admin users still see the group via
+    // Woo Discounts (canAccessParent). Nested only admin-gated tools — not
+    // Sites/Events, which have their own event_manager path below.
     requiredRoles: ["super_admin"],
-  },
-  {
-    name: "Woo Discounts",
-    icon: LuTag,
-    href: "/woo-discounts",
-    requiredRoles: ["super_admin", "admin"],
+    children: [
+      {
+        name: "Woo Discounts",
+        icon: LuTag,
+        href: "/woo-discounts",
+        requiredRoles: ["super_admin", "admin"],
+      },
+    ],
   },
   {
     name: "Sites",
@@ -88,18 +95,22 @@ const LinkItems: LinkItemProps[] = [
     // without broader admin privileges. Kept in sync with the role
     // allowlist on the API side (routes/api.php — portal.role middleware).
     requiredRoles: ["super_admin", "admin", "event_manager"],
-  },
-  {
-    name: "Events",
-    icon: LuClipboardList,
-    href: "/events/applications",
-    requiredPermissions: ["applications.review"],
-  },
-  {
-    name: "Interest Signups",
-    icon: LuMail,
-    href: "/events/interest",
-    requiredPermissions: ["applications.review"],
+    children: [
+      {
+        name: "Events",
+        icon: LuClipboardList,
+        href: "/events/applications",
+        requiredRoles: ["super_admin", "admin", "event_manager"],
+        requiredPermissions: ["applications.review"],
+      },
+      {
+        name: "Interest Signups",
+        icon: LuMail,
+        href: "/events/interest",
+        requiredRoles: ["super_admin", "admin", "event_manager"],
+        requiredPermissions: ["applications.review"],
+      },
+    ],
   },
 ];
 
@@ -116,6 +127,7 @@ export function SidebarContent({
 }: SidebarContentProps) {
   const pathname = usePathname();
   const { user, roles, permissions } = useAuthStore();
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   // Theme colors
   const bgSurface = useColorModeValue("white", "gray.900");
@@ -124,6 +136,8 @@ export function SidebarContent({
   const textSecondary = useColorModeValue("gray.600", "gray.400");
   const hoverBg = useColorModeValue("gray.100", "gray.800");
   const activeBg = useColorModeValue("brand.500", "brand.600");
+  const childActiveBg = useColorModeValue("brand.50", "brand.900");
+  const childActiveColor = useColorModeValue("brand.700", "brand.200");
   const logoSrc = useColorModeValue(
     "/curtlandrylogo.svg",
     "/curtlandrylogo-light.svg",
@@ -152,13 +166,22 @@ export function SidebarContent({
     return gates.some(Boolean);
   };
 
-  const visibleLinks = LinkItems.filter(canAccess);
+  const canAccessParent = (link: LinkItemProps) => {
+    if (canAccess(link)) return true;
+    return (link.children ?? []).some(canAccess);
+  };
+
+  const visibleLinks = LinkItems.filter(canAccessParent).map((link) => ({
+    ...link,
+    children: link.children?.filter(canAccess),
+  }));
+
   const isActive = (href: string) => {
     // Exact match for dashboard
     if (href === "/dashboard") {
       return pathname === "/dashboard";
     }
-    // For /admin, only match exact /admin path, not /admin/store
+    // For /admin, only match exact /admin path, not nested admin tools
     if (href === "/admin") {
       return pathname === "/admin";
     }
@@ -177,6 +200,146 @@ export function SidebarContent({
     // For other routes, check exact match or starts with href/
     return pathname === href || pathname.startsWith(href + "/");
   };
+
+  const isGroupActive = (link: LinkItemProps) =>
+    isActive(link.href) ||
+    (link.children ?? []).some((child) => isActive(child.href));
+
+  // Auto-open groups when the current route is inside them. Manual toggles
+  // still win until the pathname changes again.
+  useEffect(() => {
+    setOpenGroups((prev) => {
+      const next = { ...prev };
+      for (const link of visibleLinks) {
+        if (!link.children?.length) continue;
+        if (isGroupActive(link)) {
+          next[link.name] = true;
+        }
+      }
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  const toggleGroup = (name: string) => {
+    setOpenGroups((prev) => {
+      const currentlyOpen =
+        prev[name] !== undefined
+          ? prev[name]
+          : visibleLinks.some(
+              (link) => link.name === name && isGroupActive(link),
+            );
+      return { ...prev, [name]: !currentlyOpen };
+    });
+  };
+
+  const isGroupOpen = (link: LinkItemProps) => {
+    if (openGroups[link.name] !== undefined) {
+      return openGroups[link.name];
+    }
+    return isGroupActive(link);
+  };
+
+  const renderNavRow = ({
+    link,
+    active,
+    indented = false,
+    trailing,
+  }: {
+    link: LinkItemProps;
+    active: boolean;
+    indented?: boolean;
+    trailing?: React.ReactNode;
+  }) => {
+    const IconComponent = link.icon;
+
+    return (
+      <Flex
+        align="center"
+        justify={collapsed ? "center" : "flex-start"}
+        px={collapsed ? 0 : 3}
+        py={indented ? 2 : 2.5}
+        pl={collapsed ? undefined : indented ? 12 : 3}
+        borderRadius="lg"
+        cursor="pointer"
+        bg={
+          active
+            ? indented
+              ? childActiveBg
+              : activeBg
+            : "transparent"
+        }
+        color={
+          active
+            ? indented
+              ? childActiveColor
+              : "white"
+            : textPrimary
+        }
+        fontWeight={active ? 600 : 500}
+        position="relative"
+        _hover={{
+          bg: active
+            ? indented
+              ? childActiveBg
+              : "brand.600"
+            : hoverBg,
+          transform: active || trailing ? "none" : "translateX(2px)",
+        }}
+        transition="all 0.2s"
+      >
+        {collapsed ? (
+          <Flex w="40px" h="40px" align="center" justify="center">
+            <IconComponent size={20} />
+          </Flex>
+        ) : (
+          <Flex align="center" gap={3} flex={1} minW={0}>
+            <Flex
+              w={indented ? "28px" : "36px"}
+              h={indented ? "28px" : "36px"}
+              align="center"
+              justify="center"
+              flexShrink={0}
+            >
+              <IconComponent size={indented ? 16 : 20} />
+            </Flex>
+            <Text fontSize={indented ? "xs" : "sm"} whiteSpace="nowrap">
+              {link.name}
+            </Text>
+          </Flex>
+        )}
+
+        {trailing}
+
+        {active && !collapsed && !indented && (
+          <Box
+            position="absolute"
+            left={0}
+            top="50%"
+            transform="translateY(-50%)"
+            w="3px"
+            h="60%"
+            bg="white"
+            borderRadius="full"
+            pointerEvents="none"
+          />
+        )}
+      </Flex>
+    );
+  };
+
+  const expandChevron = (groupOpen: boolean, active: boolean) => (
+    <Box
+      as="span"
+      display="inline-flex"
+      color={active ? "white" : textSecondary}
+      transform={groupOpen ? "rotate(0deg)" : "rotate(-90deg)"}
+      transition="transform 0.15s ease"
+      aria-hidden
+    >
+      <LuChevronDown size={16} />
+    </Box>
+  );
 
   return (
     <Box
@@ -256,64 +419,74 @@ export function SidebarContent({
       <Box flex={1} overflowY="auto" px={collapsed ? 2 : 3} py={4}>
         <VStack align="stretch" gap={1}>
           {visibleLinks.map((link) => {
-            const active = isActive(link.href);
-            const IconComponent = link.icon;
+            const children = link.children ?? [];
+            const hasChildren = children.length > 0;
+            const canOpenParent = canAccess(link);
+            const groupOpen = isGroupOpen(link);
+            const parentPageActive = isActive(link.href);
+            const groupActive = isGroupActive(link);
 
+            if (!hasChildren) {
+              return (
+                <NextLink href={link.href} key={link.name}>
+                  {renderNavRow({ link, active: isActive(link.href) })}
+                </NextLink>
+              );
+            }
+
+            // Collapsed: go to parent page when allowed, otherwise first child.
+            if (collapsed) {
+              const collapsedHref = canOpenParent
+                ? link.href
+                : (children[0]?.href ?? link.href);
+              return (
+                <NextLink href={collapsedHref} key={link.name}>
+                  {renderNavRow({ link, active: groupActive })}
+                </NextLink>
+              );
+            }
+
+            // Parent row only expands/collapses — never nests a button inside
+            // a link (that was causing the click glitches). Section pages stay
+            // reachable from their child links / direct URLs.
             return (
-              <NextLink href={link.href} passHref key={link.name}>
-                <Flex
-                  align="center"
-                  justify={collapsed ? "center" : "flex-start"}
-                  px={collapsed ? 0 : 3}
-                  py={2.5}
-                  borderRadius="lg"
-                  cursor="pointer"
-                  bg={active ? activeBg : "transparent"}
-                  color={active ? "white" : textPrimary}
-                  fontWeight={active ? 600 : 500}
-                  position="relative"
-                  _hover={{
-                    bg: active ? "brand.600" : hoverBg,
-                    transform: active ? "none" : "translateX(2px)",
+              <Box key={link.name}>
+                <Box
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={groupOpen}
+                  aria-label={
+                    groupOpen ? `Collapse ${link.name}` : `Expand ${link.name}`
+                  }
+                  onClick={() => toggleGroup(link.name)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toggleGroup(link.name);
+                    }
                   }}
-                  transition="all 0.2s"
                 >
-                  {collapsed ? (
-                    <Flex w="40px" h="40px" align="center" justify="center">
-                      <IconComponent size={20} />
-                    </Flex>
-                  ) : (
-                    <Flex align="center" gap={3} flex={1}>
-                      <Flex
-                        w="36px"
-                        h="36px"
-                        align="center"
-                        justify="center"
-                        flexShrink={0}
-                      >
-                        <IconComponent size={20} />
-                      </Flex>
-                      <Text fontSize="sm" whiteSpace="nowrap">
-                        {link.name}
-                      </Text>
-                    </Flex>
-                  )}
+                  {renderNavRow({
+                    link,
+                    active: parentPageActive,
+                    trailing: expandChevron(groupOpen, parentPageActive),
+                  })}
+                </Box>
 
-                  {/* Active Indicator */}
-                  {active && !collapsed && (
-                    <Box
-                      position="absolute"
-                      left={0}
-                      top="50%"
-                      transform="translateY(-50%)"
-                      w="3px"
-                      h="60%"
-                      bg="white"
-                      borderRadius="full"
-                    />
-                  )}
-                </Flex>
-              </NextLink>
+                {groupOpen && (
+                  <VStack align="stretch" gap={0.5} mt={1}>
+                    {children.map((child) => (
+                      <NextLink href={child.href} key={`${link.name}-${child.name}`}>
+                        {renderNavRow({
+                          link: child,
+                          active: isActive(child.href),
+                          indented: true,
+                        })}
+                      </NextLink>
+                    ))}
+                  </VStack>
+                )}
+              </Box>
             );
           })}
         </VStack>

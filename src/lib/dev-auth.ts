@@ -14,12 +14,12 @@ export function isDevAuthToken(token: string | null | undefined): boolean {
 export const DEV_MANAGER_USER: User = {
   id: 1,
   first_name: "Dev",
-  last_name: "Manager",
-  name: "Dev Manager",
-  full_name: "Dev Manager",
-  email: "dev.manager@curtlandry.com",
+  last_name: "Admin",
+  name: "Dev Admin",
+  full_name: "Dev Admin",
+  email: "dev.admin@curtlandry.com",
   department: "People Ops",
-  job_title: "Team Lead",
+  job_title: "Portal Preview",
   is_active: true,
   is_manager: true,
   has_direct_reports: true,
@@ -27,10 +27,19 @@ export const DEV_MANAGER_USER: User = {
   tenure_years: 2,
 };
 
-export const DEV_ROLES = ["manager", "employee"];
+// Includes admin/event roles so nested sidebar groups (Admin, Sites) are
+// visible in local preview. Not used against a real API.
+export const DEV_ROLES = [
+  "manager",
+  "employee",
+  "admin",
+  "super_admin",
+  "event_manager",
+];
 export const DEV_PERMISSIONS = [
   "onboarding.manage",
   "assets.manage",
   "software.manage",
   "offboarding.submit",
+  "applications.review",
 ];
