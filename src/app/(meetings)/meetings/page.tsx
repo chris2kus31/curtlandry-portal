@@ -90,7 +90,7 @@ export default function MeetingsPage() {
   const roles = useAuthStore((s) => s.roles);
   const permissions = useAuthStore((s) => s.permissions);
 
-  const allowed = canAccessMeetingsTab(user?.email);
+  const allowed = canAccessMeetingsTab(user?.email, roles);
   const isAdmin = isFirefliesMeetingsAdmin(roles, permissions, user?.email);
 
   const [loading, setLoading] = useState(true);

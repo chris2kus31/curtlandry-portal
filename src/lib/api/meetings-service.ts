@@ -79,7 +79,7 @@ export const FIREFLIES_ADMIN_EMAILS = [
 
 /**
  * Temporary production preview lock — mirrors API FIREFLIES_PREVIEW_EMAILS.
- * When non-empty, only these emails see the Meetings tab / page.
+ * When non-empty, only these emails plus portal super_admins see Meetings.
  * Empty array = open to normal Fireflies roles/permissions.
  * Shauna Dunlavey (Qualls) for staged testing.
  */
@@ -87,8 +87,14 @@ export const FIREFLIES_PREVIEW_EMAILS = [
   "sdunlavey@curtlandry.com",
 ] as const;
 
-/** True when the signed-in email may open Meetings during the preview lock. */
-export function canAccessMeetingsTab(email?: string | null): boolean {
+/** True when the signed-in user may open Meetings during the preview lock. */
+export function canAccessMeetingsTab(
+  email?: string | null,
+  roles: string[] = [],
+): boolean {
+  if (roles.includes("super_admin")) {
+    return true;
+  }
   if (FIREFLIES_PREVIEW_EMAILS.length === 0) {
     return true;
   }
