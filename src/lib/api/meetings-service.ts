@@ -105,14 +105,47 @@ export function canAccessMeetingsTab(
 
 function getStoredToken(): string | null {
   if (typeof window === "undefined") return null;
+  return localStorage.getItem("auth_token");
+}
+
+/**
+ * Dev Login uses a fake browser token. Asana create goes through a same-origin
+ * Next route that mints Zach's JWT server-side (avoids CORS / Failed to fetch).
+ */
+async function postDevMeetingsAsana<T>(
+  actionItemId: string,
+  action: "asana" | "approve",
+  payload: MeetingActionPayload | (MeetingActionPayload & { reason?: string }),
+): Promise<T> {
+  let res: Response;
   try {
-    const raw = localStorage.getItem("auth-storage");
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { state?: { token?: string } };
-    return parsed.state?.token ?? null;
+    res = await fetch("/api/dev/meetings-asana", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ actionItemId, action, payload }),
+    });
   } catch {
-    return null;
+    throw new Error(
+      "Could not reach the portal API route. Is Next.js running on port 3000?",
+    );
   }
+
+  const body = (await res.json().catch(() => null)) as
+    | (T & { message?: string })
+    | { message?: string }
+    | null;
+
+  if (!res.ok) {
+    throw new Error(
+      (body && "message" in body && body.message) ||
+        `Request failed (${res.status})`,
+    );
+  }
+
+  return body as T;
 }
 
 function isoDaysAgo(days: number, hour = 9): string {
@@ -122,9 +155,12 @@ function isoDaysAgo(days: number, hour = 9): string {
   return d.toISOString();
 }
 
+const ZACH_EMAIL = "zach@lionsentry.com";
+
 /**
  * Local preview corpus until /portal/meetings responds.
  * Scoped to the signed-in person's name/email when possible.
+ * Items that mention Zach are always assigned to zach@lionsentry.com.
  */
 export function getMockMeetingsInbox(options: {
   userId: number;
@@ -134,6 +170,12 @@ export function getMockMeetingsInbox(options: {
 }): MeetingsInboxResponse {
   const { userId, firstName, email, isFirefliesAdmin } = options;
   const me = firstName || "You";
+  const isZach =
+    email.trim().toLowerCase() === ZACH_EMAIL ||
+    me.toLowerCase().startsWith("zach");
+
+  const zachMine = isZach;
+  const zachUserId = isZach ? userId : null;
 
   const corpus: Meeting[] = [
     {
@@ -144,6 +186,11 @@ export function getMockMeetingsInbox(options: {
       source: "fireflies",
       attendees: [
         { name: me, email, user_id: userId },
+        {
+          name: "Zach",
+          email: ZACH_EMAIL,
+          user_id: zachUserId,
+        },
         {
           name: "Shauna Dunlavey",
           email: "sdunlavey@curtlandry.com",
@@ -163,12 +210,22 @@ export function getMockMeetingsInbox(options: {
       ],
       action_items: [
         {
-          id: "ai_me_1",
-          assignee_name: me,
-          assignee_email: email,
-          assignee_user_id: userId,
-          is_mine: true,
-          action: "Send follow-up notes to the board packet owners",
+          id: "ai_asana_test_1",
+          assignee_name: "Zach",
+          assignee_email: ZACH_EMAIL,
+          assignee_user_id: zachUserId,
+          is_mine: zachMine,
+          action:
+            "TEST: Create this Asana task from Portal Meetings (safe to delete)",
+          status: "ready",
+        },
+        {
+          id: "ai_zach_1",
+          assignee_name: "Zach",
+          assignee_email: ZACH_EMAIL,
+          assignee_user_id: zachUserId,
+          is_mine: zachMine,
+          action: "Zach: send follow-up notes to the board packet owners",
           status: "ready",
         },
         {
@@ -209,6 +266,11 @@ export function getMockMeetingsInbox(options: {
       attendees: [
         { name: me, email, user_id: userId },
         {
+          name: "Zach",
+          email: ZACH_EMAIL,
+          user_id: zachUserId,
+        },
+        {
           name: "Aaron Reeves",
           email: "areeves@curtlandry.com",
           user_id: null,
@@ -218,14 +280,13 @@ export function getMockMeetingsInbox(options: {
       ],
       action_items: [
         {
-          id: "ai_me_3",
-          assignee_name: me,
-          assignee_email: email,
-          assignee_user_id: userId,
-          is_mine: true,
-          action: "Approve final thumbnail set for Friday livestream",
-          status: "synced",
-          asana_task_id: "mock_asana_1",
+          id: "ai_zach_2",
+          assignee_name: "Zach",
+          assignee_email: ZACH_EMAIL,
+          assignee_user_id: zachUserId,
+          is_mine: zachMine,
+          action: "Zach: approve final thumbnail set for Friday livestream",
+          status: "open",
         },
         {
           id: "ai_aaron_1",
@@ -289,6 +350,7 @@ export function getMockMeetingsInbox(options: {
     return {
       is_fireflies_admin: false,
       using_mock: true,
+      asana_enabled: true,
       meetings: corpus
         .map((meeting) => ({
           ...meeting,
@@ -301,6 +363,7 @@ export function getMockMeetingsInbox(options: {
   return {
     is_fireflies_admin: true,
     using_mock: true,
+    asana_enabled: true,
     meetings: corpus,
   };
 }
@@ -351,15 +414,11 @@ export const meetingsService = {
     payload: MeetingActionPayload,
   ): Promise<{ asana_task_id: string; permalink_url?: string | null }> {
     if (isDevAuthToken(getStoredToken())) {
-      // Still hit local API when available; otherwise mock.
-      try {
-        return await httpClient.post<{
-          asana_task_id: string;
-          permalink_url?: string | null;
-        }>(`/portal/meetings/action-items/${actionItemId}/asana`, payload);
-      } catch {
-        return { asana_task_id: `mock_${actionItemId}` };
-      }
+      return postDevMeetingsAsana(
+        actionItemId,
+        "asana",
+        payload,
+      );
     }
     return await httpClient.post<{
       asana_task_id: string;
@@ -372,14 +431,11 @@ export const meetingsService = {
     payload: MeetingActionPayload,
   ): Promise<{ asana_task_id: string; permalink_url?: string | null }> {
     if (isDevAuthToken(getStoredToken())) {
-      try {
-        return await httpClient.post<{
-          asana_task_id: string;
-          permalink_url?: string | null;
-        }>(`/portal/meetings/action-items/${actionItemId}/approve`, payload);
-      } catch {
-        return { asana_task_id: `mock_approved_${actionItemId}` };
-      }
+      return postDevMeetingsAsana(
+        actionItemId,
+        "approve",
+        payload,
+      );
     }
     return await httpClient.post<{
       asana_task_id: string;

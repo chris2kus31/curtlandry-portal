@@ -1,6 +1,7 @@
 // src/lib/api/http-client.ts
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from "axios";
 import type { ApiError } from "@/types/api";
+import { isDevAuthToken } from "@/lib/dev-auth";
 
 // Constants
 const MAX_QUEUE_SIZE = 100; // Prevent unbounded queue growth
@@ -59,6 +60,12 @@ class HttpClient {
 
         // Handle 401 Unauthorized
         if (error.response?.status === 401 && !originalRequest._retry) {
+          // Local Dev Login has no Laravel session — don't bounce to /login
+          // (that caused a white-screen redirect loop with persisted zustand user).
+          if (isDevAuthToken(this.getStoredToken())) {
+            return Promise.reject(this.normalizeError(error));
+          }
+
           if (this.isRefreshing) {
             // Prevent unbounded queue growth
             if (this.failedQueue.length >= MAX_QUEUE_SIZE) {
@@ -161,11 +168,13 @@ class HttpClient {
     // SSR guard
     if (typeof window === "undefined") return;
 
-    // Clear tokens
+    // Clear tokens + session cookie used by middleware
     localStorage.removeItem("auth_token");
     localStorage.removeItem("refresh_token");
+    document.cookie = "auth_session=; path=/; max-age=0; SameSite=Lax";
 
-    // Redirect to login
+    // Avoid hard reload loop if we're already on login
+    if (window.location.pathname.startsWith("/login")) return;
     window.location.href = "/login";
   }
 
