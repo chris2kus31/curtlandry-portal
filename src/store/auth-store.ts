@@ -133,12 +133,18 @@ export const useAuthStore = create<AuthState>()(
           });
         } catch (error) {
           console.error("Local API login failed:", error);
+          const message =
+            error instanceof Error
+              ? error.message
+              : typeof error === "object" &&
+                  error !== null &&
+                  "message" in error &&
+                  typeof (error as { message: unknown }).message === "string"
+                ? (error as { message: string }).message
+                : "Local API login failed. Is the Laravel API running on :8002?";
           set({
             isLoading: false,
-            error:
-              error instanceof Error
-                ? error.message
-                : "Local API login failed. Is the Laravel API running on :8001?",
+            error: message,
           });
         }
       },

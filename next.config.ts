@@ -46,6 +46,20 @@ const nextConfig: NextConfig = {
     ],
   },
 
+  // Dev-only: same-origin proxy to the local Laravel API so Local API Login
+  // works from both localhost and 127.0.0.1 without CORS friction.
+  async rewrites() {
+    if (!isDev) return [];
+    const apiOrigin =
+      process.env.LARAVEL_API_ORIGIN || "http://127.0.0.1:8002";
+    return [
+      {
+        source: "/laravel-api/api/:path*",
+        destination: `${apiOrigin}/api/:path*`,
+      },
+    ];
+  },
+
   async headers() {
     return [
       {
