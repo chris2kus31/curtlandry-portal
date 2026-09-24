@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Box,
   HStack,
@@ -27,25 +27,20 @@ import type {
   OnboardingChecklistItem,
 } from "@/lib/api";
 import { OnboardingStatusBadge } from "./OnboardingStatusBadge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface OnboardingTaskCardProps {
   task: OnboardingTask;
   saving: boolean;
   /** Optional hire name for a personalized “waiting on” chip. */
   hireName?: string | null;
+  /** Blocker choices from the onboarding options endpoint. */
+  waitingOnOptions: string[];
   onUpdateChecklist: (checklist: OnboardingChecklistItem[]) => void;
   onSetStatus: (status: OnboardingTaskStatus) => void;
   /** Marks the task waiting and records who/what it's blocked on. */
   onSetWaitingOn: (text: string) => void;
 }
-
-const BASE_WAITING_OPTIONS = [
-  "HR",
-  "IT",
-  "Manager",
-  "Approver",
-  "Vendor / procurement",
-] as const;
 
 function formatTimestamp(value: string | null): string {
   if (!value) return "";
@@ -127,8 +122,7 @@ function WaitingChip({
   return (
     <Box
       as="button"
-      type="button"
-      onClick={disabled ? undefined : onClick}
+            onClick={disabled ? undefined : onClick}
       aria-disabled={disabled}
       aria-pressed={selected}
       px={3}
@@ -161,6 +155,7 @@ export function OnboardingTaskCard({
   task,
   saving,
   hireName,
+  waitingOnOptions,
   onUpdateChecklist,
   onSetStatus,
   onSetWaitingOn,
@@ -181,6 +176,19 @@ export function OnboardingTaskCard({
   const [showWaitingPicker, setShowWaitingPicker] = useState(false);
   const [showOther, setShowOther] = useState(false);
   const [otherText, setOtherText] = useState("");
+  const [confirmComplete, setConfirmComplete] = useState(false);
+
+  const hireLabel = hireName?.trim() ? `New hire (${hireName.trim()})` : null;
+
+  const waitingOptions = useMemo(() => {
+    // The personalized chip stands in for the generic "New hire" option.
+    const fromApi = hireLabel
+      ? waitingOnOptions.filter(
+          (option) => option.trim().toLowerCase() !== "new hire",
+        )
+      : waitingOnOptions;
+    return hireLabel ? [hireLabel, ...fromApi] : fromApi;
+  }, [hireLabel, waitingOnOptions]);
 
   useEffect(() => {
     // Keep picker open while actively waiting; collapse when status changes away.
@@ -188,28 +196,16 @@ export function OnboardingTaskCard({
       setShowWaitingPicker(true);
       const known =
         !!task.waiting_on &&
-        (BASE_WAITING_OPTIONS as readonly string[]).includes(task.waiting_on);
-      const hireMatch =
-        !!hireName &&
-        (task.waiting_on === hireName ||
-          task.waiting_on === `New hire (${hireName})`);
-      setShowOther(!!task.waiting_on && !known && !hireMatch);
-      setOtherText(
-        !!task.waiting_on && !known && !hireMatch ? task.waiting_on : "",
-      );
+        (waitingOptions.includes(task.waiting_on) ||
+          task.waiting_on === hireName);
+      setShowOther(!!task.waiting_on && !known);
+      setOtherText(!!task.waiting_on && !known ? task.waiting_on : "");
     } else {
       setShowWaitingPicker(false);
       setShowOther(false);
       setOtherText("");
     }
-  }, [isWaiting, task.waiting_on, hireName, task.id]);
-
-  const waitingOptions = [
-    ...(hireName?.trim()
-      ? [`New hire (${hireName.trim()})`]
-      : ["New hire"]),
-    ...BASE_WAITING_OPTIONS,
-  ];
+  }, [isWaiting, task.waiting_on, hireName, task.id, waitingOptions]);
 
   const toggleItem = (index: number) => {
     if (!interactive) return;
@@ -358,8 +354,7 @@ export function OnboardingTaskCard({
               />
               <Box
                 as="button"
-                type="button"
-                onClick={interactive ? commitOther : undefined}
+                                onClick={interactive ? commitOther : undefined}
                 aria-disabled={!interactive || !otherText.trim()}
                 opacity={!interactive || !otherText.trim() ? 0.5 : 1}
                 cursor={
@@ -439,19 +434,24 @@ export function OnboardingTaskCard({
               label="Mark complete"
               primary
               saving={saving}
-              onClick={() => {
-                if (
-                  window.confirm(
-                    "Mark this task complete? It will lock — reopen it if you need to make changes.",
-                  )
-                ) {
-                  onSetStatus("completed");
-                }
-              }}
+              onClick={() => setConfirmComplete(true)}
             />
           </>
         )}
       </Flex>
+
+      <ConfirmDialog
+        open={confirmComplete}
+        title="Mark this task complete?"
+        description="It will lock — reopen it if you need to make changes."
+        confirmLabel="Mark complete"
+        confirming={saving}
+        onConfirm={() => {
+          setConfirmComplete(false);
+          onSetStatus("completed");
+        }}
+        onCancel={() => setConfirmComplete(false)}
+      />
     </Box>
   );
 }

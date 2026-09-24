@@ -22,6 +22,7 @@ export type {
   OnboardingNote,
   OnboardingCase,
   OnboardingManager,
+  DeviceCategoryOption,
   OnboardingFormOptions,
   IntakePayload,
   OnboardingListFilters,

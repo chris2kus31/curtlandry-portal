@@ -37,6 +37,7 @@ import { assetService } from "@/lib/api";
 import type { Asset, AssetOptions } from "@/lib/api";
 import { AssetFormDrawer } from "@/components/onboarding/AssetFormDrawer";
 import { AssetDetailDrawer } from "@/components/onboarding/AssetDetailDrawer";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const STATUS_HELP: Record<string, string> = {
   assignable: "Marked ready in Asset Tiger / hire-ready pool",
@@ -76,6 +77,7 @@ export default function AssetInventoryPage() {
   const [detailId, setDetailId] = useState<number | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Asset | null>(null);
 
   const cardBg = useColorModeValue("white", "gray.900");
   const borderColor = useColorModeValue("gray.200", "gray.800");
@@ -211,15 +213,9 @@ export default function AssetInventoryPage() {
     setDetailOpen(true);
   };
 
-  const handleDelete = async (asset: Asset, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (
-      !window.confirm(
-        `Remove “${asset.name}” from inventory? This deletes the device record and its assignment history.`,
-      )
-    ) {
-      return;
-    }
+  const confirmDelete = async () => {
+    const asset = pendingDelete;
+    if (!asset) return;
     setDeletingId(asset.id);
     try {
       await assetService.remove(asset.id);
@@ -234,6 +230,7 @@ export default function AssetInventoryPage() {
       });
     } finally {
       setDeletingId(null);
+      setPendingDelete(null);
     }
   };
 
@@ -697,11 +694,10 @@ export default function AssetInventoryPage() {
                     p={2}
                     borderRadius="md"
                     color={deletingId === asset.id ? textMuted : "red.400"}
-                    onClick={(e) =>
-                      deletingId === asset.id
-                        ? undefined
-                        : handleDelete(asset, e)
-                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (deletingId !== asset.id) setPendingDelete(asset);
+                    }}
                     aria-disabled={deletingId === asset.id}
                     cursor={
                       deletingId === asset.id ? "not-allowed" : "pointer"
@@ -735,6 +731,21 @@ export default function AssetInventoryPage() {
         options={options}
         onChanged={refreshAssets}
         onEdit={openEditFromDetail}
+      />
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Remove device from inventory?"
+        description={
+          pendingDelete
+            ? `“${pendingDelete.name}” and its assignment history will be deleted.`
+            : undefined
+        }
+        confirmLabel="Remove device"
+        destructive
+        confirming={deletingId !== null}
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
       />
     </VStack>
   );

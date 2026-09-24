@@ -12,7 +12,6 @@ import { useAuthStore } from "@/store/auth-store";
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const loginAsDev = useAuthStore((s) => s.loginAsDev);
   const loginAgainstLocalApi = useAuthStore((s) => s.loginAgainstLocalApi);
   const authError = useAuthStore((s) => s.error);
   const isLoading = useAuthStore((s) => s.isLoading);
@@ -22,12 +21,6 @@ export function LoginForm() {
   const textSecondary = useColorModeValue("gray.600", "gray.400");
   const bgPrimary = useColorModeValue("gray.50", "gray.950");
   const domainHintBg = useColorModeValue("gray.50", "gray.800");
-
-  const handleDevLogin = () => {
-    loginAsDev();
-    const redirect = searchParams.get("redirect") || "/people-ops?tab=onboarding";
-    router.replace(redirect);
-  };
 
   const handleLocalApiLogin = async () => {
     await loginAgainstLocalApi();
@@ -185,22 +178,15 @@ export function LoginForm() {
                   <Button
                     w="full"
                     size="lg"
-                    variant="outline"
-                    borderColor={borderColor}
-                    color={textPrimary}
-                    onClick={handleDevLogin}
-                  >
-                    Dev Login (mock inventory)
-                  </Button>
-                  <Button
-                    w="full"
-                    size="lg"
                     colorPalette="teal"
                     loading={isLoading}
                     onClick={handleLocalApiLogin}
                   >
                     Local API Login (live Asset Tiger data)
                   </Button>
+                  <Text fontSize="xs" color={textSecondary} textAlign="center">
+                    Uses Laravel local-dev JWT (server auth).
+                  </Text>
                   {authError && (
                     <Text fontSize="sm" color="red.500" textAlign="center">
                       {authError}

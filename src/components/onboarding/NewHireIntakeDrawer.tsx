@@ -47,7 +47,14 @@ import type {
   IntakePayload,
   OnboardingCase,
   OnboardingAsset,
+  DeviceCategoryOption,
 } from "@/lib/api";
+import {
+  createEmptyIntakeForm,
+  deviceCategoryIconKey,
+  type DeviceCategoryIconKey,
+  type IntakeFormState,
+} from "@/lib/onboarding/intake-constants";
 
 interface NewHireIntakeDrawerProps {
   isOpen: boolean;
@@ -57,168 +64,26 @@ interface NewHireIntakeDrawerProps {
   optionsLoading?: boolean;
 }
 
-interface FormState {
-  email: string;
-  first_name: string;
-  last_name: string;
-  job_title: string;
-  department: string;
-  work_location: string;
-  start_date: string;
-  reports_to: string;
-  employment_type: string;
-  weekly_hours: string;
-  device_needed: boolean;
-  requested_asset_id: string;
-  purchase_needed: boolean;
-  requested_device_note: string;
-}
-
-/** Matches Asset Tiger / portal asset types, plus iPad as a tablet subtype. */
-type DeviceCategory =
-  | "laptop"
-  | "desktop"
-  | "ipad"
-  | "tablet"
-  | "phone"
-  | "other";
-
-const INITIAL_FORM: FormState = {
-  email: "",
-  first_name: "",
-  last_name: "",
-  job_title: "",
-  department: "",
-  work_location: "",
-  start_date: "",
-  reports_to: "",
-  employment_type: "full_time",
-  weekly_hours: "40",
-  device_needed: false,
-  requested_asset_id: "",
-  purchase_needed: false,
-  requested_device_note: "",
+const CATEGORY_ICONS: Record<DeviceCategoryIconKey, typeof LuLaptop> = {
+  laptop: LuLaptop,
+  desktop: LuMonitor,
+  tablet: LuTablet,
+  phone: LuSmartphone,
+  other: LuPackage,
 };
 
-const INTAKE_DRAFT_KEY = "people-ops:new-hire-intake-draft";
-
-interface IntakeDraft {
-  form: FormState;
-  softwareIds: number[];
-  deviceCategory: DeviceCategory | null;
-  savedAt: string;
-}
-
-function isMeaningfulDraft(
-  form: FormState,
-  softwareIds: number[],
-  deviceCategory: DeviceCategory | null,
-): boolean {
-  if (softwareIds.length > 0 || deviceCategory) return true;
-  return (
-    !!form.email.trim() ||
-    !!form.first_name.trim() ||
-    !!form.last_name.trim() ||
-    !!form.job_title.trim() ||
-    !!form.department ||
-    !!form.work_location ||
-    !!form.start_date ||
-    !!form.reports_to ||
-    form.employment_type !== INITIAL_FORM.employment_type ||
-    form.weekly_hours !== INITIAL_FORM.weekly_hours ||
-    form.device_needed ||
-    !!form.requested_asset_id ||
-    form.purchase_needed ||
-    !!form.requested_device_note.trim()
-  );
-}
-
-function readIntakeDraft(): IntakeDraft | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(INTAKE_DRAFT_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as IntakeDraft;
-    if (!parsed?.form || typeof parsed.form !== "object") return null;
-    return {
-      form: { ...INITIAL_FORM, ...parsed.form },
-      softwareIds: Array.isArray(parsed.softwareIds)
-        ? parsed.softwareIds.filter((id) => typeof id === "number")
-        : [],
-      deviceCategory: parsed.deviceCategory ?? null,
-      savedAt: parsed.savedAt ?? new Date().toISOString(),
-    };
-  } catch {
-    return null;
-  }
-}
-
-function writeIntakeDraft(
-  form: FormState,
-  softwareIds: number[],
-  deviceCategory: DeviceCategory | null,
-): void {
-  if (typeof window === "undefined") return;
-  const draft: IntakeDraft = {
-    form,
-    softwareIds,
-    deviceCategory,
-    savedAt: new Date().toISOString(),
-  };
-  localStorage.setItem(INTAKE_DRAFT_KEY, JSON.stringify(draft));
-}
-
-function clearIntakeDraft(): void {
-  if (typeof window === "undefined") return;
-  localStorage.removeItem(INTAKE_DRAFT_KEY);
-}
-
-const DEVICE_CATEGORIES: {
-  id: DeviceCategory;
-  label: string;
-  icon: typeof LuLaptop;
-}[] = [
-  { id: "laptop", label: "Laptop", icon: LuLaptop },
-  { id: "desktop", label: "Desktop", icon: LuMonitor },
-  { id: "ipad", label: "iPad", icon: LuTablet },
-  { id: "tablet", label: "Tablet", icon: LuTablet },
-  { id: "phone", label: "Phone", icon: LuSmartphone },
-  { id: "other", label: "Other", icon: LuPackage },
-];
-
-function getAssetCategory(asset: OnboardingAsset): DeviceCategory {
-  const type = (asset.type || "").toLowerCase();
-  const name = (asset.name || "").toLowerCase();
-  const label = (asset.type_label || "").toLowerCase();
-
-  if (type === "laptop" || label === "laptop") return "laptop";
-  if (type === "desktop" || label === "desktop") return "desktop";
-  if (
-    type === "phone" ||
-    label === "phone" ||
-    name.includes("iphone") ||
-    (name.includes("phone") && !name.includes("headphones"))
-  ) {
-    return "phone";
-  }
-  if (
-    type === "tablet" ||
-    label === "tablet" ||
-    name.includes("ipad") ||
-    name.includes("tablet")
-  ) {
-    return name.includes("ipad") ? "ipad" : "tablet";
-  }
-  // Include every other Asset Tiger assignable asset (phone already handled;
-  // unknown / missing / custom types land in Other so nothing is hidden).
-  return "other";
+function categoryIcon(value: string): typeof LuLaptop {
+  return CATEGORY_ICONS[deviceCategoryIconKey(value)];
 }
 
 function assetMatchesCategory(
   asset: OnboardingAsset,
-  category: DeviceCategory,
+  category: DeviceCategoryOption,
 ): boolean {
-  return getAssetCategory(asset) === category;
+  const type = (asset.type || "").toLowerCase();
+  if (type === category.value.toLowerCase()) return true;
+  const label = (asset.type_label || "").toLowerCase();
+  return !!label && label === category.label.toLowerCase();
 }
 
 function prettifyEmploymentType(value: string): string {
@@ -235,18 +100,16 @@ export function NewHireIntakeDrawer({
   options,
   optionsLoading = false,
 }: NewHireIntakeDrawerProps) {
-  const [form, setForm] = useState<FormState>(INITIAL_FORM);
+  const [form, setForm] = useState<IntakeFormState>(() =>
+    createEmptyIntakeForm(),
+  );
   const [softwareIds, setSoftwareIds] = useState<number[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [previewAsset, setPreviewAsset] = useState<OnboardingAsset | null>(
     null,
   );
-  const [deviceCategory, setDeviceCategory] = useState<DeviceCategory | null>(
-    null,
-  );
-  const [draftHydrated, setDraftHydrated] = useState(false);
-  const [draftRestored, setDraftRestored] = useState(false);
+  const [deviceCategory, setDeviceCategory] = useState<string | null>(null);
 
   // Colors — all hooks before any conditional return
   const drawerBg = useColorModeValue("white", "gray.900");
@@ -263,61 +126,16 @@ export function NewHireIntakeDrawer({
   const imageBg = useColorModeValue("gray.100", "gray.800");
   const selectedCardBg = useColorModeValue("brand.50", "whiteAlpha.100");
   const previewBackdrop = useColorModeValue("blackAlpha.700", "blackAlpha.800");
-  const draftBannerBg = useColorModeValue("blue.50", "whiteAlpha.100");
-  const draftBannerBorder = useColorModeValue("blue.100", "whiteAlpha.200");
 
-  // Restore draft when opening; reset only when there isn't one.
+  // Start every session from a clean form.
   useEffect(() => {
-    if (!isOpen) {
-      setDraftHydrated(false);
-      return;
-    }
-
-    const draft = readIntakeDraft();
-    if (
-      draft &&
-      isMeaningfulDraft(draft.form, draft.softwareIds, draft.deviceCategory)
-    ) {
-      setForm(draft.form);
-      setSoftwareIds(draft.softwareIds);
-      setDeviceCategory(draft.deviceCategory);
-      setDraftRestored(true);
-    } else {
-      setForm(INITIAL_FORM);
-      setSoftwareIds([]);
-      setDeviceCategory(null);
-      setDraftRestored(false);
-    }
-    setErrors({});
-    setPreviewAsset(null);
-    setDraftHydrated(true);
-  }, [isOpen]);
-
-  // Autosave while the drawer is open.
-  useEffect(() => {
-    if (!isOpen || !draftHydrated) return;
-
-    const timer = window.setTimeout(() => {
-      if (isMeaningfulDraft(form, softwareIds, deviceCategory)) {
-        writeIntakeDraft(form, softwareIds, deviceCategory);
-      } else {
-        clearIntakeDraft();
-        setDraftRestored(false);
-      }
-    }, 350);
-
-    return () => window.clearTimeout(timer);
-  }, [isOpen, draftHydrated, form, softwareIds, deviceCategory]);
-
-  const discardDraft = () => {
-    clearIntakeDraft();
-    setForm(INITIAL_FORM);
+    if (!isOpen) return;
+    setForm(createEmptyIntakeForm());
     setSoftwareIds([]);
     setDeviceCategory(null);
     setErrors({});
     setPreviewAsset(null);
-    setDraftRestored(false);
-  };
+  }, [isOpen]);
 
   const selectAsset = (assetId: string) => {
     setForm((prev) => ({
@@ -330,7 +148,7 @@ export function NewHireIntakeDrawer({
     }));
   };
 
-  const selectDeviceCategory = (category: DeviceCategory) => {
+  const selectDeviceCategory = (category: string) => {
     setDeviceCategory(category);
     setForm((prev) => ({
       ...prev,
@@ -347,7 +165,7 @@ export function NewHireIntakeDrawer({
     }));
   };
 
-  const setField = (field: keyof FormState, value: string | boolean) => {
+  const setField = (field: keyof IntakeFormState, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors((prev) => {
@@ -413,9 +231,6 @@ export function NewHireIntakeDrawer({
       };
 
       const created = await onboardingService.submitIntake(payload);
-
-      clearIntakeDraft();
-      setDraftRestored(false);
 
       toaster.create({
         title: "Intake submitted",
@@ -615,22 +430,21 @@ export function NewHireIntakeDrawer({
   const managers = options?.managers ?? [];
   const assignableAssets = options?.assignable_assets ?? [];
   const softwareCatalog = options?.software_catalog ?? [];
+  const deviceCategories = options?.device_categories ?? [];
 
-  const availableDeviceCategories = DEVICE_CATEGORIES.filter((category) =>
-    assignableAssets.some((asset) =>
-      assetMatchesCategory(asset, category.id),
-    ),
+  const availableDeviceCategories = deviceCategories.filter((category) =>
+    assignableAssets.some((asset) => assetMatchesCategory(asset, category)),
   );
 
-  const filteredAssets = deviceCategory
+  const selectedCategoryMeta = deviceCategories.find(
+    (c) => c.value === deviceCategory,
+  );
+
+  const filteredAssets = selectedCategoryMeta
     ? assignableAssets.filter((asset) =>
-        assetMatchesCategory(asset, deviceCategory),
+        assetMatchesCategory(asset, selectedCategoryMeta),
       )
     : [];
-
-  const selectedCategoryMeta = DEVICE_CATEGORIES.find(
-    (c) => c.id === deviceCategory,
-  );
 
   // Items offered for the chosen department: global (null department) + any
   // scoped to the selected department.
@@ -708,34 +522,6 @@ export function NewHireIntakeDrawer({
                 </Flex>
               ) : (
                 <VStack gap={5} align="stretch">
-                  {draftRestored && (
-                    <HStack
-                      p={3}
-                      borderRadius="lg"
-                      border="1px solid"
-                      borderColor={draftBannerBorder}
-                      bg={draftBannerBg}
-                      justify="space-between"
-                      align="center"
-                      gap={3}
-                    >
-                      <Text fontSize="sm" color={textPrimary}>
-                        Draft restored — pick up where you left off.
-                      </Text>
-                      <Box
-                        as="button"
-                        type="button"
-                        fontSize="xs"
-                        fontWeight="medium"
-                        color="brand.500"
-                        whiteSpace="nowrap"
-                        _hover={{ color: "brand.600" }}
-                        onClick={discardDraft}
-                      >
-                        Start fresh
-                      </Box>
-                    </HStack>
-                  )}
                   {/* Basic info */}
                   <Box>
                     <SectionTitle>Basic Information</SectionTitle>
@@ -1001,20 +787,21 @@ export function NewHireIntakeDrawer({
                                   <SimpleGrid columns={2} gap={2.5}>
                                     {availableDeviceCategories.map(
                                       (category) => {
-                                        const Icon = category.icon;
+                                        const Icon = categoryIcon(
+                                          category.value,
+                                        );
                                         const count = assignableAssets.filter(
                                           (asset) =>
                                             assetMatchesCategory(
                                               asset,
-                                              category.id,
+                                              category,
                                             ),
                                         ).length;
                                         return (
                                           <Box
-                                            key={category.id}
+                                            key={category.value}
                                             as="button"
-                                            type="button"
-                                            p={4}
+                                                                                        p={4}
                                             borderRadius="xl"
                                             border="1.5px solid"
                                             borderColor={borderColor}
@@ -1022,7 +809,9 @@ export function NewHireIntakeDrawer({
                                             textAlign="left"
                                             cursor="pointer"
                                             onClick={() =>
-                                              selectDeviceCategory(category.id)
+                                              selectDeviceCategory(
+                                                category.value,
+                                              )
                                             }
                                             _hover={{
                                               borderColor: "brand.400",
@@ -1072,8 +861,11 @@ export function NewHireIntakeDrawer({
                                 >
                                   <FieldLabel
                                     icon={(() => {
-                                      const Icon =
-                                        selectedCategoryMeta?.icon ?? LuLaptop;
+                                      const Icon = selectedCategoryMeta
+                                        ? categoryIcon(
+                                            selectedCategoryMeta.value,
+                                          )
+                                        : LuLaptop;
                                       return (
                                         <Icon size={14} color={iconColor} />
                                       );
@@ -1083,8 +875,7 @@ export function NewHireIntakeDrawer({
                                   </FieldLabel>
                                   <Box
                                     as="button"
-                                    type="button"
-                                    onClick={clearDeviceCategory}
+                                                                        onClick={clearDeviceCategory}
                                     display="flex"
                                     alignItems="center"
                                     gap={1}
@@ -1123,8 +914,7 @@ export function NewHireIntakeDrawer({
                                         <HStack
                                           key={asset.id}
                                           as="button"
-                                          type="button"
-                                          align="stretch"
+                                                                                    align="stretch"
                                           gap={3}
                                           p={3}
                                           w="full"
@@ -1298,10 +1088,6 @@ export function NewHireIntakeDrawer({
                                     <Text fontSize="xs" color={textSecondary}>
                                       Tap a card to assign. Click the image to
                                       enlarge.
-                                      {process.env.NEXT_PUBLIC_DEV_AUTH ===
-                                      "true"
-                                        ? " (Asset Tiger local mock)"
-                                        : ""}
                                     </Text>
                                   </VStack>
                                 )}

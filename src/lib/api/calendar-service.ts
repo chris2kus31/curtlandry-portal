@@ -1,5 +1,4 @@
 import { httpClient } from "./http-client";
-import { getDevCalendarEvents, isDevAuthToken } from "@/lib/dev-auth";
 
 export interface CalendarEvent {
   id: string;
@@ -16,11 +15,6 @@ export interface CalendarStatus {
   calendar_id: string | null;
 }
 
-function getStoredToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("auth_token");
-}
-
 export const calendarService = {
   /**
    * Get calendar events within a date range
@@ -29,10 +23,6 @@ export const calendarService = {
     startDate: string,
     endDate: string,
   ): Promise<CalendarEvent[]> {
-    if (isDevAuthToken(getStoredToken())) {
-      return getDevCalendarEvents(startDate, endDate);
-    }
-
     const response = await httpClient.get<{ events: CalendarEvent[] }>(
       "/portal/calendar/events",
       {
@@ -46,14 +36,6 @@ export const calendarService = {
    * Check if calendar integration is configured
    */
   async getStatus(): Promise<CalendarStatus> {
-    if (isDevAuthToken(getStoredToken())) {
-      return {
-        enabled: true,
-        configured: true,
-        calendar_id: "dev-local-calendar",
-      };
-    }
-
     return await httpClient.get<CalendarStatus>("/portal/calendar/status");
   },
 };

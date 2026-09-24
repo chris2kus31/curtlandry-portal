@@ -1,10 +1,5 @@
 // src/lib/api/approval-service.ts
 import { httpClient } from "./http-client";
-import {
-  getDevApprovalHistory,
-  getDevPendingApprovals,
-  isDevAuthToken,
-} from "@/lib/dev-auth";
 
 // Types
 export interface TeamMember {
@@ -60,11 +55,6 @@ export interface ApprovalFilters {
   year?: number;
 }
 
-function getStoredToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("auth_token");
-}
-
 // Approval Service (for Team page - manager's direct reports only)
 export const approvalService = {
   /**
@@ -73,10 +63,6 @@ export const approvalService = {
   async getPendingApprovals(
     filters?: ApprovalFilters,
   ): Promise<TimeOffRequest[]> {
-    if (isDevAuthToken(getStoredToken())) {
-      return getDevPendingApprovals();
-    }
-
     const params = new URLSearchParams();
     if (filters?.is_urgent !== undefined)
       params.append("is_urgent", String(filters.is_urgent));
@@ -96,10 +82,6 @@ export const approvalService = {
   async getApprovalHistory(
     filters?: ApprovalFilters,
   ): Promise<TimeOffRequest[]> {
-    if (isDevAuthToken(getStoredToken())) {
-      return getDevApprovalHistory();
-    }
-
     const params = new URLSearchParams();
     if (filters?.status) {
       const statuses = Array.isArray(filters.status)
@@ -121,10 +103,6 @@ export const approvalService = {
    * Get count of pending approvals
    */
   async getPendingCount(): Promise<number> {
-    if (isDevAuthToken(getStoredToken())) {
-      return getDevPendingApprovals().length;
-    }
-
     const response = await httpClient.get<{ data: { count: number } }>(
       "/portal/approvals/count",
     );
@@ -135,22 +113,6 @@ export const approvalService = {
    * Approve a time-off request
    */
   async approve(requestId: number, notes?: string): Promise<TimeOffRequest> {
-    if (isDevAuthToken(getStoredToken())) {
-      const request =
-        getDevPendingApprovals().find((r) => r.id === requestId) ||
-        getDevApprovalHistory().find((r) => r.id === requestId);
-      if (!request) {
-        throw new Error("Request not found");
-      }
-      return {
-        ...request,
-        status: "approved",
-        reviewed_by: { id: 1, name: "Dev Manager" },
-        reviewed_at: new Date().toISOString(),
-        review_notes: notes || null,
-      };
-    }
-
     const response = await httpClient.post<{ data: TimeOffRequest }>(
       `/portal/approvals/${requestId}/approve`,
       { notes },
@@ -162,22 +124,6 @@ export const approvalService = {
    * Deny a time-off request
    */
   async deny(requestId: number, notes?: string): Promise<TimeOffRequest> {
-    if (isDevAuthToken(getStoredToken())) {
-      const request =
-        getDevPendingApprovals().find((r) => r.id === requestId) ||
-        getDevApprovalHistory().find((r) => r.id === requestId);
-      if (!request) {
-        throw new Error("Request not found");
-      }
-      return {
-        ...request,
-        status: "denied",
-        reviewed_by: { id: 1, name: "Dev Manager" },
-        reviewed_at: new Date().toISOString(),
-        review_notes: notes || null,
-      };
-    }
-
     const response = await httpClient.post<{ data: TimeOffRequest }>(
       `/portal/approvals/${requestId}/deny`,
       { notes },
@@ -196,10 +142,6 @@ export const approvalService = {
     failed: number;
     errors: string[];
   }> {
-    if (isDevAuthToken(getStoredToken())) {
-      return { approved: requestIds.length, failed: 0, errors: [] };
-    }
-
     const response = await httpClient.post<{
       data: { approved: number; failed: number; errors: string[] };
     }>("/portal/approvals/bulk-approve", {
