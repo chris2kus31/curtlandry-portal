@@ -40,6 +40,7 @@ interface LinkItemProps {
   badgeColor?: string;
   requiredRoles?: string[];
   requiredPermissions?: string[];
+  requiredEmails?: string[];
   requiresDirectReports?: boolean; // Only show if user has direct reports
   requiresManager?: boolean; // Show if user is a manager (OR'd with roles/permissions)
 }
@@ -61,6 +62,9 @@ const LinkItems: LinkItemProps[] = [
     name: "Meetings",
     icon: LuVideo,
     href: "/meetings",
+    // Temporary production preview: Shauna Dunlavey only until Meetings opens
+    // to the full Fireflies roster. Keep in sync with API FIREFLIES_PREVIEW_EMAILS.
+    requiredEmails: ["sdunlavey@curtlandry.com"],
   },
   {
     name: "People Ops",
@@ -141,6 +145,14 @@ export function SidebarContent({
       return false;
     }
 
+    // Hard gate: email allowlist (e.g. Meetings preview lock).
+    if (link.requiredEmails?.length) {
+      const email = user?.email?.trim().toLowerCase() ?? "";
+      if (!link.requiredEmails.some((e) => e.toLowerCase() === email)) {
+        return false;
+      }
+    }
+
     // OR-style gates: visible when ANY declared condition is met. Items
     // without any gate are visible to all authenticated users.
     const gates: boolean[] = [];
@@ -154,7 +166,13 @@ export function SidebarContent({
       gates.push(permissions.some((p) => link.requiredPermissions!.includes(p)));
     }
 
-    if (gates.length === 0) return true;
+    // Email allowlist already enforced above; don't treat it as an OR gate.
+    const hasOrGates =
+      !!link.requiresManager ||
+      !!link.requiredRoles?.length ||
+      !!link.requiredPermissions?.length;
+
+    if (!hasOrGates) return true;
     return gates.some(Boolean);
   };
 

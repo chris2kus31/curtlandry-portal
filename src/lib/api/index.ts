@@ -3,7 +3,12 @@ export { httpClient } from "./http-client";
 export { authService } from "./auth-service";
 export { timeOffService } from "./time-off-service";
 export { calendarService } from "./calendar-service";
-export { meetingsService, isFirefliesMeetingsAdmin } from "./meetings-service";
+export {
+  meetingsService,
+  isFirefliesMeetingsAdmin,
+  canAccessMeetingsTab,
+  FIREFLIES_PREVIEW_EMAILS,
+} from "./meetings-service";
 export { adminService } from "./admin-service";
 export { approvalService } from "./approval-service";
 export { wooService } from "./woo-service";

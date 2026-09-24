@@ -77,6 +77,26 @@ export const FIREFLIES_ADMIN_EMAILS = [
   "sdunlavey@curtlandry.com",
 ] as const;
 
+/**
+ * Temporary production preview lock — mirrors API FIREFLIES_PREVIEW_EMAILS.
+ * When non-empty, only these emails see the Meetings tab / page.
+ * Empty array = open to normal Fireflies roles/permissions.
+ * Shauna Dunlavey (Qualls) for staged testing.
+ */
+export const FIREFLIES_PREVIEW_EMAILS = [
+  "sdunlavey@curtlandry.com",
+] as const;
+
+/** True when the signed-in email may open Meetings during the preview lock. */
+export function canAccessMeetingsTab(email?: string | null): boolean {
+  if (FIREFLIES_PREVIEW_EMAILS.length === 0) {
+    return true;
+  }
+  const normalized = email?.trim().toLowerCase() ?? "";
+  if (!normalized) return false;
+  return (FIREFLIES_PREVIEW_EMAILS as readonly string[]).includes(normalized);
+}
+
 function getStoredToken(): string | null {
   if (typeof window === "undefined") return null;
   try {

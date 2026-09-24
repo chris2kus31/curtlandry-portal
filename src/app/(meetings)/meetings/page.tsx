@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useRouter } from "next/navigation";
 import {
   Badge,
   Box,
@@ -17,6 +18,7 @@ import { useColorModeValue } from "@/components/ui/color-mode";
 import { toaster } from "@/components/ui/toaster";
 import { useAuthStore } from "@/store/auth-store";
 import {
+  canAccessMeetingsTab,
   isFirefliesMeetingsAdmin,
   meetingsService,
   type Meeting,
@@ -83,10 +85,12 @@ function toActionPayload(
 }
 
 export default function MeetingsPage() {
+  const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const roles = useAuthStore((s) => s.roles);
   const permissions = useAuthStore((s) => s.permissions);
 
+  const allowed = canAccessMeetingsTab(user?.email);
   const isAdmin = isFirefliesMeetingsAdmin(roles, permissions, user?.email);
 
   const [loading, setLoading] = useState(true);
@@ -107,8 +111,14 @@ export default function MeetingsPage() {
   const idleBg = useColorModeValue("gray.50", "gray.800");
   const chipIdleBg = useColorModeValue("white", "gray.800");
 
+  useEffect(() => {
+    if (user && !allowed) {
+      router.replace("/dashboard");
+    }
+  }, [user, allowed, router]);
+
   const load = useCallback(async () => {
-    if (!user) return;
+    if (!user || !allowed) return;
     setLoading(true);
     try {
       const inbox = await meetingsService.getInbox({
@@ -126,7 +136,7 @@ export default function MeetingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, isAdmin]);
+  }, [user, isAdmin, allowed]);
 
   /** Prefer API scoping when present; fall back to local roster/role checks. */
   const effectiveAdmin = apiSaysAdmin ?? isAdmin;
@@ -134,6 +144,10 @@ export default function MeetingsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  if (user && !allowed) {
+    return null;
+  }
 
   const visibleMeetings = useMemo(() => {
     const base =
