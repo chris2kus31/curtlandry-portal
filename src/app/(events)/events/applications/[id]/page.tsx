@@ -40,6 +40,8 @@ import { AdminEmailModal } from "@/components/events/AdminEmailModal";
 import { SendPaymentLinkButton } from "@/components/events/SendPaymentLinkButton";
 import { ConfirmRegistrationButton } from "@/components/events/ConfirmRegistrationButton";
 import { RefundModal } from "@/components/events/RefundModal";
+import { PartyPanel } from "@/components/events/PartyPanel";
+import { PaymentHistory } from "@/components/events/PaymentHistory";
 
 /**
  * Application detail page. Lays out applicant info + responses on the left
@@ -209,6 +211,8 @@ export default function ApplicationDetailPage() {
                 </SimpleGrid>
               </Box>
 
+              <PartyPanel application={detail} onUpdated={handleApplicationUpdated} />
+
               {/* Responses */}
               <Box>
                 <Heading size="sm" mb={3}>
@@ -233,6 +237,8 @@ export default function ApplicationDetailPage() {
               borderColor={borderColor}
               subduedText={subduedText}
             />
+
+            <PaymentHistory payments={detail.payments ?? []} />
 
             {/* Quick actions */}
             <Box bg={surfaceBg} borderWidth={1} borderColor={borderColor} borderRadius="lg" p={4}>
@@ -268,7 +274,12 @@ export default function ApplicationDetailPage() {
               onNotesChanged={(notes) => setDetail({ ...detail, notes })}
             />
 
-            <ApplicationTimeline entries={timeline} />
+            <ApplicationTimeline
+              entries={timeline}
+              guestNames={Object.fromEntries(
+                (detail.guests ?? []).map((g) => [g.id, `${g.first_name} ${g.last_name}`]),
+              )}
+            />
           </VStack>
         </SimpleGrid>
       </Box>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import NextLink from "next/link";
 import {
+  Badge,
   Box,
   Heading,
   HStack,
@@ -310,9 +311,16 @@ export default function ApplicationsQueuePage() {
                       <StatusBadge status={app.status} />
                     </Box>
                     <Box flex={1} minW={0}>
-                      <Text fontWeight={600}>
-                        {(app.first_name ?? "Unknown") + " " + (app.last_name ?? "")}
-                      </Text>
+                      <HStack gap={2}>
+                        <Text fontWeight={600}>
+                          {(app.first_name ?? "Unknown") + " " + (app.last_name ?? "")}
+                        </Text>
+                        {(app.guest_count ?? 0) > 0 && (
+                          <Badge colorPalette="blue" variant="subtle" px={2}>
+                            +{app.guest_count} {app.guest_count === 1 ? "guest" : "guests"}
+                          </Badge>
+                        )}
+                      </HStack>
                       <Text fontSize="sm" color={subduedText} truncate>
                         {app.email ?? "—"} · {app.event?.name ?? "—"}
                       </Text>

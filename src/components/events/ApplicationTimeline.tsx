@@ -11,6 +11,8 @@ import {
 
 interface Props {
   entries: AdminTimelineEntry[];
+  /** guest_id → display name, so guest events say who they're about. */
+  guestNames?: Record<string, string>;
 }
 
 /**
@@ -18,7 +20,7 @@ interface Props {
  * human-friendly headlines and surface the most useful contextual fields
  * (e.g. from/to status, note excerpt).
  */
-export function ApplicationTimeline({ entries }: Props) {
+export function ApplicationTimeline({ entries, guestNames = {} }: Props) {
   const cardBg = useColorModeValue("white", "gray.900");
   const noteBg = useColorModeValue("gray.50", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
@@ -47,7 +49,7 @@ export function ApplicationTimeline({ entries }: Props) {
               p={3}
             >
               <Text fontSize="sm" fontWeight={600}>
-                {headlineFor(entry)}
+                {headlineFor(entry, guestNames)}
               </Text>
               {detailFor(entry) && (
                 <Text fontSize="sm" color={subduedText} whiteSpace="pre-wrap">
@@ -66,7 +68,9 @@ export function ApplicationTimeline({ entries }: Props) {
   );
 }
 
-function headlineFor(entry: AdminTimelineEntry): string {
+function headlineFor(entry: AdminTimelineEntry, guestNames: Record<string, string>): string {
+  const guestId = entry.properties.guest_id as string | undefined;
+  const guest = (guestId && guestNames[guestId]) || "guest";
   switch (entry.event) {
     case "status_changed": {
       const from = (entry.properties.from as string | undefined) ?? "";
@@ -81,6 +85,20 @@ function headlineFor(entry: AdminTimelineEntry): string {
       return "Application submitted";
     case "withdrawn":
       return "Application withdrawn by applicant";
+    case "guest_added":
+      return `Guest added: ${guest}`;
+    case "guest_updated":
+      return `Guest updated: ${guest}`;
+    case "guest_status_changed": {
+      const to = (entry.properties.to as string | undefined) ?? "";
+      return `Guest ${guest} → ${GUEST_STATUS_LABELS[to] ?? to}`;
+    }
+    case "guest_payment_link_sent":
+      return `Payment link sent for ${guest}`;
+    case "guest_refund_issued":
+      return `Refund issued for ${guest}`;
+    case "guest_payment_unmatched":
+      return `Action needed: payment received for ${guest} who is no longer pending — refund in Stripe`;
     default:
       return entry.description ?? entry.event ?? "Event";
   }
@@ -98,7 +116,48 @@ function detailFor(entry: AdminTimelineEntry): string | null {
     const excerpt = (entry.properties.body_excerpt as string | undefined) ?? "";
     return subject ? `Subject: ${subject}\n\n${excerpt}` : excerpt;
   }
+  if (entry.event === "guest_updated") {
+    const change = entry.properties.price_change as
+      | { from?: number; to?: number; reason?: string | null }
+      | undefined;
+    if (change && change.from !== undefined && change.to !== undefined) {
+      return `Price ${centsLabel(change.from)} → ${centsLabel(change.to)}${change.reason ? `: ${change.reason}` : ""}`;
+    }
+    return null;
+  }
+  if (entry.event === "guest_added") {
+    const reason = entry.properties.price_override_reason as string | undefined;
+    return reason ? `Price override: ${reason}` : null;
+  }
+  if (entry.event === "guest_status_changed") {
+    const note = entry.properties.note as string | undefined;
+    const reason = (entry.properties.reason as string | undefined) ?? "";
+    if (note) return note;
+    if (reason.startsWith("primary_")) {
+      return `Automatic: applicant moved to ${labelFor(reason.slice("primary_".length))}`;
+    }
+    return null;
+  }
+  if (entry.event === "guest_refund_issued") {
+    return (entry.properties.reason as string | undefined) || null;
+  }
+  if (entry.event === "guest_payment_unmatched") {
+    const cents = entry.properties.amount_cents as number | undefined;
+    return cents !== undefined ? `Amount: ${centsLabel(cents)}` : null;
+  }
   return null;
+}
+
+const GUEST_STATUS_LABELS: Record<string, string> = {
+  pending_payment: "Pending payment",
+  paid: "Paid",
+  confirmed: "Confirmed",
+  cancelled: "Cancelled",
+  refunded: "Refunded",
+};
+
+function centsLabel(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
 }
 
 function labelFor(value: string): string {
