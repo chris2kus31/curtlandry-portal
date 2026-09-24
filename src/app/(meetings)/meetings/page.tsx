@@ -33,6 +33,7 @@ import {
   LuSparkles,
   LuUser,
 } from "react-icons/lu";
+import { Tooltip } from "@/components/ui/tooltip";
 
 type AdminScope = "all" | "mine" | "team";
 
@@ -453,13 +454,14 @@ export default function MeetingsPage() {
         {loading ? (
           <SimpleGrid columns={{ base: 2, md: 4 }} gap={3}>
             {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} height="88px" borderRadius="xl" />
+              <Skeleton key={i} height="112px" borderRadius="xl" />
             ))}
           </SimpleGrid>
         ) : (
           <SimpleGrid columns={{ base: 2, md: effectiveAdmin ? 4 : 3 }} gap={3}>
             <StatCard
-              label="My meetings"
+              label="Meetings I was on"
+              hint="Count of meetings in this inbox"
               value={stats.meetings}
               cardBg={cardBg}
               borderColor={borderColor}
@@ -467,7 +469,8 @@ export default function MeetingsPage() {
               textSecondary={textSecondary}
             />
             <StatCard
-              label="My open items"
+              label="Still on my plate"
+              hint="Assigned to you — not yet created in Asana"
               value={stats.mine}
               cardBg={cardBg}
               borderColor={borderColor}
@@ -476,7 +479,8 @@ export default function MeetingsPage() {
             />
             {effectiveAdmin && (
               <StatCard
-                label="Awaiting my approval"
+                label="Others need my OK"
+                hint="Someone else’s items waiting for you to approve"
                 value={stats.needsApproval}
                 cardBg={cardBg}
                 borderColor={borderColor}
@@ -486,6 +490,7 @@ export default function MeetingsPage() {
             )}
             <StatCard
               label="Ready for Asana"
+              hint="Yours and marked ready to create as a task"
               value={stats.ready}
               cardBg={cardBg}
               borderColor={borderColor}
@@ -713,6 +718,7 @@ export default function MeetingsPage() {
 
 function StatCard({
   label,
+  hint,
   value,
   cardBg,
   borderColor,
@@ -720,6 +726,7 @@ function StatCard({
   textSecondary,
 }: {
   label: string;
+  hint: string;
   value: number;
   cardBg: string;
   borderColor: string;
@@ -727,16 +734,34 @@ function StatCard({
   textSecondary: string;
 }) {
   return (
-    <Card.Root bg={cardBg} borderWidth="1px" borderColor={borderColor} borderRadius="xl">
-      <Card.Body py={4} px={5}>
-        <Text fontSize="sm" color={textSecondary}>
-          {label}
-        </Text>
-        <Text fontSize="2xl" fontWeight="bold" color={textPrimary} mt={1}>
-          {value}
-        </Text>
-      </Card.Body>
-    </Card.Root>
+    <Tooltip content={hint} showArrow openDelay={200}>
+      <Card.Root
+        bg={cardBg}
+        borderWidth="1px"
+        borderColor={borderColor}
+        borderRadius="xl"
+        h="full"
+        cursor="help"
+      >
+        <Card.Body py={4} px={5}>
+          <Text fontSize="sm" fontWeight="medium" color={textSecondary}>
+            {label}
+          </Text>
+          <Text
+            fontSize="2xl"
+            fontWeight="bold"
+            color={textPrimary}
+            mt={1}
+            lineHeight="1.1"
+          >
+            {value}
+          </Text>
+          <Text fontSize="xs" color={textSecondary} mt={2} lineHeight="1.35">
+            {hint}
+          </Text>
+        </Card.Body>
+      </Card.Root>
+    </Tooltip>
   );
 }
 
