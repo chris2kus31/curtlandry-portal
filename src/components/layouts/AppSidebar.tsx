@@ -26,6 +26,7 @@ import {
   LuClipboardList,
   LuMail,
   LuUsersRound,
+  LuVideo,
 } from "react-icons/lu";
 import type { IconType } from "react-icons";
 import { useAuthStore } from "@/store/auth-store";
@@ -39,6 +40,7 @@ interface LinkItemProps {
   badgeColor?: string;
   requiredRoles?: string[];
   requiredPermissions?: string[];
+  requiredEmails?: string[];
   requiresDirectReports?: boolean; // Only show if user has direct reports
   requiresManager?: boolean; // Show if user is a manager (OR'd with roles/permissions)
 }
@@ -55,6 +57,16 @@ const LinkItems: LinkItemProps[] = [
     icon: LuUsers,
     href: "/team",
     requiresDirectReports: true, // Only show if user has people reporting to them
+  },
+  {
+    name: "Meetings",
+    icon: LuVideo,
+    href: "/meetings",
+    // Temporary production preview: Shauna Dunlavey + super_admins until
+    // Meetings opens to the full Fireflies roster. Keep in sync with API
+    // FIREFLIES_PREVIEW_EMAILS.
+    requiredEmails: ["sdunlavey@curtlandry.com"],
+    requiredRoles: ["super_admin"],
   },
   {
     name: "People Ops",
@@ -138,6 +150,13 @@ export function SidebarContent({
     // OR-style gates: visible when ANY declared condition is met. Items
     // without any gate are visible to all authenticated users.
     const gates: boolean[] = [];
+    if (link.requiredEmails?.length) {
+      const email = user?.email?.trim().toLowerCase() ?? "";
+      gates.push(
+        !!email &&
+          link.requiredEmails.some((e) => e.toLowerCase() === email),
+      );
+    }
     if (link.requiresManager) {
       gates.push(!!user?.has_direct_reports || !!user?.is_manager);
     }

@@ -11,18 +11,36 @@ import { useAuthStore } from "@/store/auth-store";
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, _hasHydrated, isInitialized } = useAuthStore();
+  const { user, token, _hasHydrated, isInitialized } = useAuthStore();
 
   useEffect(() => {
-    if (!_hasHydrated) return;
+    if (!_hasHydrated || !isInitialized) return;
 
-    if (user) {
-      const redirect = searchParams.get("redirect") || "/dashboard";
+    // Only redirect when we have a real session (user + token).
+    // Stale persisted user without a token used to bounce login ↔ app.
+    if (user && token) {
+      const redirect = searchParams.get("redirect") || "/time-off";
       router.replace(redirect);
     }
-  }, [user, _hasHydrated, isInitialized, router, searchParams]);
+  }, [user, token, _hasHydrated, isInitialized, router, searchParams]);
 
-  if (!_hasHydrated || (user && isInitialized)) {
+  // Wait for store hydration/init before painting the form
+  if (!_hasHydrated || !isInitialized) {
+    return (
+      <Box
+        minH="100vh"
+        bg="gray.50"
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Spinner size="xl" color="brand.500" />
+      </Box>
+    );
+  }
+
+  // Brief spinner while navigating away after a successful session
+  if (user && token) {
     return (
       <Box
         minH="100vh"

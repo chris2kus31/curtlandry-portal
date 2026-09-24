@@ -38,6 +38,17 @@ const nextConfig: NextConfig = {
     ],
   },
 
+  async rewrites() {
+    const apiOrigin =
+      process.env.LARAVEL_API_ORIGIN || "http://127.0.0.1:8001";
+    return [
+      {
+        source: "/laravel-api/api/:path*",
+        destination: `${apiOrigin}/api/:path*`,
+      },
+    ];
+  },
+
   async headers() {
     return [
       {
