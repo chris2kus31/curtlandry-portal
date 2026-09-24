@@ -177,6 +177,126 @@ export interface AdminApplicationSummary {
   } | null;
   submitted_at: string | null;
   last_activity_at: string | null;
+  /** Active guests (pending payment / paid / confirmed) on this application. */
+  guest_count: number;
+}
+
+/* --- Guests ("party") — see curtlandryApi/docs/events/GROUP_REGISTRATIONS.md --- */
+
+export type GuestStatus =
+  | "pending_payment"
+  | "paid"
+  | "confirmed"
+  | "cancelled"
+  | "refunded";
+
+export type GuestRelationship = "spouse" | "family" | "colleague" | "friend" | "other";
+
+export const GUEST_RELATIONSHIP_LABELS: Record<GuestRelationship, string> = {
+  spouse: "Spouse",
+  family: "Family",
+  colleague: "Colleague",
+  friend: "Friend",
+  other: "Other",
+};
+
+/** Who receives payment emails for a guest. Forced to "primary" when the guest has no email. */
+export type GuestPaymentRecipient = "guest" | "primary";
+
+export interface AdminApplicationGuest {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  relationship: GuestRelationship | null;
+  status: GuestStatus;
+  status_label: string;
+  payment_recipient: GuestPaymentRecipient;
+  price_cents: number;
+  price_overridden: boolean;
+  price_override_reason: string | null;
+  price_overridden_by: { id: number; name: string | null } | null;
+  price_overridden_at: string | null;
+  amount_paid_cents: number | null;
+  amount_refunded_cents: number | null;
+  paid_currency: string | null;
+  payment_link_sent_count: number;
+  payment_link_expired_at: string | null;
+  paid_at: string | null;
+  confirmed_at: string | null;
+  cancelled_at: string | null;
+  refunded_at: string | null;
+  added_by: { id: number; name: string | null } | null;
+  created_at: string | null;
+}
+
+export type PaymentLedgerStatus =
+  | "pending"
+  | "paid"
+  | "expired"
+  | "partially_refunded"
+  | "refunded";
+
+export interface AdminApplicationPayment {
+  id: string;
+  status: PaymentLedgerStatus;
+  status_label: string;
+  recipient_type: "primary" | "guest";
+  recipient_guest_id: string | null;
+  amount_total_cents: number;
+  amount_paid_cents: number | null;
+  amount_refunded_cents: number | null;
+  currency: string;
+  stripe_checkout_session_id: string | null;
+  stripe_payment_intent_id: string | null;
+  stripe_charge_id: string | null;
+  /** Null once funds are collected. */
+  checkout_url: string | null;
+  expires_at: string | null;
+  paid_at: string | null;
+  expired_at: string | null;
+  refunded_at: string | null;
+  created_at: string | null;
+  items: {
+    id: string;
+    guest_id: string | null;
+    is_primary: boolean;
+    label: string;
+    amount_cents: number;
+    amount_refunded_cents: number;
+  }[];
+}
+
+export interface GuestPayload {
+  first_name: string;
+  last_name: string;
+  email?: string | null;
+  phone?: string | null;
+  relationship?: GuestRelationship | null;
+  payment_recipient?: GuestPaymentRecipient;
+  price_cents?: number;
+  price_override_reason?: string | null;
+}
+
+export interface AddGuestResponse {
+  guest: AdminApplicationGuest;
+  capacity: number | null;
+  capacity_remaining: number | null;
+  over_capacity: boolean;
+}
+
+export interface SendGuestPaymentLinkResponse {
+  session_url: string;
+  guest: AdminApplicationGuest;
+}
+
+export interface GuestRefundResponse {
+  refund_id: string;
+  amount_cents: number;
+  is_full_refund: boolean;
+  total_refunded_cents: number;
+  guest: AdminApplicationGuest;
 }
 
 export interface AdminApplicationNote {
@@ -206,7 +326,9 @@ export interface AdminApplicationDetail extends AdminApplicationSummary {
           postal_code: string | null;
           country: string | null;
         } | null;
-        capacity: unknown;
+        capacity: number | null;
+        /** Primaries + active guests currently holding seats. */
+        capacity_filled: number;
         application_schema: ApplicationSchema | null;
 
         // Pricing + refund policy + Stripe linkage. Drives conditional
@@ -215,6 +337,7 @@ export interface AdminApplicationDetail extends AdminApplicationSummary {
         currency: string;
         price_cents: number;
         stripe_price_id: string | null;
+        stripe_product_id: string | null;
         refund_full_until: string | null;
         refund_partial_until: string | null;
         refund_partial_pct: number | null;
@@ -243,6 +366,9 @@ export interface AdminApplicationDetail extends AdminApplicationSummary {
     payment_link_expired_at: string | null;
     stripe_recovery_url: string | null;
   };
+  guests: AdminApplicationGuest[];
+  /** Stripe Checkout ledger, newest first. */
+  payments: AdminApplicationPayment[];
 }
 
 export interface AdminApplicationStats {
@@ -528,6 +654,63 @@ class AdminApplicationsService {
   ): Promise<IssueRefundResponse> {
     const res = await httpClient.post<{ data: IssueRefundResponse }>(
       `/portal/events/applications/${id}/refund`,
+      payload,
+    );
+    return res.data;
+  }
+
+  /* ----------------------- Guests ("party") ---------------------------- */
+
+  async addGuest(applicationId: string, payload: GuestPayload): Promise<AddGuestResponse> {
+    const res = await httpClient.post<{
+      data: AdminApplicationGuest;
+      meta: { capacity: number | null; capacity_remaining: number | null; over_capacity: boolean };
+    }>(`/portal/events/applications/${applicationId}/guests`, payload);
+    return { guest: res.data, ...res.meta };
+  }
+
+  async updateGuest(
+    applicationId: string,
+    guestId: string,
+    payload: Partial<GuestPayload>,
+  ): Promise<AdminApplicationGuest> {
+    const res = await httpClient.patch<{ data: AdminApplicationGuest }>(
+      `/portal/events/applications/${applicationId}/guests/${guestId}`,
+      payload,
+    );
+    return res.data;
+  }
+
+  async cancelGuest(
+    applicationId: string,
+    guestId: string,
+    payload: { notify?: boolean; note?: string } = {},
+  ): Promise<AdminApplicationGuest> {
+    const res = await httpClient.post<{ data: AdminApplicationGuest }>(
+      `/portal/events/applications/${applicationId}/guests/${guestId}/cancel`,
+      payload,
+    );
+    return res.data;
+  }
+
+  async sendGuestPaymentLink(
+    applicationId: string,
+    guestId: string,
+  ): Promise<SendGuestPaymentLinkResponse> {
+    const res = await httpClient.post<{ data: SendGuestPaymentLinkResponse }>(
+      `/portal/events/applications/${applicationId}/guests/${guestId}/send-payment-link`,
+      {},
+    );
+    return res.data;
+  }
+
+  async refundGuest(
+    applicationId: string,
+    guestId: string,
+    payload: IssueRefundPayload = {},
+  ): Promise<GuestRefundResponse> {
+    const res = await httpClient.post<{ data: GuestRefundResponse }>(
+      `/portal/events/applications/${applicationId}/guests/${guestId}/refund`,
       payload,
     );
     return res.data;

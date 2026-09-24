@@ -20,10 +20,13 @@ import { toaster } from "@/components/ui/toaster";
 import {
   adminApplicationsService,
   type AdminApplicationDetail,
+  type AdminApplicationGuest,
 } from "@/lib/api/admin-applications-service";
 
 interface Props {
   application: AdminApplicationDetail | null;
+  /** When set, refunds this guest's own payment instead of the primary's. */
+  guest?: AdminApplicationGuest | null;
   open: boolean;
   onClose: () => void;
   onUpdated: (next: AdminApplicationDetail) => void;
@@ -50,7 +53,7 @@ interface RefundPreview {
  * admins see the math before clicking. The same math is enforced
  * authoritatively on the server (see IssueEventRefundAction.php).
  */
-export function RefundModal({ application, open, onClose, onUpdated }: Props) {
+export function RefundModal({ application, guest = null, open, onClose, onUpdated }: Props) {
   // All hooks must be called unconditionally at the top of the component —
   // rules-of-hooks. Even color-mode values that are only used after an
   // early return go up here.
@@ -70,18 +73,26 @@ export function RefundModal({ application, open, onClose, onUpdated }: Props) {
       setOverridePolicy(false);
       setReason("");
     }
-  }, [open, application?.id]);
+  }, [open, application?.id, guest?.id]);
+
+  const paidCents = guest ? guest.amount_paid_cents ?? 0 : application?.payment.amount_paid_cents ?? 0;
+  const refundedCents = guest
+    ? guest.amount_refunded_cents ?? 0
+    : application?.payment.amount_refunded_cents ?? 0;
 
   const preview: RefundPreview | null = useMemo(() => {
-    if (!application?.event || !application.payment.amount_paid_cents) {
+    if (!application?.event || !paidCents) {
       return null;
     }
-    return computeRefundPreview(application);
-  }, [application]);
+    return computeRefundPreview(application.event, paidCents, refundedCents);
+  }, [application, paidCents, refundedCents]);
 
   if (!application) return null;
 
-  const currency = application.payment.paid_currency ?? application.event?.currency ?? "USD";
+  const currency =
+    (guest ? guest.paid_currency : application.payment.paid_currency) ??
+    application.event?.currency ??
+    "USD";
 
   // The actual amount that will be sent to the API:
   //   - If user typed an override, parse it
@@ -105,11 +116,14 @@ export function RefundModal({ application, open, onClose, onUpdated }: Props) {
 
     setSubmitting(true);
     try {
-      const result = await adminApplicationsService.issueRefund(application.id, {
+      const payload = {
         amount_cents: overrideCents,
         override_policy_window: overridePolicy || undefined,
         reason: reason.trim() || undefined,
-      });
+      };
+      const result = guest
+        ? await adminApplicationsService.refundGuest(application.id, guest.id, payload)
+        : await adminApplicationsService.issueRefund(application.id, payload);
 
       const next = await adminApplicationsService.getApplication(application.id);
       onUpdated(next);
@@ -144,7 +158,7 @@ export function RefundModal({ application, open, onClose, onUpdated }: Props) {
           <Dialog.Content maxW="560px" w="full" mx={4} borderRadius="xl">
             <Dialog.Header px={6} pt={6} pb={2}>
               <Dialog.Title fontSize="lg" fontWeight={700}>
-                Issue refund
+                {guest ? `Refund guest: ${guest.first_name} ${guest.last_name}` : "Issue refund"}
               </Dialog.Title>
               <Dialog.CloseTrigger position="absolute" top={3} right={3} asChild>
                 <CloseButton size="sm" />
@@ -156,20 +170,11 @@ export function RefundModal({ application, open, onClose, onUpdated }: Props) {
                 {/* Policy preview panel */}
                 <Box bg={panelBg} p={4} borderRadius="md">
                   <Stack gap={2}>
-                    <PreviewLine
-                      label="Paid"
-                      value={formatCurrency(
-                        application.payment.amount_paid_cents ?? 0,
-                        currency,
-                      )}
-                    />
-                    {Boolean(application.payment.amount_refunded_cents) && (
+                    <PreviewLine label="Paid" value={formatCurrency(paidCents, currency)} />
+                    {Boolean(refundedCents) && (
                       <PreviewLine
                         label="Already refunded"
-                        value={formatCurrency(
-                          application.payment.amount_refunded_cents ?? 0,
-                          currency,
-                        )}
+                        value={formatCurrency(refundedCents, currency)}
                       />
                     )}
                     {preview && (
@@ -328,20 +333,12 @@ function PreviewLine({
   );
 }
 
-function computeRefundPreview(application: AdminApplicationDetail): RefundPreview {
-  const paid = application.payment.amount_paid_cents ?? 0;
-  const already = application.payment.amount_refunded_cents ?? 0;
+function computeRefundPreview(
+  event: NonNullable<AdminApplicationDetail["event"]>,
+  paid: number,
+  already: number,
+): RefundPreview {
   const available = Math.max(0, paid - already);
-
-  const event = application.event;
-  if (!event) {
-    return {
-      windowState: "unknown",
-      defaultCents: 0,
-      availableCents: available,
-      defaultLabel: "—",
-    };
-  }
 
   const today = startOfTodayLocal();
   const fullUntil = parseDateLocal(event.refund_full_until);
