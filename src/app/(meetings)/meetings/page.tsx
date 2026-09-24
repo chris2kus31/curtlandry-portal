@@ -95,6 +95,7 @@ export default function MeetingsPage() {
 
   const [loading, setLoading] = useState(true);
   const [usingMock, setUsingMock] = useState(false);
+  const [asanaEnabled, setAsanaEnabled] = useState<boolean | null>(null);
   const [weekLabel, setWeekLabel] = useState<string>("");
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [apiSaysAdmin, setApiSaysAdmin] = useState<boolean | null>(null);
@@ -129,6 +130,9 @@ export default function MeetingsPage() {
       });
       setMeetings(inbox.meetings);
       setUsingMock(!!inbox.using_mock);
+      setAsanaEnabled(
+        typeof inbox.asana_enabled === "boolean" ? inbox.asana_enabled : null,
+      );
       setWeekLabel(inbox.week?.label || "");
       setApiSaysAdmin(inbox.is_fireflies_admin);
       // Keep meetings collapsed until the user expands one.
@@ -216,6 +220,19 @@ export default function MeetingsPage() {
     );
   };
 
+  const asanaErrorMessage = (error: unknown): string => {
+    if (error instanceof Error && error.message) return error.message;
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "message" in error &&
+      typeof (error as { message: unknown }).message === "string"
+    ) {
+      return (error as { message: string }).message;
+    }
+    return "Please try again.";
+  };
+
   const handleCreateMine = async (
     item: MeetingActionItem,
     meeting: Meeting,
@@ -227,6 +244,11 @@ export default function MeetingsPage() {
         item.id,
         toActionPayload(item, meeting, dueOn),
       );
+      if (!result?.asana_task_id) {
+        throw new Error(
+          "Asana did not return a task id. Check API Asana configuration.",
+        );
+      }
       markSynced(item.id, result.asana_task_id);
       toaster.create({
         title: "Asana task created",
@@ -238,7 +260,7 @@ export default function MeetingsPage() {
     } catch (error) {
       toaster.create({
         title: "Could not create Asana task",
-        description: error instanceof Error ? error.message : "Please try again",
+        description: asanaErrorMessage(error),
         type: "error",
       });
     } finally {
@@ -257,6 +279,11 @@ export default function MeetingsPage() {
         item.id,
         toActionPayload(item, meeting, dueOn),
       );
+      if (!result?.asana_task_id) {
+        throw new Error(
+          "Asana did not return a task id. Check API Asana configuration.",
+        );
+      }
       markSynced(item.id, result.asana_task_id);
       toaster.create({
         title: "Approved",
@@ -268,7 +295,7 @@ export default function MeetingsPage() {
     } catch (error) {
       toaster.create({
         title: "Could not approve item",
-        description: error instanceof Error ? error.message : "Please try again",
+        description: asanaErrorMessage(error),
         type: "error",
       });
     } finally {
@@ -363,6 +390,15 @@ export default function MeetingsPage() {
                 Live Fireflies
               </Badge>
             )}
+            {asanaEnabled === false ? (
+              <Badge colorPalette="red" variant="subtle" borderRadius="md">
+                Asana not connected
+              </Badge>
+            ) : asanaEnabled ? (
+              <Badge colorPalette="green" variant="subtle" borderRadius="md">
+                Asana connected
+              </Badge>
+            ) : null}
           </HStack>
           <Heading as="h1" fontSize={{ base: "2xl", md: "3xl" }} color={textPrimary}>
             Meetings
@@ -374,6 +410,25 @@ export default function MeetingsPage() {
             {weekLabel ? ` Showing ${weekLabel} (Mon–Fri).` : ""}
           </Text>
         </Box>
+
+        {asanaEnabled === false && (
+          <Card.Root
+            bg="red.50"
+            borderWidth="1px"
+            borderColor="red.200"
+            borderRadius="xl"
+          >
+            <Card.Body py={4} px={5}>
+              <Text fontWeight="semibold" color="red.700">
+                Asana is not connected on the API
+              </Text>
+              <Text fontSize="sm" color="red.600" mt={1}>
+                Set ASANA_ENABLED=true with ASANA_ACCESS_TOKEN and
+                ASANA_WORKSPACE_GID, then retry Create my Asana task.
+              </Text>
+            </Card.Body>
+          </Card.Root>
+        )}
 
         <Card.Root bg={softBg} borderWidth="1px" borderColor={borderColor} borderRadius="xl">
           <Card.Body py={4} px={5}>
