@@ -15,7 +15,6 @@ import {
   Dialog,
   CloseButton,
   Badge,
-  SimpleGrid,
   Image,
 } from "@chakra-ui/react";
 import { useColorModeValue } from "@/components/ui/color-mode";
@@ -34,11 +33,6 @@ import {
   LuSave,
   LuPackage,
   LuTriangleAlert,
-  LuExpand,
-  LuCheck,
-  LuMonitor,
-  LuTablet,
-  LuSmartphone,
   LuArrowLeft,
 } from "react-icons/lu";
 import { onboardingService } from "@/lib/api";
@@ -47,14 +41,16 @@ import type {
   IntakePayload,
   OnboardingCase,
   OnboardingAsset,
-  DeviceCategoryOption,
 } from "@/lib/api";
 import {
   createEmptyIntakeForm,
-  deviceCategoryIconKey,
-  type DeviceCategoryIconKey,
   type IntakeFormState,
 } from "@/lib/onboarding/intake-constants";
+import {
+  DeviceCategoryPicker,
+  categoryIcon,
+} from "@/components/onboarding/intake/DeviceCategoryPicker";
+import { DeviceAssetPicker } from "@/components/onboarding/intake/DeviceAssetPicker";
 
 interface NewHireIntakeDrawerProps {
   isOpen: boolean;
@@ -62,28 +58,6 @@ interface NewHireIntakeDrawerProps {
   onCreated: (created: OnboardingCase) => void;
   options: OnboardingFormOptions | null;
   optionsLoading?: boolean;
-}
-
-const CATEGORY_ICONS: Record<DeviceCategoryIconKey, typeof LuLaptop> = {
-  laptop: LuLaptop,
-  desktop: LuMonitor,
-  tablet: LuTablet,
-  phone: LuSmartphone,
-  other: LuPackage,
-};
-
-function categoryIcon(value: string): typeof LuLaptop {
-  return CATEGORY_ICONS[deviceCategoryIconKey(value)];
-}
-
-function assetMatchesCategory(
-  asset: OnboardingAsset,
-  category: DeviceCategoryOption,
-): boolean {
-  const type = (asset.type || "").toLowerCase();
-  if (type === category.value.toLowerCase()) return true;
-  const label = (asset.type_label || "").toLowerCase();
-  return !!label && label === category.label.toLowerCase();
 }
 
 function prettifyEmploymentType(value: string): string {
@@ -109,6 +83,7 @@ export function NewHireIntakeDrawer({
   const [previewAsset, setPreviewAsset] = useState<OnboardingAsset | null>(
     null,
   );
+  /** An asset_categories id (as a string), matched against asset.asset_category_id. */
   const [deviceCategory, setDeviceCategory] = useState<string | null>(null);
 
   // Colors — all hooks before any conditional return
@@ -429,22 +404,14 @@ export function NewHireIntakeDrawer({
   const employmentTypes = options?.employment_types ?? [];
   const managers = options?.managers ?? [];
   const assignableAssets = options?.assignable_assets ?? [];
-  const softwareCatalog = options?.software_catalog ?? [];
+  // Which categories appear in the picker is People Ops' call (show_in_intake),
+  // served alongside the rest of the intake options.
   const deviceCategories = options?.device_categories ?? [];
-
-  const availableDeviceCategories = deviceCategories.filter((category) =>
-    assignableAssets.some((asset) => assetMatchesCategory(asset, category)),
-  );
+  const softwareCatalog = options?.software_catalog ?? [];
 
   const selectedCategoryMeta = deviceCategories.find(
     (c) => c.value === deviceCategory,
   );
-
-  const filteredAssets = selectedCategoryMeta
-    ? assignableAssets.filter((asset) =>
-        assetMatchesCategory(asset, selectedCategoryMeta),
-      )
-    : [];
 
   // Items offered for the chosen department: global (null department) + any
   // scoped to the selected department.
@@ -771,85 +738,11 @@ export function NewHireIntakeDrawer({
                                 >
                                   What kind of device?
                                 </FieldLabel>
-                                {availableDeviceCategories.length === 0 ? (
-                                  <Box
-                                    p={4}
-                                    borderRadius="lg"
-                                    border="1px dashed"
-                                    borderColor={borderColor}
-                                    bg={inputBg}
-                                  >
-                                    <Text fontSize="sm" color={textSecondary}>
-                                      No available devices in inventory
-                                    </Text>
-                                  </Box>
-                                ) : (
-                                  <SimpleGrid columns={2} gap={2.5}>
-                                    {availableDeviceCategories.map(
-                                      (category) => {
-                                        const Icon = categoryIcon(
-                                          category.value,
-                                        );
-                                        const count = assignableAssets.filter(
-                                          (asset) =>
-                                            assetMatchesCategory(
-                                              asset,
-                                              category,
-                                            ),
-                                        ).length;
-                                        return (
-                                          <Box
-                                            key={category.value}
-                                            as="button"
-                                                                                        p={4}
-                                            borderRadius="xl"
-                                            border="1.5px solid"
-                                            borderColor={borderColor}
-                                            bg={cardBg}
-                                            textAlign="left"
-                                            cursor="pointer"
-                                            onClick={() =>
-                                              selectDeviceCategory(
-                                                category.value,
-                                              )
-                                            }
-                                            _hover={{
-                                              borderColor: "brand.400",
-                                              bg: hoverBg,
-                                            }}
-                                            transition="all 0.15s"
-                                          >
-                                            <HStack gap={3} align="center">
-                                              <Box
-                                                p={2}
-                                                borderRadius="lg"
-                                                bg={imageBg}
-                                                color={textPrimary}
-                                              >
-                                                <Icon size={18} />
-                                              </Box>
-                                              <Box>
-                                                <Text
-                                                  fontSize="sm"
-                                                  fontWeight="semibold"
-                                                  color={textPrimary}
-                                                >
-                                                  {category.label}
-                                                </Text>
-                                                <Text
-                                                  fontSize="xs"
-                                                  color={textSecondary}
-                                                >
-                                                  {count} available
-                                                </Text>
-                                              </Box>
-                                            </HStack>
-                                          </Box>
-                                        );
-                                      },
-                                    )}
-                                  </SimpleGrid>
-                                )}
+                                <DeviceCategoryPicker
+                                  categories={deviceCategories}
+                                  assets={assignableAssets}
+                                  onSelect={selectDeviceCategory}
+                                />
                               </>
                             ) : (
                               <>
@@ -863,7 +756,7 @@ export function NewHireIntakeDrawer({
                                     icon={(() => {
                                       const Icon = selectedCategoryMeta
                                         ? categoryIcon(
-                                            selectedCategoryMeta.value,
+                                            selectedCategoryMeta.label,
                                           )
                                         : LuLaptop;
                                       return (
@@ -875,7 +768,7 @@ export function NewHireIntakeDrawer({
                                   </FieldLabel>
                                   <Box
                                     as="button"
-                                                                        onClick={clearDeviceCategory}
+                                    onClick={clearDeviceCategory}
                                     display="flex"
                                     alignItems="center"
                                     gap={1}
@@ -889,207 +782,14 @@ export function NewHireIntakeDrawer({
                                   </Box>
                                 </Flex>
 
-                                {filteredAssets.length === 0 ? (
-                                  <Box
-                                    p={4}
-                                    borderRadius="lg"
-                                    border="1px dashed"
-                                    borderColor={borderColor}
-                                    bg={inputBg}
-                                  >
-                                    <Text fontSize="sm" color={textSecondary}>
-                                      No{" "}
-                                      {selectedCategoryMeta?.label.toLowerCase() ??
-                                        "devices"}{" "}
-                                      available right now
-                                    </Text>
-                                  </Box>
-                                ) : (
-                                  <VStack gap={2.5} align="stretch">
-                                    {filteredAssets.map((asset) => {
-                                      const selected =
-                                        form.requested_asset_id ===
-                                        String(asset.id);
-                                      return (
-                                        <HStack
-                                          key={asset.id}
-                                          as="button"
-                                                                                    align="stretch"
-                                          gap={3}
-                                          p={3}
-                                          w="full"
-                                          textAlign="left"
-                                          bg={
-                                            selected ? selectedCardBg : cardBg
-                                          }
-                                          borderRadius="xl"
-                                          border="1.5px solid"
-                                          borderColor={
-                                            selected
-                                              ? "brand.500"
-                                              : borderColor
-                                          }
-                                          cursor="pointer"
-                                          onClick={() =>
-                                            selectAsset(String(asset.id))
-                                          }
-                                          _hover={{
-                                            borderColor: selected
-                                              ? "brand.500"
-                                              : "brand.400",
-                                            bg: selected
-                                              ? selectedCardBg
-                                              : hoverBg,
-                                          }}
-                                          transition="all 0.15s"
-                                          position="relative"
-                                        >
-                                          <Box
-                                            position="relative"
-                                            w="76px"
-                                            h="76px"
-                                            flexShrink={0}
-                                            borderRadius="lg"
-                                            overflow="hidden"
-                                            bg={imageBg}
-                                            border="1px solid"
-                                            borderColor={borderColor}
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              if (asset.image_url) {
-                                                setPreviewAsset(asset);
-                                              }
-                                            }}
-                                            cursor={
-                                              asset.image_url
-                                                ? "zoom-in"
-                                                : "default"
-                                            }
-                                            role={
-                                              asset.image_url
-                                                ? "button"
-                                                : undefined
-                                            }
-                                            aria-label={
-                                              asset.image_url
-                                                ? `Preview ${asset.name}`
-                                                : undefined
-                                            }
-                                          >
-                                            {asset.image_url ? (
-                                              <>
-                                                <Image
-                                                  src={asset.image_url}
-                                                  alt={asset.name}
-                                                  w="100%"
-                                                  h="100%"
-                                                  fit="cover"
-                                                />
-                                                <Box
-                                                  position="absolute"
-                                                  right={1}
-                                                  bottom={1}
-                                                  bg="blackAlpha.600"
-                                                  color="white"
-                                                  borderRadius="md"
-                                                  p={0.5}
-                                                  display="flex"
-                                                  alignItems="center"
-                                                  justifyContent="center"
-                                                >
-                                                  <LuExpand size={12} />
-                                                </Box>
-                                              </>
-                                            ) : (
-                                              <Flex
-                                                w="full"
-                                                h="full"
-                                                align="center"
-                                                justify="center"
-                                                color={textSecondary}
-                                              >
-                                                <LuLaptop size={28} />
-                                              </Flex>
-                                            )}
-                                          </Box>
-
-                                          <VStack
-                                            align="start"
-                                            gap={1}
-                                            flex={1}
-                                            minW={0}
-                                            py={0.5}
-                                          >
-                                            <HStack
-                                              justify="space-between"
-                                              w="full"
-                                              gap={2}
-                                            >
-                                              <Text
-                                                fontSize="sm"
-                                                fontWeight="semibold"
-                                                color={textPrimary}
-                                                lineClamp={1}
-                                              >
-                                                {asset.name}
-                                              </Text>
-                                              {selected && (
-                                                <Box
-                                                  color="brand.500"
-                                                  flexShrink={0}
-                                                >
-                                                  <LuCheck size={16} />
-                                                </Box>
-                                              )}
-                                            </HStack>
-                                            <HStack gap={2} flexWrap="wrap">
-                                              {asset.type_label && (
-                                                <Badge
-                                                  size="sm"
-                                                  variant="subtle"
-                                                  colorPalette="gray"
-                                                >
-                                                  {asset.type_label}
-                                                </Badge>
-                                              )}
-                                              {asset.status_label && (
-                                                <Badge
-                                                  size="sm"
-                                                  variant="subtle"
-                                                  colorPalette={
-                                                    asset.status_color ===
-                                                    "green"
-                                                      ? "green"
-                                                      : "gray"
-                                                  }
-                                                >
-                                                  {asset.status_label}
-                                                </Badge>
-                                              )}
-                                            </HStack>
-                                            <Text
-                                              fontSize="xs"
-                                              color={textSecondary}
-                                              lineClamp={1}
-                                            >
-                                              {[
-                                                asset.asset_tag,
-                                                asset.serial_number
-                                                  ? `S/N ${asset.serial_number}`
-                                                  : null,
-                                              ]
-                                                .filter(Boolean)
-                                                .join(" · ")}
-                                            </Text>
-                                          </VStack>
-                                        </HStack>
-                                      );
-                                    })}
-                                    <Text fontSize="xs" color={textSecondary}>
-                                      Tap a card to assign. Click the image to
-                                      enlarge.
-                                    </Text>
-                                  </VStack>
+                                {selectedCategoryMeta && (
+                                  <DeviceAssetPicker
+                                    category={selectedCategoryMeta}
+                                    assets={assignableAssets}
+                                    selectedAssetId={form.requested_asset_id}
+                                    onSelect={selectAsset}
+                                    onPreview={setPreviewAsset}
+                                  />
                                 )}
                               </>
                             )}

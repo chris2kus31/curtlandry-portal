@@ -39,7 +39,22 @@ export function createEmptyIntakeForm(): IntakeFormState {
   };
 }
 
-/** API device category value → Lucide icon key for display only. */
+/**
+ * Group assets by Asset Tiger category. A category option's `value` is the
+ * stringified asset_categories id, so this is an exact id match against the
+ * asset's `asset_category_id` — never a guess against types, labels, or names.
+ */
+export function assetsInCategory<
+  T extends { asset_category_id: number | null },
+>(assets: T[], categoryValue: string): T[] {
+  return assets.filter(
+    (asset) =>
+      asset.asset_category_id !== null &&
+      String(asset.asset_category_id) === categoryValue,
+  );
+}
+
+/** Lucide icon key for a device category. Display only — never used for matching. */
 export type DeviceCategoryIconKey =
   | "laptop"
   | "desktop"
@@ -47,18 +62,24 @@ export type DeviceCategoryIconKey =
   | "phone"
   | "other";
 
-export function deviceCategoryIconKey(value: string): DeviceCategoryIconKey {
-  switch (value) {
-    case "laptop":
-      return "laptop";
-    case "desktop":
-    case "monitor":
-      return "desktop";
-    case "tablet":
-      return "tablet";
-    case "phone":
-      return "phone";
-    default:
-      return "other";
+/**
+ * Categories are free-form Asset Tiger names, so the icon is picked from the
+ * label. An unrecognised name just gets the generic package icon.
+ */
+export function deviceCategoryIconKey(label: string): DeviceCategoryIconKey {
+  const name = label.toLowerCase();
+
+  if (name.includes("laptop") || name.includes("notebook")) return "laptop";
+  if (
+    name.includes("desktop") ||
+    name.includes("monitor") ||
+    name.includes("workstation") ||
+    name.includes("imac")
+  ) {
+    return "desktop";
   }
+  if (name.includes("tablet") || name.includes("ipad")) return "tablet";
+  if (name.includes("phone") || name.includes("mobile")) return "phone";
+
+  return "other";
 }

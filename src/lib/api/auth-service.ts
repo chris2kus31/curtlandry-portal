@@ -1,6 +1,6 @@
 // src/lib/api/auth-service.ts
 import { httpClient } from "./http-client";
-import type { AuthResponse, User } from "@/types/auth";
+import type { AuthResponse } from "@/types/auth";
 
 export const authService = {
   /**
@@ -94,41 +94,6 @@ export const authService = {
    */
   initiateHodGoogleLogin(): void {
     window.location.href = this.getHodGoogleLoginUrl();
-  },
-
-  /**
-   * Local-only login against the Laravel API (APP_ENV=local).
-   * Returns a real JWT so asset pages hit synced Asset Tiger inventory.
-   */
-  async localDevLogin(): Promise<{
-    user: User & { roles?: string[]; permissions?: string[] };
-    tokens: {
-      access_token: string;
-      refresh_token?: string;
-      token_type: string;
-      expires_in: number;
-    };
-  }> {
-    const response = await httpClient.post<{
-      success: boolean;
-      message: string;
-      data: {
-        user: User & { roles?: string[]; permissions?: string[] };
-        tokens: {
-          access_token: string;
-          refresh_token?: string;
-          token_type: string;
-          expires_in: number;
-        };
-      };
-    }>("/portal/auth/local-dev");
-
-    if (!response.data?.tokens?.access_token) {
-      throw new Error(response.message || "Local API login failed");
-    }
-
-    httpClient.setAuthToken(response.data.tokens.access_token);
-    return response.data;
   },
 
   /**

@@ -5,7 +5,6 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { authService } from "@/lib/api/auth-service";
 import type { User } from "@/types/auth";
-import { isDevAuthEnabled } from "@/lib/dev-auth";
 
 function setSessionCookie(hasToken: boolean) {
   if (typeof document === "undefined") return;
@@ -33,7 +32,6 @@ interface AuthState {
   // Actions
   loginWithGoogle: () => void;
   loginWithGoogleHod: () => void;
-  loginAgainstLocalApi: () => Promise<void>;
   logout: () => Promise<void>;
   setUser: (user: User) => void;
   setToken: (token: string) => void;
@@ -69,55 +67,6 @@ export const useAuthStore = create<AuthState>()(
       loginWithGoogleHod: () => {
         set({ isLoading: true, error: null });
         authService.initiateHodGoogleLogin();
-      },
-
-      loginAgainstLocalApi: async () => {
-        if (!isDevAuthEnabled()) {
-          set({ error: "Dev login is disabled" });
-          return;
-        }
-
-        set({ isLoading: true, error: null });
-
-        try {
-          const data = await authService.localDevLogin();
-          const accessToken = data.tokens.access_token;
-          const refreshToken = data.tokens.refresh_token;
-          const { roles = [], permissions = [], ...user } = data.user;
-
-          if (typeof window !== "undefined") {
-            localStorage.setItem("auth_token", accessToken);
-            if (refreshToken) {
-              localStorage.setItem("refresh_token", refreshToken);
-            }
-          }
-
-          setSessionCookie(true);
-          set({
-            user: user as User,
-            roles,
-            permissions,
-            token: accessToken,
-            isLoading: false,
-            isInitialized: true,
-            error: null,
-          });
-        } catch (error) {
-          console.error("Local API login failed:", error);
-          const message =
-            error instanceof Error
-              ? error.message
-              : typeof error === "object" &&
-                  error !== null &&
-                  "message" in error &&
-                  typeof (error as { message: unknown }).message === "string"
-                ? (error as { message: string }).message
-                : "Local API login failed. Is the Laravel API running on :8002?";
-          set({
-            isLoading: false,
-            error: message,
-          });
-        }
       },
 
       logout: async () => {

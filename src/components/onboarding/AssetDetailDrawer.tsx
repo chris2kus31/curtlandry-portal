@@ -153,7 +153,7 @@ export function AssetDetailDrawer({
     if (!assignUser) {
       toaster.create({
         title: "Select an employee first",
-        description: "You must choose who this device is going to before assigning.",
+        description: "You must choose who this asset is going to before assigning.",
         type: "warning",
       });
       return;
@@ -161,7 +161,7 @@ export function AssetDetailDrawer({
     setBusy(true);
     try {
       await assetService.assign(asset.id, Number(assignUser), assignNote || undefined);
-      toaster.create({ title: "Device assigned", type: "success" });
+      toaster.create({ title: "Asset assigned", type: "success" });
       setAssignUser("");
       setAssignNote("");
       await refresh();
@@ -181,7 +181,7 @@ export function AssetDetailDrawer({
     setBusy(true);
     try {
       await assetService.release(asset.id, releaseTarget, releaseNote || undefined);
-      toaster.create({ title: "Device returned to inventory", type: "success" });
+      toaster.create({ title: "Asset released", type: "success" });
       setReleaseNote("");
       await refresh();
     } catch (error) {
@@ -254,12 +254,10 @@ export function AssetDetailDrawer({
                   </Box>
                   <Box>
                     <Text fontWeight="semibold" color={textPrimary}>
-                      {asset?.name ?? "Device"}
+                      {asset?.name ?? "Asset"}
                     </Text>
                     <Text fontSize="sm" color={textSecondary}>
-                      {asset?.type_label
-                        ? `${asset.type_label} details`
-                        : "Device details"}
+                      {asset?.type_label ?? "Device details"}
                     </Text>
                   </Box>
                 </HStack>
@@ -272,7 +270,7 @@ export function AssetDetailDrawer({
                       color={textSecondary}
                       _hover={{ bg: hoverBg }}
                       onClick={() => onEdit(asset)}
-                      title="Edit device"
+                      title="Edit asset"
                     >
                       <LuPencil size={18} />
                     </Box>
@@ -313,14 +311,9 @@ export function AssetDetailDrawer({
                         <LuUser size={14} />
                         <Text>{asset.assigned_user.name}</Text>
                       </HStack>
-                    ) : asset.at_assigned_person_name ? (
-                      <HStack gap={1.5} color={textSecondary} fontSize="sm">
-                        <LuUser size={14} />
-                        <Text>{asset.at_assigned_person_name}</Text>
-                      </HStack>
-                    ) : asset.status === "assigned" ? (
+                    ) : asset.holder_label ? (
                       <Text fontSize="sm" color={textSecondary}>
-                        Checked out in Asset Tiger
+                        {asset.holder_label}
                       </Text>
                     ) : (
                       <Text fontSize="sm" color={textSecondary}>
@@ -333,7 +326,7 @@ export function AssetDetailDrawer({
                   <Box bg={cardBg} borderRadius="lg" p={4}>
                     <VStack gap={2} align="stretch" fontSize="sm">
                       <HStack justify="space-between">
-                        <Text color={textSecondary}>Device tag</Text>
+                        <Text color={textSecondary}>Asset tag</Text>
                         <Text color={textPrimary}>{asset.asset_tag || "—"}</Text>
                       </HStack>
                       <HStack justify="space-between">
@@ -397,7 +390,7 @@ export function AssetDetailDrawer({
                         </SelectShell>
                         {!assignUser && (
                           <Text fontSize="xs" color={textSecondary}>
-                            Choose an employee before you can assign this device.
+                            Choose an employee before you can assign this asset.
                           </Text>
                         )}
                         <Textarea
@@ -499,7 +492,7 @@ export function AssetDetailDrawer({
                         </SelectShell>
                         {!statusTarget && (
                           <Text fontSize="xs" color={textSecondary}>
-                            Choose a status before updating. To give a device to
+                            Choose a status before updating. To give an asset to
                             someone, use Assign to employee instead.
                           </Text>
                         )}
@@ -531,12 +524,12 @@ export function AssetDetailDrawer({
                     <HStack gap={2} mb={2} color={textPrimary}>
                       <LuHistory size={16} />
                       <Text fontSize="sm" fontWeight="semibold">
-                        Who had this device
+                        Assignment history
                       </Text>
                     </HStack>
                     {sortedHistory.length === 0 ? (
                       <Text fontSize="sm" color={textSecondary}>
-                        No one has been assigned this device yet.
+                        No assignment history yet.
                       </Text>
                     ) : (
                       <VStack gap={2} align="stretch">

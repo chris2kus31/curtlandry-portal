@@ -1,20 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import {
-  Box,
-  HStack,
-  Text,
-  VStack,
-  Flex,
-  Spinner,
-  Input,
-  Wrap,
-} from "@chakra-ui/react";
+import { useState } from "react";
+import { Box, HStack, Text, Flex, Spinner, Input } from "@chakra-ui/react";
 import { useColorModeValue } from "@/components/ui/color-mode";
 import {
-  LuCircle,
-  LuCircleCheck,
   LuLock,
   LuPlay,
   LuClock,
@@ -27,18 +16,14 @@ import type {
   OnboardingChecklistItem,
 } from "@/lib/api";
 import { OnboardingStatusBadge } from "./OnboardingStatusBadge";
+import { TaskChecklist } from "./TaskChecklist";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface OnboardingTaskCardProps {
   task: OnboardingTask;
   saving: boolean;
-  /** Optional hire name for a personalized “waiting on” chip. */
-  hireName?: string | null;
-  /** Blocker choices from the onboarding options endpoint. */
-  waitingOnOptions: string[];
   onUpdateChecklist: (checklist: OnboardingChecklistItem[]) => void;
   onSetStatus: (status: OnboardingTaskStatus) => void;
-  /** Marks the task waiting and records who/what it's blocked on. */
   onSetWaitingOn: (text: string) => void;
 }
 
@@ -103,59 +88,9 @@ function TaskActionButton({
   );
 }
 
-function WaitingChip({
-  label,
-  selected,
-  disabled,
-  onClick,
-}: {
-  label: string;
-  selected?: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  const borderColor = useColorModeValue("gray.200", "gray.700");
-  const textPrimary = useColorModeValue("gray.800", "gray.100");
-  const hoverBg = useColorModeValue("gray.100", "gray.700");
-  const selectedBg = useColorModeValue("brand.50", "whiteAlpha.100");
-
-  return (
-    <Box
-      as="button"
-            onClick={disabled ? undefined : onClick}
-      aria-disabled={disabled}
-      aria-pressed={selected}
-      px={3}
-      py={1.5}
-      borderRadius="full"
-      fontSize="sm"
-      fontWeight="medium"
-      border="1px solid"
-      borderColor={selected ? "brand.500" : borderColor}
-      bg={selected ? selectedBg : "transparent"}
-      color={selected ? "brand.600" : textPrimary}
-      opacity={disabled ? 0.6 : 1}
-      cursor={disabled ? "not-allowed" : "pointer"}
-      _hover={
-        disabled
-          ? undefined
-          : {
-              borderColor: "brand.400",
-              bg: selected ? selectedBg : hoverBg,
-            }
-      }
-      transition="all 0.15s"
-    >
-      {label}
-    </Box>
-  );
-}
-
 export function OnboardingTaskCard({
   task,
   saving,
-  hireName,
-  waitingOnOptions,
   onUpdateChecklist,
   onSetStatus,
   onSetWaitingOn,
@@ -165,47 +100,11 @@ export function OnboardingTaskCard({
   const textMuted = useColorModeValue("gray.500", "gray.500");
   const subtleBg = useColorModeValue("gray.50", "gray.800");
   const inputBg = useColorModeValue("white", "gray.900");
-  const itemHoverBg = useColorModeValue("gray.100", "gray.700");
-  const iconColor = useColorModeValue("gray.400", "gray.500");
-  const pickerBg = useColorModeValue("white", "gray.900");
+
+  const [confirmComplete, setConfirmComplete] = useState(false);
 
   const locked = task.is_locked;
   const interactive = !locked && !saving;
-  const isWaiting = task.status === "waiting_on";
-
-  const [showWaitingPicker, setShowWaitingPicker] = useState(false);
-  const [showOther, setShowOther] = useState(false);
-  const [otherText, setOtherText] = useState("");
-  const [confirmComplete, setConfirmComplete] = useState(false);
-
-  const hireLabel = hireName?.trim() ? `New hire (${hireName.trim()})` : null;
-
-  const waitingOptions = useMemo(() => {
-    // The personalized chip stands in for the generic "New hire" option.
-    const fromApi = hireLabel
-      ? waitingOnOptions.filter(
-          (option) => option.trim().toLowerCase() !== "new hire",
-        )
-      : waitingOnOptions;
-    return hireLabel ? [hireLabel, ...fromApi] : fromApi;
-  }, [hireLabel, waitingOnOptions]);
-
-  useEffect(() => {
-    // Keep picker open while actively waiting; collapse when status changes away.
-    if (isWaiting) {
-      setShowWaitingPicker(true);
-      const known =
-        !!task.waiting_on &&
-        (waitingOptions.includes(task.waiting_on) ||
-          task.waiting_on === hireName);
-      setShowOther(!!task.waiting_on && !known);
-      setOtherText(!!task.waiting_on && !known ? task.waiting_on : "");
-    } else {
-      setShowWaitingPicker(false);
-      setShowOther(false);
-      setOtherText("");
-    }
-  }, [isWaiting, task.waiting_on, hireName, task.id, waitingOptions]);
 
   const toggleItem = (index: number) => {
     if (!interactive) return;
@@ -215,25 +114,11 @@ export function OnboardingTaskCard({
     onUpdateChecklist(next);
   };
 
-  const pickWaitingOn = (label: string) => {
-    if (!interactive) return;
-    onSetWaitingOn(label);
-    setShowOther(false);
-    setOtherText("");
-    setShowWaitingPicker(true);
-  };
-
-  const commitOther = () => {
-    const trimmed = otherText.trim();
-    if (!trimmed) return;
-    onSetWaitingOn(trimmed);
-  };
-
-  const openWaitingPicker = () => {
-    if (!interactive) return;
-    setShowWaitingPicker(true);
-    setShowOther(false);
-    setOtherText("");
+  const commitWaitingOn = (value: string) => {
+    const trimmed = value.trim();
+    if (trimmed !== (task.waiting_on ?? "")) {
+      onSetWaitingOn(trimmed);
+    }
   };
 
   return (
@@ -265,119 +150,34 @@ export function OnboardingTaskCard({
         </HStack>
       </Flex>
 
-      {/* Checklist */}
-      {task.checklist.length > 0 && (
-        <VStack align="stretch" gap={1} mb={3}>
-          {task.checklist.map((item, idx) => (
-            <HStack
-              key={idx}
-              gap={2}
-              align="center"
-              px={2}
-              py={1.5}
-              borderRadius="md"
-              cursor={interactive ? "pointer" : "default"}
-              onClick={() => toggleItem(idx)}
-              _hover={interactive ? { bg: itemHoverBg } : undefined}
-              transition="background 0.15s"
-            >
-              <Box color={item.done ? "green.500" : iconColor} flexShrink={0}>
-                {item.done ? (
-                  <LuCircleCheck size={18} />
-                ) : (
-                  <LuCircle size={18} />
-                )}
-              </Box>
-              <Text
-                fontSize="sm"
-                color={item.done ? textMuted : textPrimary}
-                textDecoration={item.done ? "line-through" : "none"}
-              >
-                {item.label}
-              </Text>
-            </HStack>
-          ))}
-        </VStack>
-      )}
+      <TaskChecklist
+        items={task.checklist}
+        interactive={interactive}
+        onToggle={toggleItem}
+      />
 
-      {/* Waiting-on picker: one-tap chips instead of a blank text box */}
-      {!locked && showWaitingPicker && (
-        <Box
-          mb={3}
-          p={3}
-          borderRadius="lg"
-          border="1px solid"
-          borderColor={borderColor}
-          bg={pickerBg}
-        >
-          <Text fontSize="xs" fontWeight="medium" color={textMuted} mb={2}>
-            {isWaiting && task.waiting_on
-              ? `Waiting on ${task.waiting_on} — tap to change`
-              : "Who or what are you waiting on?"}
+      {/* Waiting-on reason (editable while task is in "waiting on") */}
+      {!locked && task.status === "waiting_on" && (
+        <Box mb={3}>
+          <Text fontSize="xs" color={textMuted} mb={1}>
+            Waiting on
           </Text>
-          <Wrap gap={2}>
-            {waitingOptions.map((option) => (
-              <WaitingChip
-                key={option}
-                label={option}
-                selected={task.waiting_on === option}
-                disabled={!interactive}
-                onClick={() => pickWaitingOn(option)}
-              />
-            ))}
-            <WaitingChip
-              label="Other…"
-              selected={showOther}
-              disabled={!interactive}
-              onClick={() => {
-                setShowOther(true);
-              }}
-            />
-          </Wrap>
-          {showOther && (
-            <HStack mt={3} gap={2}>
-              <Input
-                value={otherText}
-                onChange={(e) => setOtherText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") commitOther();
-                }}
-                placeholder="e.g. Shipping carrier, benefits provider…"
-                size="sm"
-                bg={inputBg}
-                border="1px solid"
-                borderColor={borderColor}
-                borderRadius="lg"
-                px={4}
-                flex={1}
-                _focus={{ borderColor: "brand.500" }}
-              />
-              <Box
-                as="button"
-                                onClick={interactive ? commitOther : undefined}
-                aria-disabled={!interactive || !otherText.trim()}
-                opacity={!interactive || !otherText.trim() ? 0.5 : 1}
-                cursor={
-                  !interactive || !otherText.trim() ? "not-allowed" : "pointer"
-                }
-                px={3}
-                py={2}
-                borderRadius="lg"
-                fontSize="sm"
-                fontWeight="medium"
-                bg="brand.500"
-                color="white"
-                _hover={{ bg: "brand.600" }}
-              >
-                Save
-              </Box>
-            </HStack>
-          )}
-          {!isWaiting && (
-            <Text fontSize="xs" color={textMuted} mt={2}>
-              Pick one to mark this task as waiting.
-            </Text>
-          )}
+          <Input
+            key={`waiting-${task.id}-${task.waiting_on ?? ""}`}
+            defaultValue={task.waiting_on ?? ""}
+            onBlur={(e) => commitWaitingOn(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+            }}
+            placeholder="What's blocking this task?"
+            size="sm"
+            bg={inputBg}
+            border="1px solid"
+            borderColor={borderColor}
+            borderRadius="lg"
+            px={4}
+            _focus={{ borderColor: "brand.500" }}
+          />
         </Box>
       )}
 
@@ -414,19 +214,12 @@ export function OnboardingTaskCard({
                 onClick={() => onSetStatus("in_progress")}
               />
             )}
-            {isWaiting ? (
-              <TaskActionButton
-                icon={<LuPlay size={15} />}
-                label="Resume"
-                saving={saving}
-                onClick={() => onSetStatus("in_progress")}
-              />
-            ) : (
+            {task.status !== "waiting_on" && (
               <TaskActionButton
                 icon={<LuClock size={15} />}
                 label="Waiting on"
                 saving={saving}
-                onClick={openWaitingPicker}
+                onClick={() => onSetStatus("waiting_on")}
               />
             )}
             <TaskActionButton

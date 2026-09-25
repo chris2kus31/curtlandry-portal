@@ -122,10 +122,10 @@ export function AssetFormDrawer({
 
       if (item) {
         await assetService.update(item.id, payload);
-        toaster.create({ title: "Device updated", type: "success" });
+        toaster.create({ title: "Asset updated", type: "success" });
       } else {
         await assetService.create(payload);
-        toaster.create({ title: "Device added", type: "success" });
+        toaster.create({ title: "Asset added", type: "success" });
       }
       onSaved();
       onClose();
@@ -197,10 +197,10 @@ export function AssetFormDrawer({
                   </Box>
                   <Box>
                     <Text fontWeight="semibold" color={textPrimary}>
-                      {item ? "Edit device" : "Add device"}
+                      {item ? "Edit Asset" : "Add Asset"}
                     </Text>
                     <Text fontSize="sm" color={textSecondary}>
-                      Company equipment for staff
+                      Device inventory
                     </Text>
                   </Box>
                 </HStack>
@@ -273,7 +273,7 @@ export function AssetFormDrawer({
 
                 <HStack gap={3} align="flex-start">
                   <Box flex={1}>
-                    <FieldLabel>Device tag</FieldLabel>
+                    <FieldLabel>Asset Tag</FieldLabel>
                     <Input
                       value={form.asset_tag}
                       onChange={(e) => setField("asset_tag", e.target.value)}
@@ -400,7 +400,7 @@ export function AssetFormDrawer({
                   ) : (
                     <>
                       {item ? <LuSave size={16} /> : <LuPlus size={16} />}
-                      {item ? "Save Changes" : "Add device"}
+                      {item ? "Save Changes" : "Add Asset"}
                     </>
                   )}
                 </Box>

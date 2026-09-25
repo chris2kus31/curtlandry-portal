@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Box,
@@ -37,7 +37,6 @@ import { useAuthStore } from "@/store/auth-store";
 import { onboardingService } from "@/lib/api";
 import type {
   OnboardingCase,
-  OnboardingFormOptions,
   OnboardingTaskStatus,
   OnboardingChecklistItem,
   UpdateTaskPayload,
@@ -79,7 +78,6 @@ export default function OnboardingCaseDetailPage() {
   const canManage = hasPermission("onboarding.manage") || hasRole("super_admin");
 
   const [data, setData] = useState<OnboardingCase | null>(null);
-  const [options, setOptions] = useState<OnboardingFormOptions | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -118,29 +116,6 @@ export default function OnboardingCaseDetailPage() {
   useEffect(() => {
     load();
   }, [load]);
-
-  // Stable identity so the task card's effects don't re-run every render.
-  const waitingOnOptions = useMemo(
-    () => options?.waiting_on_options ?? [],
-    [options],
-  );
-
-  // Waiting-on choices come from the API alongside the intake form options.
-  useEffect(() => {
-    if (!canManage) return;
-    let cancelled = false;
-    onboardingService
-      .getOptions()
-      .then((result) => {
-        if (!cancelled) setOptions(result);
-      })
-      .catch(() => {
-        if (!cancelled) setOptions(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [canManage]);
 
   const handleAddNote = async () => {
     const body = noteBody.trim();
@@ -538,28 +513,14 @@ export default function OnboardingCaseDetailPage() {
                   key={task.id}
                   task={task}
                   saving={savingTaskId === task.id}
-                  hireName={data.new_hire?.name}
-                  waitingOnOptions={waitingOnOptions}
                   onUpdateChecklist={(checklist: OnboardingChecklistItem[]) =>
                     mutateTask(task.id, { checklist }, false)
                   }
                   onSetStatus={(status: OnboardingTaskStatus) =>
-                    mutateTask(
-                      task.id,
-                      {
-                        status,
-                        // Clearing the blocker when work resumes.
-                        ...(status === "in_progress" ? { waiting_on: null } : {}),
-                      },
-                      true,
-                    )
+                    mutateTask(task.id, { status }, true)
                   }
                   onSetWaitingOn={(text: string) =>
-                    mutateTask(
-                      task.id,
-                      { status: "waiting_on", waiting_on: text },
-                      true,
-                    )
+                    mutateTask(task.id, { waiting_on: text }, false)
                   }
                 />
               ))}

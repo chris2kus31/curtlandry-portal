@@ -165,7 +165,7 @@ export function OnboardingPanel() {
               transition="all 0.15s"
             >
               <LuLaptop size={18} />
-              Device Inventory
+              Asset Inventory
             </Box>
           )}
           {canManageSoftware && (
