@@ -21,12 +21,15 @@ import {
   adminApplicationsService,
   type AdminApplicationDetail,
   type AdminApplicationGuest,
+  type AdminApplicationPayment,
 } from "@/lib/api/admin-applications-service";
 
 interface Props {
   application: AdminApplicationDetail | null;
   /** When set, refunds this guest's own payment instead of the primary's. */
   guest?: AdminApplicationGuest | null;
+  /** When set, refunds this additional payment instead of the primary's registration. */
+  adjustment?: AdminApplicationPayment | null;
   open: boolean;
   onClose: () => void;
   onUpdated: (next: AdminApplicationDetail) => void;
@@ -53,7 +56,14 @@ interface RefundPreview {
  * admins see the math before clicking. The same math is enforced
  * authoritatively on the server (see IssueEventRefundAction.php).
  */
-export function RefundModal({ application, guest = null, open, onClose, onUpdated }: Props) {
+export function RefundModal({
+  application,
+  guest = null,
+  adjustment = null,
+  open,
+  onClose,
+  onUpdated,
+}: Props) {
   // All hooks must be called unconditionally at the top of the component —
   // rules-of-hooks. Even color-mode values that are only used after an
   // early return go up here.
@@ -73,12 +83,18 @@ export function RefundModal({ application, guest = null, open, onClose, onUpdate
       setOverridePolicy(false);
       setReason("");
     }
-  }, [open, application?.id, guest?.id]);
+  }, [open, application?.id, guest?.id, adjustment?.id]);
 
-  const paidCents = guest ? guest.amount_paid_cents ?? 0 : application?.payment.amount_paid_cents ?? 0;
-  const refundedCents = guest
-    ? guest.amount_refunded_cents ?? 0
-    : application?.payment.amount_refunded_cents ?? 0;
+  const paidCents = adjustment
+    ? adjustment.amount_paid_cents ?? 0
+    : guest
+      ? guest.amount_paid_cents ?? 0
+      : application?.payment.amount_paid_cents ?? 0;
+  const refundedCents = adjustment
+    ? adjustment.amount_refunded_cents ?? 0
+    : guest
+      ? guest.amount_refunded_cents ?? 0
+      : application?.payment.amount_refunded_cents ?? 0;
 
   const preview: RefundPreview | null = useMemo(() => {
     if (!application?.event || !paidCents) {
@@ -90,7 +106,11 @@ export function RefundModal({ application, guest = null, open, onClose, onUpdate
   if (!application) return null;
 
   const currency =
-    (guest ? guest.paid_currency : application.payment.paid_currency) ??
+    (adjustment
+      ? adjustment.currency
+      : guest
+        ? guest.paid_currency
+        : application.payment.paid_currency) ??
     application.event?.currency ??
     "USD";
 
@@ -121,9 +141,11 @@ export function RefundModal({ application, guest = null, open, onClose, onUpdate
         override_policy_window: overridePolicy || undefined,
         reason: reason.trim() || undefined,
       };
-      const result = guest
-        ? await adminApplicationsService.refundGuest(application.id, guest.id, payload)
-        : await adminApplicationsService.issueRefund(application.id, payload);
+      const result = adjustment
+        ? await adminApplicationsService.refundAdjustment(application.id, adjustment.id, payload)
+        : guest
+          ? await adminApplicationsService.refundGuest(application.id, guest.id, payload)
+          : await adminApplicationsService.issueRefund(application.id, payload);
 
       const next = await adminApplicationsService.getApplication(application.id);
       onUpdated(next);
@@ -158,7 +180,11 @@ export function RefundModal({ application, guest = null, open, onClose, onUpdate
           <Dialog.Content maxW="560px" w="full" mx={4} borderRadius="xl">
             <Dialog.Header px={6} pt={6} pb={2}>
               <Dialog.Title fontSize="lg" fontWeight={700}>
-                {guest ? `Refund guest: ${guest.first_name} ${guest.last_name}` : "Issue refund"}
+                {adjustment
+                  ? "Refund additional payment"
+                  : guest
+                    ? `Refund guest: ${guest.first_name} ${guest.last_name}`
+                    : "Issue refund"}
               </Dialog.Title>
               <Dialog.CloseTrigger position="absolute" top={3} right={3} asChild>
                 <CloseButton size="sm" />

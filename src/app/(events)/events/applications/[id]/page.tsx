@@ -42,6 +42,7 @@ import { ConfirmRegistrationButton } from "@/components/events/ConfirmRegistrati
 import { RefundModal } from "@/components/events/RefundModal";
 import { PartyPanel } from "@/components/events/PartyPanel";
 import { PaymentHistory } from "@/components/events/PaymentHistory";
+import { AdditionalPaymentsPanel } from "@/components/events/AdditionalPaymentsPanel";
 
 /**
  * Application detail page. Lays out applicant info + responses on the left
@@ -237,6 +238,8 @@ export default function ApplicationDetailPage() {
               borderColor={borderColor}
               subduedText={subduedText}
             />
+
+            <AdditionalPaymentsPanel application={detail} onUpdated={handleApplicationUpdated} />
 
             <PaymentHistory payments={detail.payments ?? []} />
 

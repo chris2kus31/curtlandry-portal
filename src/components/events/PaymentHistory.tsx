@@ -9,12 +9,13 @@ import type {
 } from "@/lib/api/admin-applications-service";
 import { formatCurrency } from "./format";
 
-const PAYMENT_STATUS_COLORS: Record<PaymentLedgerStatus, string> = {
+export const PAYMENT_STATUS_COLORS: Record<PaymentLedgerStatus, string> = {
   pending: "orange",
   paid: "green",
   expired: "gray",
   partially_refunded: "purple",
   refunded: "purple",
+  cancelled: "gray",
 };
 
 /**
