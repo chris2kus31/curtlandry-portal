@@ -99,6 +99,18 @@ function headlineFor(entry: AdminTimelineEntry, guestNames: Record<string, strin
       return `Refund issued for ${guest}`;
     case "guest_payment_unmatched":
       return `Action needed: payment received for ${guest} who is no longer pending — refund in Stripe`;
+    case "adjustment_requested":
+      return `Additional payment requested${amountSuffix(entry)}`;
+    case "adjustment_link_resent":
+      return `Additional payment link re-sent${amountSuffix(entry)}`;
+    case "adjustment_paid":
+      return `Additional payment received${amountSuffix(entry)}`;
+    case "adjustment_paid_after_cancel":
+      return `Action needed: additional payment received after it was cancelled${amountSuffix(entry)}`;
+    case "adjustment_cancelled":
+      return `Additional payment cancelled${amountSuffix(entry)}`;
+    case "adjustment_refunded":
+      return `Additional payment refunded${amountSuffix(entry)}`;
     default:
       return entry.description ?? entry.event ?? "Event";
   }
@@ -145,7 +157,22 @@ function detailFor(entry: AdminTimelineEntry): string | null {
     const cents = entry.properties.amount_cents as number | undefined;
     return cents !== undefined ? `Amount: ${centsLabel(cents)}` : null;
   }
+  if (entry.event === "adjustment_requested" || entry.event === "adjustment_refunded") {
+    return (entry.properties.reason as string | undefined) || null;
+  }
+  if (entry.event === "adjustment_cancelled") {
+    const reason = (entry.properties.reason as string | undefined) ?? "";
+    if (reason.startsWith("primary_")) {
+      return `Automatic: applicant moved to ${labelFor(reason.slice("primary_".length))}`;
+    }
+    return (entry.properties.note as string | undefined) || null;
+  }
   return null;
+}
+
+function amountSuffix(entry: AdminTimelineEntry): string {
+  const cents = entry.properties.amount_cents as number | undefined;
+  return cents !== undefined ? `: ${centsLabel(cents)}` : "";
 }
 
 const GUEST_STATUS_LABELS: Record<string, string> = {

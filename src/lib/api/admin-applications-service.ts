@@ -236,10 +236,21 @@ export type PaymentLedgerStatus =
   | "paid"
   | "expired"
   | "partially_refunded"
-  | "refunded";
+  | "refunded"
+  | "cancelled";
 
 export interface AdminApplicationPayment {
   id: string;
+  /** "adjustment" = additional payment billed to the primary on top of registration. */
+  purpose: "registration" | "adjustment";
+  is_adjustment: boolean;
+  /** Internal reason (adjustments only). Never emailed. */
+  reason: string | null;
+  /** Optional message emailed to the applicant (adjustments only). */
+  note: string | null;
+  link_sent_count: number;
+  created_by: { id: number; name: string | null } | null;
+  cancelled_at: string | null;
   status: PaymentLedgerStatus;
   status_label: string;
   recipient_type: "primary" | "guest";
@@ -297,6 +308,25 @@ export interface GuestRefundResponse {
   is_full_refund: boolean;
   total_refunded_cents: number;
   guest: AdminApplicationGuest;
+}
+
+export interface AdjustmentPayload {
+  amount_cents: number;
+  reason: string;
+  note?: string | null;
+}
+
+export interface AdjustmentLinkResponse {
+  session_url: string;
+  payment: AdminApplicationPayment;
+}
+
+export interface AdjustmentRefundResponse {
+  refund_id: string;
+  amount_cents: number;
+  is_full_refund: boolean;
+  total_refunded_cents: number;
+  payment: AdminApplicationPayment;
 }
 
 export interface AdminApplicationNote {
@@ -711,6 +741,51 @@ class AdminApplicationsService {
   ): Promise<GuestRefundResponse> {
     const res = await httpClient.post<{ data: GuestRefundResponse }>(
       `/portal/events/applications/${applicationId}/guests/${guestId}/refund`,
+      payload,
+    );
+    return res.data;
+  }
+
+  /* ----------------- Additional payments (adjustments) ----------------- */
+
+  async requestAdjustment(
+    applicationId: string,
+    payload: AdjustmentPayload,
+  ): Promise<AdjustmentLinkResponse> {
+    const res = await httpClient.post<{ data: AdjustmentLinkResponse }>(
+      `/portal/events/applications/${applicationId}/adjustments`,
+      payload,
+    );
+    return res.data;
+  }
+
+  async resendAdjustment(applicationId: string, paymentId: string): Promise<AdjustmentLinkResponse> {
+    const res = await httpClient.post<{ data: AdjustmentLinkResponse }>(
+      `/portal/events/applications/${applicationId}/adjustments/${paymentId}/resend`,
+      {},
+    );
+    return res.data;
+  }
+
+  async cancelAdjustment(
+    applicationId: string,
+    paymentId: string,
+    payload: { notify?: boolean; note?: string } = {},
+  ): Promise<AdminApplicationPayment> {
+    const res = await httpClient.post<{ data: AdminApplicationPayment }>(
+      `/portal/events/applications/${applicationId}/adjustments/${paymentId}/cancel`,
+      payload,
+    );
+    return res.data;
+  }
+
+  async refundAdjustment(
+    applicationId: string,
+    paymentId: string,
+    payload: IssueRefundPayload = {},
+  ): Promise<AdjustmentRefundResponse> {
+    const res = await httpClient.post<{ data: AdjustmentRefundResponse }>(
+      `/portal/events/applications/${applicationId}/adjustments/${paymentId}/refund`,
       payload,
     );
     return res.data;
