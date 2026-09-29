@@ -121,7 +121,15 @@ export function AssetDetailDrawer({
   };
 
   const handleStatusChange = async () => {
-    if (!asset || !statusTarget) return;
+    if (!asset) return;
+    if (!statusTarget) {
+      toaster.create({
+        title: "Select a status first",
+        description: "Choose the new status before updating.",
+        type: "warning",
+      });
+      return;
+    }
     setBusy(true);
     try {
       await assetService.changeStatus(asset.id, statusTarget, statusNote || undefined);
@@ -141,7 +149,15 @@ export function AssetDetailDrawer({
   };
 
   const handleAssign = async () => {
-    if (!asset || !assignUser) return;
+    if (!asset) return;
+    if (!assignUser) {
+      toaster.create({
+        title: "Select an employee first",
+        description: "You must choose who this asset is going to before assigning.",
+        type: "warning",
+      });
+      return;
+    }
     setBusy(true);
     try {
       await assetService.assign(asset.id, Number(assignUser), assignNote || undefined);
@@ -295,6 +311,10 @@ export function AssetDetailDrawer({
                         <LuUser size={14} />
                         <Text>{asset.assigned_user.name}</Text>
                       </HStack>
+                    ) : asset.holder_label ? (
+                      <Text fontSize="sm" color={textSecondary}>
+                        {asset.holder_label}
+                      </Text>
                     ) : (
                       <Text fontSize="sm" color={textSecondary}>
                         Unassigned
@@ -306,7 +326,7 @@ export function AssetDetailDrawer({
                   <Box bg={cardBg} borderRadius="lg" p={4}>
                     <VStack gap={2} align="stretch" fontSize="sm">
                       <HStack justify="space-between">
-                        <Text color={textSecondary}>Asset Tag</Text>
+                        <Text color={textSecondary}>Asset tag</Text>
                         <Text color={textPrimary}>{asset.asset_tag || "—"}</Text>
                       </HStack>
                       <HStack justify="space-between">
@@ -357,6 +377,7 @@ export function AssetDetailDrawer({
                             value={assignUser}
                             onChange={(e) => setAssignUser(e.target.value)}
                             style={selectStyle}
+                            required
                           >
                             <option value="">Select employee…</option>
                             {employees.map((emp) => (
@@ -367,6 +388,11 @@ export function AssetDetailDrawer({
                             ))}
                           </select>
                         </SelectShell>
+                        {!assignUser && (
+                          <Text fontSize="xs" color={textSecondary}>
+                            Choose an employee before you can assign this asset.
+                          </Text>
+                        )}
                         <Textarea
                           value={assignNote}
                           onChange={(e) => setAssignNote(e.target.value)}
@@ -382,7 +408,7 @@ export function AssetDetailDrawer({
                         />
                         <ActionButton
                           label="Assign"
-                          disabled={!assignUser || busy}
+                          disabled={!assignUser || busy || employees.length === 0}
                           busy={busy}
                           onClick={handleAssign}
                         />
@@ -454,6 +480,7 @@ export function AssetDetailDrawer({
                             value={statusTarget}
                             onChange={(e) => setStatusTarget(e.target.value)}
                             style={selectStyle}
+                            required
                           >
                             <option value="">Select new status…</option>
                             {transitions.map((t) => (
@@ -463,6 +490,12 @@ export function AssetDetailDrawer({
                             ))}
                           </select>
                         </SelectShell>
+                        {!statusTarget && (
+                          <Text fontSize="xs" color={textSecondary}>
+                            Choose a status before updating. To give an asset to
+                            someone, use Assign to employee instead.
+                          </Text>
+                        )}
                         <Textarea
                           value={statusNote}
                           onChange={(e) => setStatusNote(e.target.value)}

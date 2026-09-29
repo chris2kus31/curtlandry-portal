@@ -15,7 +15,7 @@ const cspDirectives = [
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.sentry.io",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
-  "img-src 'self' data: blob: https://*.googleusercontent.com https://lh3.googleusercontent.com https://curtlandry-media-dev.s3.us-east-2.amazonaws.com https://curtlandry-media-prod.s3.us-east-2.amazonaws.com",
+  "img-src 'self' data: blob: https://*.googleusercontent.com https://lh3.googleusercontent.com https://curtlandry-media-dev.s3.us-east-2.amazonaws.com https://curtlandry-media-prod.s3.us-east-2.amazonaws.com https://www.assettiger.com https://*.assettiger.com",
   `connect-src 'self' https://*.curtlandry.com https://accounts.google.com https://*.sentry.io https://*.ingest.us.sentry.io${devConnectSrc}`,
   "frame-src 'self' https://accounts.google.com",
   "frame-ancestors 'none'",
@@ -34,6 +34,14 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "*.googleusercontent.com",
+      },
+      {
+        protocol: "https",
+        hostname: "www.assettiger.com",
+      },
+      {
+        protocol: "https",
+        hostname: "*.assettiger.com",
       },
     ],
   },
