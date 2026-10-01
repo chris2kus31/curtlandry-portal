@@ -26,6 +26,7 @@ import {
   type AdminApplicationDetail,
   type AdminApplicationPayment,
 } from "@/lib/api/admin-applications-service";
+import { RESET_LINK_CONFIRM, linkLifetimeLabel } from "@/lib/events/payment-links";
 import { apiErrorMessage, formatCurrency } from "./format";
 import { PAYMENT_STATUS_COLORS } from "./PaymentHistory";
 import { RefundModal } from "./RefundModal";
@@ -73,14 +74,17 @@ export function AdditionalPaymentsPanel({ application, onUpdated }: Props) {
 
   const refresh = async () => onUpdated(await adminApplicationsService.getApplication(application.id));
 
-  const handleResend = async (payment: AdminApplicationPayment) => {
+  const handleResend = async (payment: AdminApplicationPayment, reset = false) => {
+    if (reset && !window.confirm(RESET_LINK_CONFIRM)) return;
     setResendingId(payment.id);
     try {
-      const { session_url } = await adminApplicationsService.resendAdjustment(application.id, payment.id);
+      const { session_url } = await adminApplicationsService.resendAdjustment(application.id, payment.id, reset);
       const copied = await copyToClipboard(session_url);
+      const sameLink = payment.link_active && !reset;
+      const note = sameLink ? "Same link as before — it still works." : "The previous link no longer works.";
       toaster.success({
-        title: `New payment link emailed to ${application.email ?? "the applicant"}.`,
-        description: copied ? "The previous link no longer works. New link copied to your clipboard." : "The previous link no longer works.",
+        title: `${sameLink ? "Payment link" : "New payment link"} emailed to ${application.email ?? "the applicant"}.`,
+        description: copied ? `${note} Link copied to your clipboard.` : note,
       });
       await refresh();
     } catch (err: unknown) {
@@ -168,6 +172,7 @@ export function AdditionalPaymentsPanel({ application, onUpdated }: Props) {
                   {p.created_by?.name ? `Requested by ${p.created_by.name}` : "Requested"}
                   {p.created_at ? ` · ${new Date(p.created_at).toLocaleDateString()}` : ""}
                   {p.link_sent_count > 1 ? ` · link sent ${p.link_sent_count}×` : ""}
+                  {p.link_active ? ` · ${linkLifetimeLabel(p)}` : ""}
                   {p.paid_at ? ` · paid ${new Date(p.paid_at).toLocaleDateString()}` : ""}
                   {(p.amount_refunded_cents ?? 0) > 0
                     ? ` · refunded ${formatCurrency(p.amount_refunded_cents ?? 0, p.currency)}`
@@ -187,6 +192,17 @@ export function AdditionalPaymentsPanel({ application, onUpdated }: Props) {
                         title={canRequest ? undefined : "The applicant can't be billed in their current status."}
                       >
                         Re-send link
+                      </Button>
+                    )}
+                    {unpaid && p.link_active && (
+                      <Button
+                        size="xs"
+                        px={3}
+                        variant="ghost"
+                        onClick={() => handleResend(p, true)}
+                        disabled={!canRequest || resendingId === p.id}
+                      >
+                        Reset link
                       </Button>
                     )}
                     {p.status === "pending" && p.checkout_url && (

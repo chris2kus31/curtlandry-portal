@@ -111,6 +111,12 @@ function headlineFor(entry: AdminTimelineEntry, guestNames: Record<string, strin
       return `Additional payment cancelled${amountSuffix(entry)}`;
     case "adjustment_refunded":
       return `Additional payment refunded${amountSuffix(entry)}`;
+    case "payment_link_closed":
+      return `Payment link closed — the event is starting${amountSuffix(entry)}`;
+    case "payment_duplicate_refunded":
+      return `Duplicate payment automatically refunded${amountSuffix(entry)}`;
+    case "payment_duplicate_refund_failed":
+      return `Action needed: duplicate payment couldn't be refunded automatically — refund in Stripe${amountSuffix(entry)}`;
     default:
       return entry.description ?? entry.event ?? "Event";
   }
