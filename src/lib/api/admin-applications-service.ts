@@ -262,8 +262,14 @@ export interface AdminApplicationPayment {
   stripe_checkout_session_id: string | null;
   stripe_payment_intent_id: string | null;
   stripe_charge_id: string | null;
-  /** Null once funds are collected. */
+  /** Null once funds are collected or the payment link is closed. */
   checkout_url: string | null;
+  /** Stripe Payment Link (no 24h expiry) rather than a Checkout Session. */
+  uses_payment_link: boolean;
+  /** Payment Link still open: re-send emails the same link. */
+  link_active: boolean;
+  link_closed_at: string | null;
+  /** Payment Link rows: when it closes (event start). Null = until paid/cancelled. */
   expires_at: string | null;
   paid_at: string | null;
   expired_at: string | null;
@@ -651,10 +657,10 @@ class AdminApplicationsService {
    * the URL; this response also returns the URL so the portal can show
    * a "copy link" affordance.
    */
-  async sendPaymentLink(id: string): Promise<SendPaymentLinkResponse> {
+  async sendPaymentLink(id: string, reset = false): Promise<SendPaymentLinkResponse> {
     const res = await httpClient.post<{ data: SendPaymentLinkResponse }>(
       `/portal/events/applications/${id}/send-payment-link`,
-      {},
+      reset ? { reset: true } : {},
     );
     return res.data;
   }
@@ -726,10 +732,11 @@ class AdminApplicationsService {
   async sendGuestPaymentLink(
     applicationId: string,
     guestId: string,
+    reset = false,
   ): Promise<SendGuestPaymentLinkResponse> {
     const res = await httpClient.post<{ data: SendGuestPaymentLinkResponse }>(
       `/portal/events/applications/${applicationId}/guests/${guestId}/send-payment-link`,
-      {},
+      reset ? { reset: true } : {},
     );
     return res.data;
   }
@@ -759,10 +766,14 @@ class AdminApplicationsService {
     return res.data;
   }
 
-  async resendAdjustment(applicationId: string, paymentId: string): Promise<AdjustmentLinkResponse> {
+  async resendAdjustment(
+    applicationId: string,
+    paymentId: string,
+    reset = false,
+  ): Promise<AdjustmentLinkResponse> {
     const res = await httpClient.post<{ data: AdjustmentLinkResponse }>(
       `/portal/events/applications/${applicationId}/adjustments/${paymentId}/resend`,
-      {},
+      reset ? { reset: true } : {},
     );
     return res.data;
   }

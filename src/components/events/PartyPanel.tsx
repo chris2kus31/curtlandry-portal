@@ -25,8 +25,10 @@ import {
   GUEST_RELATIONSHIP_LABELS,
   type AdminApplicationDetail,
   type AdminApplicationGuest,
+  type AdminApplicationPayment,
   type GuestStatus,
 } from "@/lib/api/admin-applications-service";
+import { RESET_LINK_CONFIRM, linkLifetimeLabel, openGuestLink } from "@/lib/events/payment-links";
 import { GuestFormModal } from "./GuestFormModal";
 import { apiErrorMessage, formatCurrency } from "./format";
 import { RefundModal } from "./RefundModal";
@@ -78,12 +80,14 @@ export function PartyPanel({ application, onUpdated }: Props) {
   const capacity = event?.capacity ?? null;
   const filled = event?.capacity_filled ?? null;
 
-  const handleSendLink = async (guest: AdminApplicationGuest) => {
+  const handleSendLink = async (guest: AdminApplicationGuest, reset = false) => {
+    if (reset && !window.confirm(RESET_LINK_CONFIRM)) return;
     setSendingId(guest.id);
     try {
       const { session_url } = await adminApplicationsService.sendGuestPaymentLink(
         application.id,
         guest.id,
+        reset,
       );
       let copied = false;
       try {
@@ -95,7 +99,7 @@ export function PartyPanel({ application, onUpdated }: Props) {
       const sentTo =
         guest.payment_recipient === "guest" && guest.email ? guest.email : application.email;
       toaster.success({
-        title: `Payment link emailed to ${sentTo ?? "the applicant"}.`,
+        title: `${reset ? "New payment link" : "Payment link"} emailed to ${sentTo ?? "the applicant"}.`,
         description: copied ? "Link also copied to your clipboard." : undefined,
       });
       onUpdated(await adminApplicationsService.getApplication(application.id));
@@ -173,7 +177,8 @@ export function PartyPanel({ application, onUpdated }: Props) {
             borderColor={borderColor}
             subduedText={subduedText}
             sending={sendingId === guest.id}
-            onSendLink={() => handleSendLink(guest)}
+            openLink={openGuestLink(application.payments, guest.id)}
+            onSendLink={(reset) => handleSendLink(guest, reset)}
             onEdit={() => {
               setEditing(guest);
               setFormOpen(true);
@@ -218,6 +223,7 @@ function GuestRow({
   borderColor,
   subduedText,
   sending,
+  openLink,
   onSendLink,
   onEdit,
   onCancel,
@@ -230,7 +236,8 @@ function GuestRow({
   borderColor: string;
   subduedText: string;
   sending: boolean;
-  onSendLink: () => void;
+  openLink: AdminApplicationPayment | undefined;
+  onSendLink: (reset: boolean) => void;
   onEdit: () => void;
   onCancel: () => void;
   onRefund: () => void;
@@ -288,6 +295,7 @@ function GuestRow({
             {guest.phone ? ` · ${guest.phone}` : ""}
             {guest.price_cents > 0 ? ` · ${payerLabel}` : ""}
             {guest.payment_link_sent_count > 0 ? ` · link sent ${guest.payment_link_sent_count}×` : ""}
+            {openLink && isPending ? ` · ${linkLifetimeLabel(openLink)}` : ""}
           </Text>
           {guest.price_overridden && (
             <Text fontSize="xs" color="orange.500" mt={1}>
@@ -319,12 +327,17 @@ function GuestRow({
               size="xs"
               px={3}
               colorPalette="brand"
-              onClick={onSendLink}
+              onClick={() => onSendLink(false)}
               loading={sending}
               disabled={!hasProduct}
               title={hasProduct ? undefined : "Event has no Stripe product yet — re-save the event."}
             >
               {guest.payment_link_sent_count > 0 ? "Re-send payment link" : "Send payment link"}
+            </Button>
+          )}
+          {showSendLink && openLink && (
+            <Button size="xs" px={3} variant="ghost" onClick={() => onSendLink(true)} disabled={sending}>
+              Reset link
             </Button>
           )}
           <Button size="xs" px={3} variant="outline" onClick={onEdit}>
