@@ -43,6 +43,7 @@ import type {
 } from "@/lib/api";
 import { OnboardingStatusBadge } from "@/components/onboarding/OnboardingStatusBadge";
 import { OnboardingTaskCard } from "@/components/onboarding/OnboardingTaskCard";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 function formatStartDate(value: string | null): string {
   if (!value) return "—";
@@ -83,6 +84,7 @@ export default function OnboardingCaseDetailPage() {
   const [noteBody, setNoteBody] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const [savingTaskId, setSavingTaskId] = useState<number | null>(null);
 
   // Colors
@@ -139,13 +141,7 @@ export default function OnboardingCaseDetailPage() {
 
   const handleCancel = async () => {
     if (!data) return;
-    if (
-      !window.confirm(
-        "Cancel this onboarding case? This stops the workflow for this hire.",
-      )
-    ) {
-      return;
-    }
+    setConfirmCancel(false);
     setCancelling(true);
     try {
       const updated = await onboardingService.cancel(data.id);
@@ -318,7 +314,7 @@ export default function OnboardingCaseDetailPage() {
         {isActive && (
           <Box
             as="button"
-            onClick={cancelling ? undefined : handleCancel}
+            onClick={cancelling ? undefined : () => setConfirmCancel(true)}
             aria-disabled={cancelling}
             px={4}
             py={2.5}
@@ -617,6 +613,18 @@ export default function OnboardingCaseDetailPage() {
           )}
         </Card.Body>
       </Card.Root>
+
+      <ConfirmDialog
+        open={confirmCancel}
+        title="Cancel this onboarding case?"
+        description="This stops the workflow for this hire."
+        confirmLabel="Cancel onboarding"
+        cancelLabel="Keep onboarding"
+        destructive
+        confirming={cancelling}
+        onConfirm={handleCancel}
+        onCancel={() => setConfirmCancel(false)}
+      />
     </VStack>
   );
 }

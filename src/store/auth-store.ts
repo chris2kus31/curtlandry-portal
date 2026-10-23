@@ -8,12 +8,14 @@ import type { User } from "@/types/auth";
 
 function setSessionCookie(hasToken: boolean) {
   if (typeof document === "undefined") return;
+  // Secure cookies are dropped on http://localhost — omit Secure in local/dev.
+  const isSecure =
+    typeof window !== "undefined" && window.location.protocol === "https:";
+  const secureFlag = isSecure ? "; Secure" : "";
   if (hasToken) {
-    document.cookie =
-      "auth_session=1; path=/; max-age=604800; SameSite=Lax; Secure";
+    document.cookie = `auth_session=1; path=/; max-age=604800; SameSite=Lax${secureFlag}`;
   } else {
-    document.cookie =
-      "auth_session=; path=/; max-age=0; SameSite=Lax; Secure";
+    document.cookie = `auth_session=; path=/; max-age=0; SameSite=Lax${secureFlag}`;
   }
 }
 

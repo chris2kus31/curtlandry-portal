@@ -37,9 +37,13 @@ export { assetService } from "./asset-service";
 export type {
   Asset,
   AssetAssignmentHistory,
+  AssetCategory,
+  AssetCategoryPayload,
+  AssetInventoryCounts,
   AssetOptions,
   AssetPayload,
   AssetListFilters,
+  DeviceCategoryOption,
 } from "./asset-service";
 export { offboardingService } from "./offboarding-service";
 export type {

@@ -1,10 +1,9 @@
 "use client";
 
-import { Box, HStack, Text, VStack, Flex, Spinner, Input } from "@chakra-ui/react";
+import { useState } from "react";
+import { Box, HStack, Text, Flex, Spinner, Input } from "@chakra-ui/react";
 import { useColorModeValue } from "@/components/ui/color-mode";
 import {
-  LuCircle,
-  LuCircleCheck,
   LuLock,
   LuPlay,
   LuClock,
@@ -17,6 +16,8 @@ import type {
   OnboardingChecklistItem,
 } from "@/lib/api";
 import { OnboardingStatusBadge } from "./OnboardingStatusBadge";
+import { TaskChecklist } from "./TaskChecklist";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface OnboardingTaskCardProps {
   task: OnboardingTask;
@@ -99,8 +100,8 @@ export function OnboardingTaskCard({
   const textMuted = useColorModeValue("gray.500", "gray.500");
   const subtleBg = useColorModeValue("gray.50", "gray.800");
   const inputBg = useColorModeValue("white", "gray.900");
-  const itemHoverBg = useColorModeValue("gray.100", "gray.700");
-  const iconColor = useColorModeValue("gray.400", "gray.500");
+
+  const [confirmComplete, setConfirmComplete] = useState(false);
 
   const locked = task.is_locked;
   const interactive = !locked && !saving;
@@ -149,40 +150,11 @@ export function OnboardingTaskCard({
         </HStack>
       </Flex>
 
-      {/* Checklist */}
-      {task.checklist.length > 0 && (
-        <VStack align="stretch" gap={1} mb={3}>
-          {task.checklist.map((item, idx) => (
-            <HStack
-              key={idx}
-              gap={2}
-              align="center"
-              px={2}
-              py={1.5}
-              borderRadius="md"
-              cursor={interactive ? "pointer" : "default"}
-              onClick={() => toggleItem(idx)}
-              _hover={interactive ? { bg: itemHoverBg } : undefined}
-              transition="background 0.15s"
-            >
-              <Box color={item.done ? "green.500" : iconColor} flexShrink={0}>
-                {item.done ? (
-                  <LuCircleCheck size={18} />
-                ) : (
-                  <LuCircle size={18} />
-                )}
-              </Box>
-              <Text
-                fontSize="sm"
-                color={item.done ? textMuted : textPrimary}
-                textDecoration={item.done ? "line-through" : "none"}
-              >
-                {item.label}
-              </Text>
-            </HStack>
-          ))}
-        </VStack>
-      )}
+      <TaskChecklist
+        items={task.checklist}
+        interactive={interactive}
+        onToggle={toggleItem}
+      />
 
       {/* Waiting-on reason (editable while task is in "waiting on") */}
       {!locked && task.status === "waiting_on" && (
@@ -255,19 +227,24 @@ export function OnboardingTaskCard({
               label="Mark complete"
               primary
               saving={saving}
-              onClick={() => {
-                if (
-                  window.confirm(
-                    "Mark this task complete? It will lock — reopen it if you need to make changes.",
-                  )
-                ) {
-                  onSetStatus("completed");
-                }
-              }}
+              onClick={() => setConfirmComplete(true)}
             />
           </>
         )}
       </Flex>
+
+      <ConfirmDialog
+        open={confirmComplete}
+        title="Mark this task complete?"
+        description="It will lock — reopen it if you need to make changes."
+        confirmLabel="Mark complete"
+        confirming={saving}
+        onConfirm={() => {
+          setConfirmComplete(false);
+          onSetStatus("completed");
+        }}
+        onCancel={() => setConfirmComplete(false)}
+      />
     </Box>
   );
 }

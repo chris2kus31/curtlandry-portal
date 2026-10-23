@@ -1,5 +1,6 @@
 // src/lib/api/onboarding-service.ts
 import { httpClient } from "./http-client";
+import type { DeviceCategoryOption } from "./asset-service";
 
 // ---------------------------------------------------------------------------
 // Types (mirror the Laravel API resources under app/Http/Resources/Portal/Onboarding)
@@ -28,11 +29,16 @@ export interface OnboardingAsset {
   serial_number: string | null;
   type: string | null;
   type_label: string | null;
+  /** Matches a DeviceCategoryOption `value` — how the intake picker groups devices. */
+  asset_category_id: number | null;
+  asset_category_name?: string | null;
   name: string;
   status: string | null;
   status_label: string | null;
   status_color: string | null;
   is_assignable: boolean;
+  /** Optional product/preview image synced from Asset Tiger. */
+  image_url?: string | null;
 }
 
 export interface SoftwareCatalogItem {
@@ -131,6 +137,8 @@ export interface OnboardingFormOptions {
   work_locations: Record<string, string>;
   employment_types: string[];
   managers: OnboardingManager[];
+  /** Intake device groupings, driven by asset_categories.show_in_intake. */
+  device_categories: DeviceCategoryOption[];
   assignable_assets: OnboardingAsset[];
   software_catalog: SoftwareCatalogItem[];
 }

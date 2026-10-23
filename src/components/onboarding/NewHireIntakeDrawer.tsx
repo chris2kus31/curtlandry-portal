@@ -12,6 +12,10 @@ import {
   Textarea,
   Flex,
   Spinner,
+  Dialog,
+  CloseButton,
+  Badge,
+  Image,
 } from "@chakra-ui/react";
 import { useColorModeValue } from "@/components/ui/color-mode";
 import { toaster } from "@/components/ui/toaster";
@@ -29,13 +33,24 @@ import {
   LuSave,
   LuPackage,
   LuTriangleAlert,
+  LuArrowLeft,
 } from "react-icons/lu";
 import { onboardingService } from "@/lib/api";
 import type {
   OnboardingFormOptions,
   IntakePayload,
   OnboardingCase,
+  OnboardingAsset,
 } from "@/lib/api";
+import {
+  createEmptyIntakeForm,
+  type IntakeFormState,
+} from "@/lib/onboarding/intake-constants";
+import {
+  DeviceCategoryPicker,
+  categoryIcon,
+} from "@/components/onboarding/intake/DeviceCategoryPicker";
+import { DeviceAssetPicker } from "@/components/onboarding/intake/DeviceAssetPicker";
 
 interface NewHireIntakeDrawerProps {
   isOpen: boolean;
@@ -44,40 +59,6 @@ interface NewHireIntakeDrawerProps {
   options: OnboardingFormOptions | null;
   optionsLoading?: boolean;
 }
-
-interface FormState {
-  email: string;
-  first_name: string;
-  last_name: string;
-  job_title: string;
-  department: string;
-  work_location: string;
-  start_date: string;
-  reports_to: string;
-  employment_type: string;
-  weekly_hours: string;
-  device_needed: boolean;
-  requested_asset_id: string;
-  purchase_needed: boolean;
-  requested_device_note: string;
-}
-
-const INITIAL_FORM: FormState = {
-  email: "",
-  first_name: "",
-  last_name: "",
-  job_title: "",
-  department: "",
-  work_location: "",
-  start_date: "",
-  reports_to: "",
-  employment_type: "full_time",
-  weekly_hours: "40",
-  device_needed: false,
-  requested_asset_id: "",
-  purchase_needed: false,
-  requested_device_note: "",
-};
 
 function prettifyEmploymentType(value: string): string {
   return value
@@ -93,10 +74,17 @@ export function NewHireIntakeDrawer({
   options,
   optionsLoading = false,
 }: NewHireIntakeDrawerProps) {
-  const [form, setForm] = useState<FormState>(INITIAL_FORM);
+  const [form, setForm] = useState<IntakeFormState>(() =>
+    createEmptyIntakeForm(),
+  );
   const [softwareIds, setSoftwareIds] = useState<number[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [previewAsset, setPreviewAsset] = useState<OnboardingAsset | null>(
+    null,
+  );
+  /** An asset_categories id (as a string), matched against asset.asset_category_id. */
+  const [deviceCategory, setDeviceCategory] = useState<string | null>(null);
 
   // Colors — all hooks before any conditional return
   const drawerBg = useColorModeValue("white", "gray.900");
@@ -109,16 +97,50 @@ export function NewHireIntakeDrawer({
   const headerBg = useColorModeValue("gray.50", "gray.800");
   const footerBg = useColorModeValue("gray.50", "gray.800");
   const errorColor = useColorModeValue("red.500", "red.400");
+  const cardBg = useColorModeValue("white", "gray.900");
+  const imageBg = useColorModeValue("gray.100", "gray.800");
+  const selectedCardBg = useColorModeValue("brand.50", "whiteAlpha.100");
+  const previewBackdrop = useColorModeValue("blackAlpha.700", "blackAlpha.800");
 
+  // Start every session from a clean form.
   useEffect(() => {
-    if (isOpen) {
-      setForm(INITIAL_FORM);
-      setSoftwareIds([]);
-      setErrors({});
-    }
+    if (!isOpen) return;
+    setForm(createEmptyIntakeForm());
+    setSoftwareIds([]);
+    setDeviceCategory(null);
+    setErrors({});
+    setPreviewAsset(null);
   }, [isOpen]);
 
-  const setField = (field: keyof FormState, value: string | boolean) => {
+  const selectAsset = (assetId: string) => {
+    setForm((prev) => ({
+      ...prev,
+      requested_asset_id:
+        prev.requested_asset_id === assetId ? "" : assetId,
+      // Choosing an existing device implies no purchase request.
+      purchase_needed:
+        prev.requested_asset_id === assetId ? prev.purchase_needed : false,
+    }));
+  };
+
+  const selectDeviceCategory = (category: string) => {
+    setDeviceCategory(category);
+    setForm((prev) => ({
+      ...prev,
+      requested_asset_id: "",
+      purchase_needed: false,
+    }));
+  };
+
+  const clearDeviceCategory = () => {
+    setDeviceCategory(null);
+    setForm((prev) => ({
+      ...prev,
+      requested_asset_id: "",
+    }));
+  };
+
+  const setField = (field: keyof IntakeFormState, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors((prev) => {
@@ -382,7 +404,14 @@ export function NewHireIntakeDrawer({
   const employmentTypes = options?.employment_types ?? [];
   const managers = options?.managers ?? [];
   const assignableAssets = options?.assignable_assets ?? [];
+  // Which categories appear in the picker is People Ops' call (show_in_intake),
+  // served alongside the rest of the intake options.
+  const deviceCategories = options?.device_categories ?? [];
   const softwareCatalog = options?.software_catalog ?? [];
+
+  const selectedCategoryMeta = deviceCategories.find(
+    (c) => c.value === deviceCategory,
+  );
 
   // Items offered for the chosen department: global (null department) + any
   // scoped to the selected department.
@@ -408,6 +437,7 @@ export function NewHireIntakeDrawer({
   }, [form.department]);
 
   return (
+    <>
     <Drawer.Root
       open={isOpen}
       onOpenChange={(e) => !e.open && onClose()}
@@ -684,73 +714,171 @@ export function NewHireIntakeDrawer({
                     <VStack gap={3}>
                       <Check
                         checked={form.device_needed}
-                        onToggle={() =>
-                          setField("device_needed", !form.device_needed)
-                        }
+                        onToggle={() => {
+                          const next = !form.device_needed;
+                          setField("device_needed", next);
+                          if (!next) {
+                            setDeviceCategory(null);
+                            setField("requested_asset_id", "");
+                            setField("purchase_needed", false);
+                          }
+                        }}
                         title="This hire needs a device"
-                        subtitle="Laptop, desktop, or other equipment"
+                        subtitle="Laptop, desktop, tablet, or other equipment"
                       />
                       {form.device_needed && (
                         <>
                           <Box w="full">
-                            <FieldLabel
-                              icon={<LuLaptop size={14} color={iconColor} />}
-                            >
-                              Assign Existing Device
-                            </FieldLabel>
-                            <StyledSelect
-                              value={form.requested_asset_id}
-                              onChange={(v) =>
-                                setField("requested_asset_id", v)
-                              }
-                            >
-                              <option value="">
-                                {assignableAssets.length === 0
-                                  ? "No available devices in inventory"
-                                  : "Select an available device"}
-                              </option>
-                              {assignableAssets.map((asset) => (
-                                <option key={asset.id} value={asset.id}>
-                                  {asset.name}
-                                  {asset.asset_tag
-                                    ? ` (${asset.asset_tag})`
-                                    : ""}
-                                </option>
-                              ))}
-                            </StyledSelect>
+                            {!deviceCategory ? (
+                              <>
+                                <FieldLabel
+                                  icon={
+                                    <LuLaptop size={14} color={iconColor} />
+                                  }
+                                >
+                                  What kind of device?
+                                </FieldLabel>
+                                <DeviceCategoryPicker
+                                  categories={deviceCategories}
+                                  assets={assignableAssets}
+                                  onSelect={selectDeviceCategory}
+                                />
+                              </>
+                            ) : (
+                              <>
+                                <Flex
+                                  justify="space-between"
+                                  align="center"
+                                  mb={1.5}
+                                  gap={2}
+                                >
+                                  <FieldLabel
+                                    icon={(() => {
+                                      const Icon = selectedCategoryMeta
+                                        ? categoryIcon(
+                                            selectedCategoryMeta.label,
+                                          )
+                                        : LuLaptop;
+                                      return (
+                                        <Icon size={14} color={iconColor} />
+                                      );
+                                    })()}
+                                  >
+                                    {selectedCategoryMeta?.label ?? "Devices"}
+                                  </FieldLabel>
+                                  <Box
+                                    as="button"
+                                    onClick={clearDeviceCategory}
+                                    display="flex"
+                                    alignItems="center"
+                                    gap={1}
+                                    fontSize="xs"
+                                    color="brand.500"
+                                    fontWeight="medium"
+                                    _hover={{ color: "brand.600" }}
+                                  >
+                                    <LuArrowLeft size={12} />
+                                    Change type
+                                  </Box>
+                                </Flex>
+
+                                {selectedCategoryMeta && (
+                                  <DeviceAssetPicker
+                                    category={selectedCategoryMeta}
+                                    assets={assignableAssets}
+                                    selectedAssetId={form.requested_asset_id}
+                                    onSelect={selectAsset}
+                                    onPreview={setPreviewAsset}
+                                  />
+                                )}
+                              </>
+                            )}
                           </Box>
                           <Check
                             checked={form.purchase_needed}
-                            onToggle={() =>
+                            onToggle={() => {
                               setField(
                                 "purchase_needed",
                                 !form.purchase_needed,
-                              )
-                            }
+                              );
+                              if (!form.purchase_needed) {
+                                setField("requested_asset_id", "");
+                              }
+                            }}
                             title="A new device needs to be purchased"
                             subtitle="IT will be flagged to procure one"
                           />
-                          <Box w="full">
-                            <FieldLabel>Device Notes</FieldLabel>
-                            <Textarea
-                              value={form.requested_device_note}
-                              onChange={(e) =>
-                                setField(
-                                  "requested_device_note",
-                                  e.target.value,
-                                )
-                              }
-                              placeholder="Any specifics — e.g. needs a MacBook Pro for video editing"
-                              bg={inputBg}
-                              border="1px solid"
-                              borderColor={borderColor}
-                              borderRadius="lg"
-                              px={4}
-                              py={2}
-                              rows={3}
-                              _focus={{ borderColor: "brand.500" }}
-                            />
-                          </Box>
+                          {form.purchase_needed ? (
+                            <Box
+                              w="full"
+                              p={4}
+                              borderRadius="xl"
+                              border="1.5px solid"
+                              borderColor="brand.400"
+                              bg={selectedCardBg}
+                            >
+                              <Text
+                                fontSize="sm"
+                                fontWeight="semibold"
+                                color={textPrimary}
+                                mb={1}
+                              >
+                                What should IT purchase?
+                              </Text>
+                              <Text
+                                fontSize="xs"
+                                color={textSecondary}
+                                mb={3}
+                              >
+                                Be specific — model, size, accessories, and any
+                                must-haves. This note goes straight to IT.
+                              </Text>
+                              <Textarea
+                                value={form.requested_device_note}
+                                onChange={(e) =>
+                                  setField(
+                                    "requested_device_note",
+                                    e.target.value,
+                                  )
+                                }
+                                placeholder={
+                                  "Example:\n• MacBook Pro 14\" M3, 16GB RAM\n• Needs Adobe-capable machine\n• Include USB-C hub + laptop sleeve"
+                                }
+                                bg={cardBg}
+                                border="1px solid"
+                                borderColor={borderColor}
+                                borderRadius="lg"
+                                px={4}
+                                py={3}
+                                minH="160px"
+                                rows={6}
+                                fontSize="sm"
+                                _focus={{ borderColor: "brand.500" }}
+                              />
+                            </Box>
+                          ) : (
+                            <Box w="full">
+                              <FieldLabel>Device Notes</FieldLabel>
+                              <Textarea
+                                value={form.requested_device_note}
+                                onChange={(e) =>
+                                  setField(
+                                    "requested_device_note",
+                                    e.target.value,
+                                  )
+                                }
+                                placeholder="Any specifics — e.g. preferred setup notes for an existing device"
+                                bg={inputBg}
+                                border="1px solid"
+                                borderColor={borderColor}
+                                borderRadius="lg"
+                                px={4}
+                                py={2}
+                                rows={3}
+                                _focus={{ borderColor: "brand.500" }}
+                              />
+                            </Box>
+                          )}
                         </>
                       )}
                     </VStack>
@@ -915,5 +1043,109 @@ export function NewHireIntakeDrawer({
         </Drawer.Positioner>
       </Portal>
     </Drawer.Root>
+
+    <Dialog.Root
+      open={!!previewAsset}
+      onOpenChange={(d) => {
+        if (!d.open) setPreviewAsset(null);
+      }}
+      size="xl"
+      placement="center"
+      motionPreset="scale"
+    >
+      <Portal>
+        <Dialog.Backdrop bg={previewBackdrop} />
+        <Dialog.Positioner padding={4}>
+          <Dialog.Content
+            maxW="720px"
+            w="full"
+            mx={4}
+            borderRadius="2xl"
+            overflow="hidden"
+            bg={drawerBg}
+          >
+            <Dialog.Header px={5} pt={5} pb={2}>
+              <Dialog.Title fontSize="lg" fontWeight="semibold">
+                {previewAsset?.name ?? "Device preview"}
+              </Dialog.Title>
+              <Dialog.CloseTrigger
+                position="absolute"
+                top={3}
+                right={3}
+                asChild
+              >
+                <CloseButton size="sm" />
+              </Dialog.CloseTrigger>
+            </Dialog.Header>
+            <Dialog.Body px={5} pb={5} pt={2}>
+              {previewAsset?.image_url && (
+                <Box
+                  borderRadius="xl"
+                  overflow="hidden"
+                  bg={imageBg}
+                  border="1px solid"
+                  borderColor={borderColor}
+                >
+                  <Image
+                    src={previewAsset.image_url}
+                    alt={previewAsset.name}
+                    w="100%"
+                    h="auto"
+                    display="block"
+                  />
+                </Box>
+              )}
+              <VStack align="start" gap={1} mt={4}>
+                <HStack gap={2} flexWrap="wrap">
+                  {previewAsset?.type_label && (
+                    <Badge size="sm" variant="subtle" colorPalette="gray">
+                      {previewAsset.type_label}
+                    </Badge>
+                  )}
+                  {previewAsset?.status_label && (
+                    <Badge size="sm" variant="subtle" colorPalette="green">
+                      {previewAsset.status_label}
+                    </Badge>
+                  )}
+                </HStack>
+                <Text fontSize="sm" color={textSecondary}>
+                  {[
+                    previewAsset?.asset_tag,
+                    previewAsset?.serial_number
+                      ? `S/N ${previewAsset.serial_number}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </Text>
+                {previewAsset && (
+                  <Box
+                    as="button"
+                    mt={3}
+                    px={4}
+                    py={2}
+                    borderRadius="lg"
+                    bg="brand.500"
+                    color="white"
+                    fontWeight="medium"
+                    fontSize="sm"
+                    onClick={() => {
+                      selectAsset(String(previewAsset.id));
+                      setPreviewAsset(null);
+                    }}
+                    _hover={{ bg: "brand.600" }}
+                  >
+                    {form.requested_asset_id === String(previewAsset.id)
+                      ? "Selected"
+                      : "Select this device"}
+                  </Box>
+                )}
+              </VStack>
+            </Dialog.Body>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Portal>
+    </Dialog.Root>
+    </>
   );
 }
