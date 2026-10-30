@@ -1,5 +1,10 @@
 // src/lib/api/index.ts
 export { httpClient } from "./http-client";
+export {
+  isApiError,
+  fieldErrorsFromApi,
+  apiErrorMessage,
+} from "./api-error";
 export { authService } from "./auth-service";
 export { timeOffService } from "./time-off-service";
 export { calendarService } from "./calendar-service";
@@ -44,6 +49,7 @@ export type {
   AssetPayload,
   AssetListFilters,
   DeviceCategoryOption,
+  AssetStatusFilterOption,
 } from "./asset-service";
 export { offboardingService } from "./offboarding-service";
 export type {

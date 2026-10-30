@@ -41,45 +41,50 @@ export function createEmptyIntakeForm(): IntakeFormState {
 
 /**
  * Group assets by Asset Tiger category. A category option's `value` is the
- * stringified asset_categories id, so this is an exact id match against the
- * asset's `asset_category_id` — never a guess against types, labels, or names.
+ * asset_categories id (integer from the API), matched against the asset's
+ * `asset_category_id` — never a guess against types, labels, or names.
  */
 export function assetsInCategory<
   T extends { asset_category_id: number | null },
->(assets: T[], categoryValue: string): T[] {
+>(assets: T[], categoryValue: number | string): T[] {
+  const id = Number(categoryValue);
   return assets.filter(
     (asset) =>
-      asset.asset_category_id !== null &&
-      String(asset.asset_category_id) === categoryValue,
+      asset.asset_category_id !== null && asset.asset_category_id === id,
   );
 }
 
-/** Lucide icon key for a device category. Display only — never used for matching. */
+/** Lucide icon key for a device category. Prefer API `icon_key`; never match on labels for business logic. */
 export type DeviceCategoryIconKey =
   | "laptop"
   | "desktop"
   | "tablet"
+  | "ipad"
   | "phone"
+  | "device"
   | "other";
 
 /**
- * Categories are free-form Asset Tiger names, so the icon is picked from the
- * label. An unrecognised name just gets the generic package icon.
+ * Map the API icon_key onto a known Lucide token. Unknown keys fall back to
+ * the generic package icon — the API owns the mapping from category → key.
  */
-export function deviceCategoryIconKey(label: string): DeviceCategoryIconKey {
-  const name = label.toLowerCase();
-
-  if (name.includes("laptop") || name.includes("notebook")) return "laptop";
-  if (
-    name.includes("desktop") ||
-    name.includes("monitor") ||
-    name.includes("workstation") ||
-    name.includes("imac")
-  ) {
-    return "desktop";
+export function resolveCategoryIconKey(
+  iconKey: string | null | undefined,
+): DeviceCategoryIconKey {
+  switch ((iconKey ?? "").toLowerCase()) {
+    case "laptop":
+      return "laptop";
+    case "desktop":
+      return "desktop";
+    case "tablet":
+    case "ipad":
+      return "tablet";
+    case "phone":
+      return "phone";
+    case "device":
+    case "other":
+      return "other";
+    default:
+      return "other";
   }
-  if (name.includes("tablet") || name.includes("ipad")) return "tablet";
-  if (name.includes("phone") || name.includes("mobile")) return "phone";
-
-  return "other";
 }

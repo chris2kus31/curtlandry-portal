@@ -1,7 +1,6 @@
 "use client";
 
-import { Box, HStack, SimpleGrid, Text } from "@chakra-ui/react";
-import { useColorModeValue } from "@/components/ui/color-mode";
+import { Box, Button, HStack, SimpleGrid, Text } from "@chakra-ui/react";
 import {
   LuLaptop,
   LuMonitor,
@@ -12,7 +11,7 @@ import {
 import type { DeviceCategoryOption, OnboardingAsset } from "@/lib/api";
 import {
   assetsInCategory,
-  deviceCategoryIconKey,
+  resolveCategoryIconKey,
   type DeviceCategoryIconKey,
 } from "@/lib/onboarding/intake-constants";
 
@@ -20,12 +19,16 @@ const CATEGORY_ICONS: Record<DeviceCategoryIconKey, typeof LuLaptop> = {
   laptop: LuLaptop,
   desktop: LuMonitor,
   tablet: LuTablet,
+  ipad: LuTablet,
   phone: LuSmartphone,
+  device: LuPackage,
   other: LuPackage,
 };
 
-export function categoryIcon(label: string): typeof LuLaptop {
-  return CATEGORY_ICONS[deviceCategoryIconKey(label)];
+export function categoryIcon(
+  iconKey: string | null | undefined,
+): typeof LuLaptop {
+  return CATEGORY_ICONS[resolveCategoryIconKey(iconKey)];
 }
 
 interface DeviceCategoryPickerProps {
@@ -40,14 +43,6 @@ export function DeviceCategoryPicker({
   assets,
   onSelect,
 }: DeviceCategoryPickerProps) {
-  const borderColor = useColorModeValue("gray.200", "gray.700");
-  const textPrimary = useColorModeValue("gray.900", "gray.50");
-  const textSecondary = useColorModeValue("gray.500", "gray.400");
-  const inputBg = useColorModeValue("gray.50", "gray.800");
-  const hoverBg = useColorModeValue("gray.100", "gray.800");
-  const cardBg = useColorModeValue("white", "gray.900");
-  const iconBg = useColorModeValue("gray.100", "gray.800");
-
   const stocked = categories
     .map((category) => ({
       category,
@@ -61,10 +56,10 @@ export function DeviceCategoryPicker({
         p={4}
         borderRadius="lg"
         border="1px dashed"
-        borderColor={borderColor}
-        bg={inputBg}
+        borderColor="border.primary"
+        bg="bg.secondary"
       >
-        <Text fontSize="sm" color={textSecondary}>
+        <Text fontSize="sm" color="fg.muted">
           No available devices in inventory
         </Text>
       </Box>
@@ -74,36 +69,37 @@ export function DeviceCategoryPicker({
   return (
     <SimpleGrid columns={2} gap={2.5}>
       {stocked.map(({ category, count }) => {
-        const Icon = categoryIcon(category.label);
+        const Icon = categoryIcon(category.icon_key);
         return (
-          <Box
-            key={category.value}
-            as="button"
+          <Button
+            key={String(category.value)}
+            variant="outline"
+            h="auto"
             p={4}
             borderRadius="xl"
-            border="1.5px solid"
-            borderColor={borderColor}
-            bg={cardBg}
+            borderWidth="1.5px"
+            borderColor="border.primary"
+            bg="bg.card"
+            justifyContent="flex-start"
             textAlign="left"
-            cursor="pointer"
-            onClick={() => onSelect(category.value)}
-            _hover={{ borderColor: "brand.400", bg: hoverBg }}
-            transition="all 0.15s"
+            whiteSpace="normal"
+            onClick={() => onSelect(String(category.value))}
+            _hover={{ borderColor: "brand.400", bg: "bg.secondary" }}
           >
             <HStack gap={3} align="center">
-              <Box p={2} borderRadius="lg" bg={iconBg} color={textPrimary}>
+              <Box p={2} borderRadius="lg" bg="bg.tertiary" color="fg">
                 <Icon size={18} />
               </Box>
               <Box>
-                <Text fontSize="sm" fontWeight="semibold" color={textPrimary}>
+                <Text fontSize="sm" fontWeight="semibold" color="fg">
                   {category.label}
                 </Text>
-                <Text fontSize="xs" color={textSecondary}>
+                <Text fontSize="xs" color="fg.muted">
                   {count} available
                 </Text>
               </Box>
             </HStack>
-          </Box>
+          </Button>
         );
       })}
     </SimpleGrid>

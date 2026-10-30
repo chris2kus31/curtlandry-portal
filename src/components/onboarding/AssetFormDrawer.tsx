@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   Box,
+  Button,
   Drawer,
   Portal,
   VStack,
@@ -12,11 +13,13 @@ import {
   Textarea,
   Flex,
   Spinner,
+  NativeSelect,
+  IconButton,
 } from "@chakra-ui/react";
-import { useColorModeValue } from "@/components/ui/color-mode";
 import { toaster } from "@/components/ui/toaster";
 import { LuX, LuLaptop, LuSave, LuPlus } from "react-icons/lu";
 import { assetService } from "@/lib/api";
+import { apiErrorMessage, fieldErrorsFromApi } from "@/lib/api/api-error";
 import type { Asset, AssetOptions } from "@/lib/api";
 
 interface AssetFormDrawerProps {
@@ -58,15 +61,6 @@ export function AssetFormDrawer({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
 
-  const drawerBg = useColorModeValue("white", "gray.900");
-  const borderColor = useColorModeValue("gray.200", "gray.700");
-  const textPrimary = useColorModeValue("gray.900", "gray.50");
-  const textSecondary = useColorModeValue("gray.500", "gray.400");
-  const inputBg = useColorModeValue("gray.50", "gray.800");
-  const hoverBg = useColorModeValue("gray.100", "gray.800");
-  const headerBg = useColorModeValue("gray.50", "gray.800");
-  const footerBg = useColorModeValue("gray.50", "gray.800");
-  const errorColor = useColorModeValue("red.500", "red.400");
 
   useEffect(() => {
     if (isOpen) {
@@ -130,14 +124,13 @@ export function AssetFormDrawer({
       onSaved();
       onClose();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Please try again";
-      if (message.toLowerCase().includes("tag")) {
-        setErrors({ asset_tag: "That asset tag is already in use" });
+      const nextErrors = fieldErrorsFromApi(error);
+      if (Object.keys(nextErrors).length > 0) {
+        setErrors(nextErrors);
       } else {
         toaster.create({
           title: item ? "Failed to update" : "Failed to add",
-          description: message,
+          description: apiErrorMessage(error),
           type: "error",
         });
       }
@@ -153,7 +146,7 @@ export function AssetFormDrawer({
     children: ReactNode;
     required?: boolean;
   }) => (
-    <Text fontSize="sm" color={textSecondary} mb={1.5}>
+    <Text fontSize="sm" color="fg.muted" mb={1.5}>
       {children}
       {required && (
         <Text as="span" color="red.500">
@@ -165,7 +158,7 @@ export function AssetFormDrawer({
   );
 
   const inputProps = {
-    bg: inputBg,
+    bg: "bg.secondary",
     border: "1px solid",
     borderRadius: "lg",
     px: 4,
@@ -183,12 +176,12 @@ export function AssetFormDrawer({
       <Portal>
         <Drawer.Backdrop />
         <Drawer.Positioner>
-          <Drawer.Content bg={drawerBg} maxW="440px" w="full">
+          <Drawer.Content bg="bg.card" maxW="440px" w="full">
             <Box
               p={4}
               borderBottom="1px solid"
-              borderColor={borderColor}
-              bg={headerBg}
+              borderColor="border.primary"
+              bg="bg.secondary"
             >
               <Flex justify="space-between" align="center">
                 <HStack gap={3}>
@@ -196,24 +189,23 @@ export function AssetFormDrawer({
                     <LuLaptop size={18} />
                   </Box>
                   <Box>
-                    <Text fontWeight="semibold" color={textPrimary}>
+                    <Text fontWeight="semibold" color="fg">
                       {item ? "Edit Asset" : "Add Asset"}
                     </Text>
-                    <Text fontSize="sm" color={textSecondary}>
+                    <Text fontSize="sm" color="fg.muted">
                       Device inventory
                     </Text>
                   </Box>
                 </HStack>
-                <Box
-                  as="button"
-                  p={2}
-                  borderRadius="lg"
-                  color={textSecondary}
-                  _hover={{ bg: hoverBg }}
+                <IconButton
+                  aria-label="Close"
+                  variant="ghost"
+                  size="sm"
+                  color="fg.muted"
                   onClick={onClose}
                 >
                   <LuX size={20} />
-                </Box>
+                </IconButton>
               </Flex>
             </Box>
 
@@ -225,11 +217,11 @@ export function AssetFormDrawer({
                     value={form.name}
                     onChange={(e) => setField("name", e.target.value)}
                     placeholder='e.g., MacBook Pro 14"'
-                    borderColor={errors.name ? "red.500" : borderColor}
+                    borderColor={errors.name ? "red.500" : "border.primary"}
                     {...inputProps}
                   />
                   {errors.name && (
-                    <Text fontSize="xs" color={errorColor} mt={1}>
+                    <Text fontSize="xs" color="error.primary" mt={1}>
                       {errors.name}
                     </Text>
                   )}
@@ -237,38 +229,32 @@ export function AssetFormDrawer({
 
                 <Box>
                   <FieldLabel required>Type</FieldLabel>
-                  <Box
-                    position="relative"
-                    bg={inputBg}
+                  <NativeSelect.Root
+                    size="md"
+                    bg="bg.secondary"
                     borderRadius="lg"
                     border="1px solid"
-                    borderColor={borderColor}
+                    borderColor="border.primary"
                     _focusWithin={{ borderColor: "brand.500" }}
                   >
-                    <select
+                    <NativeSelect.Field
                       value={form.type}
                       onChange={(e) => setField("type", e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "10px 16px",
-                        borderRadius: "8px",
-                        border: "none",
-                        backgroundColor: "transparent",
-                        color: "inherit",
-                        fontSize: "14px",
-                        cursor: "pointer",
-                        appearance: "none",
-                        WebkitAppearance: "none",
-                        outline: "none",
-                      }}
+                      ps={4}
+                      pe={8}
+                      py={2.5}
+                      fontSize="sm"
+                      border="none"
+                      bg="transparent"
                     >
                       {Object.entries(types).map(([value, label]) => (
                         <option key={value} value={value}>
                           {label}
                         </option>
                       ))}
-                    </select>
-                  </Box>
+                    </NativeSelect.Field>
+                    <NativeSelect.Indicator />
+                  </NativeSelect.Root>
                 </Box>
 
                 <HStack gap={3} align="flex-start">
@@ -278,11 +264,11 @@ export function AssetFormDrawer({
                       value={form.asset_tag}
                       onChange={(e) => setField("asset_tag", e.target.value)}
                       placeholder="CL-0123"
-                      borderColor={errors.asset_tag ? "red.500" : borderColor}
+                      borderColor={errors.asset_tag ? "red.500" : "border.primary"}
                       {...inputProps}
                     />
                     {errors.asset_tag && (
-                      <Text fontSize="xs" color={errorColor} mt={1}>
+                      <Text fontSize="xs" color="error.primary" mt={1}>
                         {errors.asset_tag}
                       </Text>
                     )}
@@ -295,7 +281,7 @@ export function AssetFormDrawer({
                         setField("serial_number", e.target.value)
                       }
                       placeholder="C02XXXXX"
-                      borderColor={borderColor}
+                      borderColor="border.primary"
                       {...inputProps}
                     />
                   </Box>
@@ -310,7 +296,7 @@ export function AssetFormDrawer({
                       onChange={(e) =>
                         setField("purchase_date", e.target.value)
                       }
-                      borderColor={borderColor}
+                      borderColor="border.primary"
                       {...inputProps}
                     />
                   </Box>
@@ -323,11 +309,11 @@ export function AssetFormDrawer({
                       placeholder="0.00"
                       min="0"
                       step="0.01"
-                      borderColor={errors.cost ? "red.500" : borderColor}
+                      borderColor={errors.cost ? "red.500" : "border.primary"}
                       {...inputProps}
                     />
                     {errors.cost && (
-                      <Text fontSize="xs" color={errorColor} mt={1}>
+                      <Text fontSize="xs" color="error.primary" mt={1}>
                         {errors.cost}
                       </Text>
                     )}
@@ -340,9 +326,9 @@ export function AssetFormDrawer({
                     value={form.notes}
                     onChange={(e) => setField("notes", e.target.value)}
                     placeholder="Condition, accessories, etc."
-                    bg={inputBg}
+                    bg="bg.secondary"
                     border="1px solid"
-                    borderColor={borderColor}
+                    borderColor="border.primary"
                     borderRadius="lg"
                     px={4}
                     py={2}
@@ -356,54 +342,28 @@ export function AssetFormDrawer({
             <Box
               p={4}
               borderTop="1px solid"
-              borderColor={borderColor}
-              bg={footerBg}
+              borderColor="border.primary"
+              bg="bg.secondary"
             >
               <HStack gap={3}>
-                <Box
-                  as="button"
+                <Button
                   flex={1}
-                  py={2.5}
-                  px={4}
-                  borderRadius="lg"
-                  fontWeight="medium"
-                  border="1px solid"
-                  borderColor={borderColor}
-                  color={textPrimary}
-                  bg="transparent"
+                  variant="outline"
                   onClick={onClose}
-                  _hover={{ bg: hoverBg }}
+                  disabled={isSaving}
                 >
                   Cancel
-                </Box>
-                <Box
-                  as="button"
+                </Button>
+                <Button
                   flex={1}
-                  py={2.5}
-                  px={4}
-                  borderRadius="lg"
-                  fontWeight="medium"
-                  bg="brand.500"
-                  color="white"
-                  onClick={isSaving ? undefined : handleSubmit}
-                  aria-disabled={isSaving}
-                  opacity={isSaving ? 0.7 : 1}
-                  cursor={isSaving ? "not-allowed" : "pointer"}
-                  _hover={{ bg: isSaving ? "brand.500" : "brand.600" }}
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
-                  gap={2}
+                  colorPalette="brand"
+                  onClick={handleSubmit}
+                  disabled={isSaving}
+                  loading={isSaving}
                 >
-                  {isSaving ? (
-                    <Spinner size="sm" />
-                  ) : (
-                    <>
-                      {item ? <LuSave size={16} /> : <LuPlus size={16} />}
-                      {item ? "Save Changes" : "Add Asset"}
-                    </>
-                  )}
-                </Box>
+                  {item ? <LuSave size={16} /> : <LuPlus size={16} />}
+                  {item ? "Save Changes" : "Add Asset"}
+                </Button>
               </HStack>
             </Box>
           </Drawer.Content>

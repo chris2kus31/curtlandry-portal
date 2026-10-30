@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Box, SimpleGrid, HStack, Text, Skeleton } from "@chakra-ui/react";
-import { useColorModeValue } from "@/components/ui/color-mode";
 import type { IconType } from "react-icons";
 import { LuUserPlus, LuUserMinus, LuLaptop, LuPackage } from "react-icons/lu";
 import { onboardingService } from "@/lib/api";
@@ -23,12 +22,6 @@ export function PeopleOpsStatsStrip() {
   const router = useRouter();
   const [stats, setStats] = useState<PeopleOpsStats | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const cardBg = useColorModeValue("white", "gray.900");
-  const borderColor = useColorModeValue("gray.200", "gray.800");
-  const textPrimary = useColorModeValue("gray.900", "gray.50");
-  const textSecondary = useColorModeValue("gray.600", "gray.400");
-  const hoverBg = useColorModeValue("gray.50", "gray.800");
 
   useEffect(() => {
     let active = true;
@@ -111,9 +104,9 @@ export function PeopleOpsStatsStrip() {
         return (
           <Box
             key={c.key}
-            bg={cardBg}
+            bg="bg.card"
             border="1px solid"
-            borderColor={borderColor}
+            borderColor="border.primary"
             borderRadius="xl"
             p={4}
             cursor={clickable ? "pointer" : "default"}
@@ -121,7 +114,7 @@ export function PeopleOpsStatsStrip() {
             _hover={
               clickable
                 ? {
-                    bg: hoverBg,
+                    bg: "bg.secondary",
                     borderColor: "brand.300",
                     boxShadow: "sm",
                     transform: "translateY(-1px)",
@@ -131,17 +124,17 @@ export function PeopleOpsStatsStrip() {
             transition="all 0.15s"
           >
             <HStack justify="space-between" mb={2}>
-              <Text fontSize="xs" color={textSecondary} fontWeight="medium">
+              <Text fontSize="xs" color="fg.muted" fontWeight="medium">
                 {c.label}
               </Text>
               <Box color={`${c.accent}.500`}>
                 <Icon size={16} />
               </Box>
             </HStack>
-            <Text fontSize="2xl" fontWeight="bold" color={textPrimary} lineHeight="1">
+            <Text fontSize="2xl" fontWeight="bold" color="fg" lineHeight="1">
               {c.value}
             </Text>
-            <Text fontSize="xs" color={textSecondary} mt={1.5}>
+            <Text fontSize="xs" color="fg.muted" mt={1.5}>
               {c.hint}
             </Text>
           </Box>

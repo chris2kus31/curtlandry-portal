@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Box,
+  Button,
   Card,
   Heading,
   HStack,
@@ -12,7 +13,6 @@ import {
   Flex,
   Skeleton,
 } from "@chakra-ui/react";
-import { useColorModeValue } from "@/components/ui/color-mode";
 import { toaster } from "@/components/ui/toaster";
 import {
   LuArrowLeft,
@@ -23,16 +23,32 @@ import {
 } from "react-icons/lu";
 import { useAuthStore } from "@/store/auth-store";
 import { assetService } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/api/api-error";
 import type { Asset, AssetInventoryCounts, AssetOptions } from "@/lib/api";
 import { AssetFormDrawer } from "@/components/onboarding/AssetFormDrawer";
 import { AssetDetailDrawer } from "@/components/onboarding/AssetDetailDrawer";
-import {
-  AssetInventoryFilters,
-  ASSIGNABLE_FILTER,
-} from "@/components/onboarding/assets/AssetInventoryFilters";
+import { AssetCategorySettings } from "@/components/onboarding/assets/AssetCategorySettings";
+import { AssetInventoryFilters } from "@/components/onboarding/assets/AssetInventoryFilters";
 import { AssetInventoryRow } from "@/components/onboarding/assets/AssetInventoryRow";
 import { AssetInventoryStats } from "@/components/onboarding/assets/AssetInventoryStats";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+
+function isAssignableStatusFilter(
+  options: AssetOptions | null,
+  value: string,
+): boolean {
+  if (!value) return false;
+  const fromApi = options?.status_filters?.find((f) => f.value === value);
+  if (fromApi) return !!fromApi.assignable;
+  return value === "assignable";
+}
+
+function assignableFilterLabel(options: AssetOptions | null): string {
+  return (
+    options?.status_filters?.find((f) => f.assignable)?.label ??
+    "Ready for new hires"
+  );
+}
 
 export default function AssetInventoryPage() {
   const router = useRouter();
@@ -44,10 +60,13 @@ export default function AssetInventoryPage() {
   const [stats, setStats] = useState<AssetInventoryCounts | null>(null);
   const [statsLoading, setStatsLoading] = useState(canManage);
   const [loading, setLoading] = useState(canManage);
-  /** Default: full synced inventory. Use "Ready for new hires" to narrow to AT hire-ready. */
+  /** Default: full synced inventory. Assignable filter value comes from the API. */
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
 
   const [formOpen, setFormOpen] = useState(false);
@@ -57,18 +76,6 @@ export default function AssetInventoryPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Asset | null>(null);
 
-  const cardBg = useColorModeValue("white", "gray.900");
-  const borderColor = useColorModeValue("gray.200", "gray.800");
-  const textPrimary = useColorModeValue("gray.900", "gray.50");
-  const textSecondary = useColorModeValue("gray.600", "gray.400");
-  const textMuted = useColorModeValue("gray.500", "gray.500");
-  const rowHoverBg = useColorModeValue("gray.50", "gray.800");
-  const tipBg = useColorModeValue("brand.50", "whiteAlpha.100");
-  const tipBorder = useColorModeValue("brand.100", "whiteAlpha.200");
-  const backColor = useColorModeValue("gray.600", "gray.400");
-  const backHover = useColorModeValue("gray.900", "gray.50");
-
-  // Reference data for the filters and drawers: statuses, help text, types.
   const loadOptions = useCallback(async () => {
     if (!canManage) return;
     try {
@@ -78,8 +85,6 @@ export default function AssetInventoryPage() {
     }
   }, [canManage]);
 
-  // Counters cover the full inventory, so they come from their own endpoint
-  // rather than the filtered list.
   const loadStats = useCallback(async () => {
     if (!canManage) return;
     try {
@@ -95,25 +100,28 @@ export default function AssetInventoryPage() {
     if (!canManage) return;
     setLoading(true);
     try {
+      const assignable = isAssignableStatusFilter(options, statusFilter);
       const res = await assetService.list({
-        assignable: statusFilter === ASSIGNABLE_FILTER ? true : undefined,
-        status:
-          statusFilter && statusFilter !== ASSIGNABLE_FILTER
-            ? statusFilter
-            : undefined,
+        assignable: assignable ? true : undefined,
+        status: statusFilter && !assignable ? statusFilter : undefined,
         type: typeFilter || undefined,
         search: search.trim() || undefined,
-        per_page: 100,
+        per_page: 25,
+        page,
         sort_by: "name",
         sort_dir: "asc",
       });
       setAssets(res.data ?? []);
+      setLastPage(res.meta?.last_page ?? 1);
+      setTotal(res.meta?.total ?? res.data?.length ?? 0);
     } catch {
       setAssets([]);
+      setLastPage(1);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [canManage, statusFilter, typeFilter, search]);
+  }, [canManage, options, statusFilter, typeFilter, search, page]);
 
   const refreshAssets = useCallback(async () => {
     await Promise.all([loadAssets(), loadOptions(), loadStats()]);
@@ -128,6 +136,10 @@ export default function AssetInventoryPage() {
   }, [canManage, loadOptions, loadStats]);
 
   useEffect(() => {
+    setPage(1);
+  }, [statusFilter, typeFilter, search]);
+
+  useEffect(() => {
     const t = setTimeout(async () => {
       await loadAssets();
       setLastRefreshedAt(new Date());
@@ -135,14 +147,21 @@ export default function AssetInventoryPage() {
     return () => clearTimeout(t);
   }, [loadAssets]);
 
-  // Keep the inventory list in sync with the Laravel / Asset Tiger backend.
+  // Refetch when the tab becomes visible again — not on a blind hourly timer.
   useEffect(() => {
     if (!canManage) return;
-    const HOUR_MS = 60 * 60 * 1000;
-    const id = window.setInterval(() => {
+    const onFocus = () => {
       void refreshAssets();
-    }, HOUR_MS);
-    return () => window.clearInterval(id);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") onFocus();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [canManage, refreshAssets]);
 
   const openCreate = () => {
@@ -173,7 +192,7 @@ export default function AssetInventoryPage() {
     } catch (error) {
       toaster.create({
         title: "Failed to remove asset",
-        description: error instanceof Error ? error.message : "Try again",
+        description: apiErrorMessage(error, "Try again"),
         type: "error",
       });
     } finally {
@@ -182,39 +201,38 @@ export default function AssetInventoryPage() {
     }
   };
 
+  const hireReadyLabel = assignableFilterLabel(options);
+
   const BackButton = (
-    <Box
-      as="button"
+    <Button
+      variant="ghost"
+      size="sm"
       onClick={() => router.push("/people-ops?tab=onboarding")}
-      display="inline-flex"
-      alignItems="center"
-      gap={2}
-      color={backColor}
-      fontSize="sm"
+      color="fg.muted"
       fontWeight="medium"
       w="fit-content"
-      _hover={{ color: backHover }}
-      transition="color 0.15s"
+      px={0}
+      _hover={{ color: "fg", bg: "transparent" }}
     >
       <LuArrowLeft size={16} />
       Back to People Ops
-    </Box>
+    </Button>
   );
 
   if (!canManage) {
     return (
       <VStack gap={6} align="stretch">
         {BackButton}
-        <Card.Root bg={cardBg} borderColor={borderColor} borderWidth="1px">
+        <Card.Root bg="bg.card" borderColor="border.primary" borderWidth="1px">
           <Card.Body>
             <VStack gap={3} py={10} textAlign="center">
-              <Box color={textMuted}>
+              <Box color="fg.muted">
                 <LuShieldAlert size={40} />
               </Box>
-              <Text color={textPrimary} fontWeight="medium">
+              <Text color="fg" fontWeight="medium">
                 You don&apos;t have access to asset inventory
               </Text>
-              <Text color={textSecondary} fontSize="sm">
+              <Text color="fg.muted" fontSize="sm">
                 Only IT / People Ops admins can manage company assets.
               </Text>
             </VStack>
@@ -235,16 +253,16 @@ export default function AssetInventoryPage() {
         gap={4}
       >
         <Box>
-          <Heading as="h1" size="xl" color={textPrimary} fontWeight="bold">
+          <Heading as="h1" size="xl" color="fg" fontWeight="bold">
             Asset Inventory
           </Heading>
-          <Text color={textSecondary} mt={1} maxW="640px">
+          <Text color="fg.muted" mt={1} maxW="640px">
             Synced from Asset Tiger — what we have, who has each one, and which
-            are ready for a new hire. This list refreshes automatically every
-            hour.
+            are ready for a new hire. Refreshes after you make a change or when
+            you return to this tab.
           </Text>
           {lastRefreshedAt && (
-            <Text color={textMuted} fontSize="xs" mt={1}>
+            <Text color="fg.muted" fontSize="xs" mt={1}>
               Last refreshed{" "}
               {lastRefreshedAt.toLocaleTimeString([], {
                 hour: "numeric",
@@ -253,63 +271,58 @@ export default function AssetInventoryPage() {
             </Text>
           )}
         </Box>
-        <Box
-          as="button"
+        <Button
           onClick={openCreate}
-          bg="brand.500"
-          color="white"
-          px={4}
-          py={2.5}
-          borderRadius="lg"
-          fontWeight="medium"
-          display="flex"
-          alignItems="center"
-          gap={2}
+          colorPalette="brand"
           flexShrink={0}
-          _hover={{ bg: "brand.600" }}
-          transition="all 0.15s"
+          px={4}
         >
           <LuPlus size={18} />
           Add asset
-        </Box>
+        </Button>
       </Flex>
 
       <Box
         p={4}
         borderRadius="xl"
         border="1px solid"
-        borderColor={tipBorder}
-        bg={tipBg}
+        borderColor="border.brand"
+        bg="brand.muted"
       >
         <HStack align="start" gap={3}>
           <Box color="brand.500" mt={0.5} flexShrink={0}>
             <LuCircleHelp size={18} />
           </Box>
           <Box>
-            <Text fontSize="sm" fontWeight="semibold" color={textPrimary} mb={1}>
+            <Text fontSize="sm" fontWeight="semibold" color="fg" mb={1}>
               How to read this page
             </Text>
-            <Text fontSize="sm" color={textSecondary}>
+            <Text fontSize="sm" color="fg.muted">
               Click any asset to see details, assign it to someone, or update
               its status. Inventory is synced from Asset Tiger. Use the status
               filter to focus on{" "}
-              <Text as="span" fontWeight="medium" color={textPrimary}>
-                Ready for new hires
+              <Text as="span" fontWeight="medium" color="fg">
+                {hireReadyLabel}
               </Text>{" "}
-              (Asset Tiger &quot;Ready for Reassignment&quot;) during intake.
+              during intake.
             </Text>
-            <Text fontSize="sm" color={textSecondary} mt={2}>
-              Device categories — which ones we track and which ones managers
-              can pick from during intake — come from Asset Tiger and are
-              configured on the API, not here.
+            <Text fontSize="sm" color="fg.muted" mt={2}>
+              Use Device categories below to choose which Asset Tiger groups we
+              track and which ones managers can pick during intake.
             </Text>
           </Box>
         </HStack>
       </Box>
 
-      <AssetInventoryStats stats={stats} loading={statsLoading} />
+      <AssetCategorySettings />
 
-      <Card.Root bg={cardBg} borderColor={borderColor} borderWidth="1px">
+      <AssetInventoryStats
+        stats={stats}
+        loading={statsLoading}
+        options={options}
+      />
+
+      <Card.Root bg="bg.card" borderColor="border.primary" borderWidth="1px">
         <Card.Body>
           <AssetInventoryFilters
             options={options}
@@ -329,59 +342,33 @@ export default function AssetInventoryPage() {
             </VStack>
           ) : assets.length === 0 ? (
             <VStack gap={3} py={12} textAlign="center">
-              <Box color={textMuted}>
+              <Box color="fg.muted">
                 <LuInbox size={40} />
               </Box>
-              <Text color={textPrimary} fontWeight="medium">
-                {statusFilter === ASSIGNABLE_FILTER
-                  ? "No assets ready for new hires"
+              <Text color="fg" fontWeight="medium">
+                {isAssignableStatusFilter(options, statusFilter)
+                  ? `No assets in “${hireReadyLabel}”`
                   : "No assets match these filters"}
               </Text>
-              <Text color={textSecondary} fontSize="sm" maxW="360px">
-                {statusFilter === ASSIGNABLE_FILTER
-                  ? "Only assets marked Ready for Reassignment in Asset Tiger appear here. Switch the status filter to see the rest of inventory."
+              <Text color="fg.muted" fontSize="sm" maxW="360px">
+                {isAssignableStatusFilter(options, statusFilter)
+                  ? "Only hire-ready inventory appears here. Switch the status filter to see the rest."
                   : "Try clearing filters, or add a laptop, desktop, or tablet so IT can track who has what."}
               </Text>
-              {statusFilter === ASSIGNABLE_FILTER ? (
-                <Box
-                  as="button"
+              {isAssignableStatusFilter(options, statusFilter) ? (
+                <Button
                   mt={2}
+                  variant="outline"
+                  size="sm"
                   onClick={() => setStatusFilter("")}
-                  border="1px solid"
-                  borderColor={borderColor}
-                  color={textPrimary}
-                  px={4}
-                  py={2}
-                  borderRadius="lg"
-                  fontWeight="medium"
-                  fontSize="sm"
-                  display="inline-flex"
-                  alignItems="center"
-                  gap={2}
-                  _hover={{ bg: rowHoverBg }}
                 >
                   Show all statuses
-                </Box>
+                </Button>
               ) : (
-                <Box
-                  as="button"
-                  mt={2}
-                  onClick={openCreate}
-                  bg="brand.500"
-                  color="white"
-                  px={4}
-                  py={2}
-                  borderRadius="lg"
-                  fontWeight="medium"
-                  fontSize="sm"
-                  display="inline-flex"
-                  alignItems="center"
-                  gap={2}
-                  _hover={{ bg: "brand.600" }}
-                >
+                <Button mt={2} colorPalette="brand" size="sm" onClick={openCreate}>
                   <LuPlus size={16} />
                   Add your first asset
-                </Box>
+                </Button>
               )}
             </VStack>
           ) : (
@@ -395,6 +382,40 @@ export default function AssetInventoryPage() {
                   onDelete={setPendingDelete}
                 />
               ))}
+              {lastPage > 1 && (
+                <Flex
+                  justify="space-between"
+                  align="center"
+                  pt={3}
+                  gap={3}
+                  flexWrap="wrap"
+                >
+                  <Text fontSize="sm" color="fg.muted">
+                    Page {page} of {lastPage}
+                    {total > 0 ? ` · ${total} devices` : ""}
+                  </Text>
+                  <HStack gap={2}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={page <= 1}
+                      onClick={() => page > 1 && setPage((p) => p - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={page >= lastPage}
+                      onClick={() =>
+                        page < lastPage && setPage((p) => p + 1)
+                      }
+                    >
+                      Next
+                    </Button>
+                  </HStack>
+                </Flex>
+              )}
             </VStack>
           )}
         </Card.Body>

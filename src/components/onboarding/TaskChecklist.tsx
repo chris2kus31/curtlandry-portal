@@ -1,7 +1,6 @@
 "use client";
 
 import { Box, HStack, Text, VStack } from "@chakra-ui/react";
-import { useColorModeValue } from "@/components/ui/color-mode";
 import { LuCircle, LuCircleCheck } from "react-icons/lu";
 import type { OnboardingChecklistItem } from "@/lib/api";
 
@@ -17,11 +16,6 @@ export function TaskChecklist({
   interactive,
   onToggle,
 }: TaskChecklistProps) {
-  const textPrimary = useColorModeValue("gray.900", "gray.50");
-  const textMuted = useColorModeValue("gray.500", "gray.500");
-  const itemHoverBg = useColorModeValue("gray.100", "gray.700");
-  const iconColor = useColorModeValue("gray.400", "gray.500");
-
   if (items.length === 0) return null;
 
   return (
@@ -36,15 +30,15 @@ export function TaskChecklist({
           borderRadius="md"
           cursor={interactive ? "pointer" : "default"}
           onClick={() => interactive && onToggle(idx)}
-          _hover={interactive ? { bg: itemHoverBg } : undefined}
+          _hover={interactive ? { bg: "bg.tertiary" } : undefined}
           transition="background 0.15s"
         >
-          <Box color={item.done ? "green.500" : iconColor} flexShrink={0}>
+          <Box color={item.done ? "green.500" : "fg.muted"} flexShrink={0}>
             {item.done ? <LuCircleCheck size={18} /> : <LuCircle size={18} />}
           </Box>
           <Text
             fontSize="sm"
-            color={item.done ? textMuted : textPrimary}
+            color={item.done ? "fg.muted" : "fg"}
             textDecoration={item.done ? "line-through" : "none"}
           >
             {item.label}

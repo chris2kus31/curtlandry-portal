@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   Box,
+  Button,
   Drawer,
   Portal,
   VStack,
@@ -12,8 +13,9 @@ import {
   Flex,
   Spinner,
   Badge,
+  NativeSelect,
+  IconButton,
 } from "@chakra-ui/react";
-import { useColorModeValue } from "@/components/ui/color-mode";
 import { toaster } from "@/components/ui/toaster";
 import {
   LuX,
@@ -24,6 +26,7 @@ import {
   LuPencil,
 } from "react-icons/lu";
 import { assetService, offboardingService } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/api/api-error";
 import type {
   Asset,
   AssetOptions,
@@ -68,14 +71,6 @@ export function AssetDetailDrawer({
   const [releaseTarget, setReleaseTarget] = useState("needs_backup");
   const [releaseNote, setReleaseNote] = useState("");
 
-  const drawerBg = useColorModeValue("white", "gray.900");
-  const borderColor = useColorModeValue("gray.200", "gray.700");
-  const textPrimary = useColorModeValue("gray.900", "gray.50");
-  const textSecondary = useColorModeValue("gray.500", "gray.400");
-  const inputBg = useColorModeValue("gray.50", "gray.800");
-  const hoverBg = useColorModeValue("gray.100", "gray.800");
-  const headerBg = useColorModeValue("gray.50", "gray.800");
-  const cardBg = useColorModeValue("gray.50", "gray.800");
 
   const load = useCallback(async () => {
     if (!assetId) return;
@@ -140,7 +135,7 @@ export function AssetDetailDrawer({
     } catch (error) {
       toaster.create({
         title: "Could not change status",
-        description: error instanceof Error ? error.message : undefined,
+        description: apiErrorMessage(error),
         type: "error",
       });
     } finally {
@@ -168,7 +163,7 @@ export function AssetDetailDrawer({
     } catch (error) {
       toaster.create({
         title: "Could not assign",
-        description: error instanceof Error ? error.message : undefined,
+        description: apiErrorMessage(error),
         type: "error",
       });
     } finally {
@@ -187,39 +182,13 @@ export function AssetDetailDrawer({
     } catch (error) {
       toaster.create({
         title: "Could not release",
-        description: error instanceof Error ? error.message : undefined,
+        description: apiErrorMessage(error),
         type: "error",
       });
     } finally {
       setBusy(false);
     }
   };
-
-  const selectStyle: React.CSSProperties = {
-    width: "100%",
-    padding: "10px 16px",
-    borderRadius: "8px",
-    border: "none",
-    backgroundColor: "transparent",
-    color: "inherit",
-    fontSize: "14px",
-    cursor: "pointer",
-    appearance: "none",
-    WebkitAppearance: "none",
-    outline: "none",
-  };
-
-  const SelectShell = ({ children }: { children: React.ReactNode }) => (
-    <Box
-      bg={inputBg}
-      borderRadius="lg"
-      border="1px solid"
-      borderColor={borderColor}
-      _focusWithin={{ borderColor: "brand.500" }}
-    >
-      {children}
-    </Box>
-  );
 
   const transitions = asset?.status
     ? options?.transitions?.[asset.status] ?? []
@@ -240,12 +209,12 @@ export function AssetDetailDrawer({
       <Portal>
         <Drawer.Backdrop />
         <Drawer.Positioner>
-          <Drawer.Content bg={drawerBg} maxW="480px" w="full">
+          <Drawer.Content bg="bg.card" maxW="480px" w="full">
             <Box
               p={4}
               borderBottom="1px solid"
-              borderColor={borderColor}
-              bg={headerBg}
+              borderColor="border.primary"
+              bg="bg.secondary"
             >
               <Flex justify="space-between" align="center">
                 <HStack gap={3}>
@@ -253,38 +222,35 @@ export function AssetDetailDrawer({
                     <LuLaptop size={18} />
                   </Box>
                   <Box>
-                    <Text fontWeight="semibold" color={textPrimary}>
+                    <Text fontWeight="semibold" color="fg">
                       {asset?.name ?? "Asset"}
                     </Text>
-                    <Text fontSize="sm" color={textSecondary}>
+                    <Text fontSize="sm" color="fg.muted">
                       {asset?.type_label ?? "Device details"}
                     </Text>
                   </Box>
                 </HStack>
                 <HStack gap={1}>
                   {asset && (
-                    <Box
-                      as="button"
-                      p={2}
-                      borderRadius="lg"
-                      color={textSecondary}
-                      _hover={{ bg: hoverBg }}
+                    <IconButton
+                      aria-label="Edit asset"
+                      variant="ghost"
+                      size="sm"
+                      color="fg.muted"
                       onClick={() => onEdit(asset)}
-                      title="Edit asset"
                     >
                       <LuPencil size={18} />
-                    </Box>
+                    </IconButton>
                   )}
-                  <Box
-                    as="button"
-                    p={2}
-                    borderRadius="lg"
-                    color={textSecondary}
-                    _hover={{ bg: hoverBg }}
+                  <IconButton
+                    aria-label="Close"
+                    variant="ghost"
+                    size="sm"
+                    color="fg.muted"
                     onClick={onClose}
                   >
                     <LuX size={20} />
-                  </Box>
+                  </IconButton>
                 </HStack>
               </Flex>
             </Box>
@@ -307,43 +273,43 @@ export function AssetDetailDrawer({
                       {asset.status_label}
                     </Badge>
                     {asset.assigned_user ? (
-                      <HStack gap={1.5} color={textSecondary} fontSize="sm">
+                      <HStack gap={1.5} color="fg.muted" fontSize="sm">
                         <LuUser size={14} />
                         <Text>{asset.assigned_user.name}</Text>
                       </HStack>
                     ) : asset.holder_label ? (
-                      <Text fontSize="sm" color={textSecondary}>
+                      <Text fontSize="sm" color="fg.muted">
                         {asset.holder_label}
                       </Text>
                     ) : (
-                      <Text fontSize="sm" color={textSecondary}>
+                      <Text fontSize="sm" color="fg.muted">
                         Unassigned
                       </Text>
                     )}
                   </HStack>
 
                   {/* Info card */}
-                  <Box bg={cardBg} borderRadius="lg" p={4}>
+                  <Box bg="bg.secondary" borderRadius="lg" p={4}>
                     <VStack gap={2} align="stretch" fontSize="sm">
                       <HStack justify="space-between">
-                        <Text color={textSecondary}>Asset tag</Text>
-                        <Text color={textPrimary}>{asset.asset_tag || "—"}</Text>
+                        <Text color="fg.muted">Asset tag</Text>
+                        <Text color="fg">{asset.asset_tag || "—"}</Text>
                       </HStack>
                       <HStack justify="space-between">
-                        <Text color={textSecondary}>Serial #</Text>
-                        <Text color={textPrimary}>
+                        <Text color="fg.muted">Serial #</Text>
+                        <Text color="fg">
                           {asset.serial_number || "—"}
                         </Text>
                       </HStack>
                       <HStack justify="space-between">
-                        <Text color={textSecondary}>Purchase Date</Text>
-                        <Text color={textPrimary}>
+                        <Text color="fg.muted">Purchase Date</Text>
+                        <Text color="fg">
                           {fmtDate(asset.purchase_date)}
                         </Text>
                       </HStack>
                       <HStack justify="space-between">
-                        <Text color={textSecondary}>Cost</Text>
-                        <Text color={textPrimary}>
+                        <Text color="fg.muted">Cost</Text>
+                        <Text color="fg">
                           {asset.cost != null
                             ? `$${asset.cost.toLocaleString()}`
                             : "—"}
@@ -351,10 +317,10 @@ export function AssetDetailDrawer({
                       </HStack>
                       {asset.notes && (
                         <Box pt={1}>
-                          <Text color={textSecondary} mb={1}>
+                          <Text color="fg.muted" mb={1}>
                             Notes
                           </Text>
-                          <Text color={textPrimary}>{asset.notes}</Text>
+                          <Text color="fg">{asset.notes}</Text>
                         </Box>
                       )}
                     </VStack>
@@ -366,18 +332,29 @@ export function AssetDetailDrawer({
                       <Text
                         fontSize="sm"
                         fontWeight="semibold"
-                        color={textPrimary}
+                        color="fg"
                         mb={2}
                       >
                         Assign to employee
                       </Text>
                       <VStack gap={2} align="stretch">
-                        <SelectShell>
-                          <select
+                        <NativeSelect.Root
+                          size="md"
+                          bg="bg.secondary"
+                          borderRadius="lg"
+                          border="1px solid"
+                          borderColor="border.primary"
+                          _focusWithin={{ borderColor: "brand.500" }}
+                        >
+                          <NativeSelect.Field
                             value={assignUser}
                             onChange={(e) => setAssignUser(e.target.value)}
-                            style={selectStyle}
-                            required
+                            ps={4}
+                            pe={8}
+                            py={2.5}
+                            fontSize="sm"
+                            border="none"
+                            bg="transparent"
                           >
                             <option value="">Select employee…</option>
                             {employees.map((emp) => (
@@ -386,10 +363,11 @@ export function AssetDetailDrawer({
                                 {emp.department ? ` · ${emp.department}` : ""}
                               </option>
                             ))}
-                          </select>
-                        </SelectShell>
+                          </NativeSelect.Field>
+                          <NativeSelect.Indicator />
+                        </NativeSelect.Root>
                         {!assignUser && (
-                          <Text fontSize="xs" color={textSecondary}>
+                          <Text fontSize="xs" color="fg.muted">
                             Choose an employee before you can assign this asset.
                           </Text>
                         )}
@@ -397,9 +375,9 @@ export function AssetDetailDrawer({
                           value={assignNote}
                           onChange={(e) => setAssignNote(e.target.value)}
                           placeholder="Note (optional)"
-                          bg={inputBg}
+                          bg="bg.secondary"
                           border="1px solid"
-                          borderColor={borderColor}
+                          borderColor="border.primary"
                           borderRadius="lg"
                           px={4}
                           py={2}
@@ -422,31 +400,44 @@ export function AssetDetailDrawer({
                       <Text
                         fontSize="sm"
                         fontWeight="semibold"
-                        color={textPrimary}
+                        color="fg"
                         mb={2}
                       >
                         Release device
                       </Text>
                       <VStack gap={2} align="stretch">
-                        <SelectShell>
-                          <select
+                        <NativeSelect.Root
+                          size="md"
+                          bg="bg.secondary"
+                          borderRadius="lg"
+                          border="1px solid"
+                          borderColor="border.primary"
+                          _focusWithin={{ borderColor: "brand.500" }}
+                        >
+                          <NativeSelect.Field
                             value={releaseTarget}
                             onChange={(e) => setReleaseTarget(e.target.value)}
-                            style={selectStyle}
+                            ps={4}
+                            pe={8}
+                            py={2.5}
+                            fontSize="sm"
+                            border="none"
+                            bg="transparent"
                           >
                             <option value="needs_backup">
                               → Needs Backup
                             </option>
                             <option value="available">→ Available</option>
-                          </select>
-                        </SelectShell>
+                          </NativeSelect.Field>
+                          <NativeSelect.Indicator />
+                        </NativeSelect.Root>
                         <Textarea
                           value={releaseNote}
                           onChange={(e) => setReleaseNote(e.target.value)}
                           placeholder="Note (optional)"
-                          bg={inputBg}
+                          bg="bg.secondary"
                           border="1px solid"
-                          borderColor={borderColor}
+                          borderColor="border.primary"
                           borderRadius="lg"
                           px={4}
                           py={2}
@@ -469,18 +460,29 @@ export function AssetDetailDrawer({
                       <Text
                         fontSize="sm"
                         fontWeight="semibold"
-                        color={textPrimary}
+                        color="fg"
                         mb={2}
                       >
                         Change status
                       </Text>
                       <VStack gap={2} align="stretch">
-                        <SelectShell>
-                          <select
+                        <NativeSelect.Root
+                          size="md"
+                          bg="bg.secondary"
+                          borderRadius="lg"
+                          border="1px solid"
+                          borderColor="border.primary"
+                          _focusWithin={{ borderColor: "brand.500" }}
+                        >
+                          <NativeSelect.Field
                             value={statusTarget}
                             onChange={(e) => setStatusTarget(e.target.value)}
-                            style={selectStyle}
-                            required
+                            ps={4}
+                            pe={8}
+                            py={2.5}
+                            fontSize="sm"
+                            border="none"
+                            bg="transparent"
                           >
                             <option value="">Select new status…</option>
                             {transitions.map((t) => (
@@ -488,10 +490,11 @@ export function AssetDetailDrawer({
                                 {statusLabels[t] ?? t}
                               </option>
                             ))}
-                          </select>
-                        </SelectShell>
+                          </NativeSelect.Field>
+                          <NativeSelect.Indicator />
+                        </NativeSelect.Root>
                         {!statusTarget && (
-                          <Text fontSize="xs" color={textSecondary}>
+                          <Text fontSize="xs" color="fg.muted">
                             Choose a status before updating. To give an asset to
                             someone, use Assign to employee instead.
                           </Text>
@@ -500,9 +503,9 @@ export function AssetDetailDrawer({
                           value={statusNote}
                           onChange={(e) => setStatusNote(e.target.value)}
                           placeholder="Note (optional)"
-                          bg={inputBg}
+                          bg="bg.secondary"
                           border="1px solid"
-                          borderColor={borderColor}
+                          borderColor="border.primary"
                           borderRadius="lg"
                           px={4}
                           py={2}
@@ -521,14 +524,14 @@ export function AssetDetailDrawer({
 
                   {/* History */}
                   <Box>
-                    <HStack gap={2} mb={2} color={textPrimary}>
+                    <HStack gap={2} mb={2} color="fg">
                       <LuHistory size={16} />
                       <Text fontSize="sm" fontWeight="semibold">
                         Assignment history
                       </Text>
                     </HStack>
                     {sortedHistory.length === 0 ? (
-                      <Text fontSize="sm" color={textSecondary}>
+                      <Text fontSize="sm" color="fg.muted">
                         No assignment history yet.
                       </Text>
                     ) : (
@@ -536,13 +539,13 @@ export function AssetDetailDrawer({
                         {sortedHistory.map((h) => (
                           <Box
                             key={h.id}
-                            bg={cardBg}
+                            bg="bg.secondary"
                             borderRadius="lg"
                             p={3}
                             fontSize="sm"
                           >
                             <HStack justify="space-between" mb={1}>
-                              <Text fontWeight="medium" color={textPrimary}>
+                              <Text fontWeight="medium" color="fg">
                                 {h.user_name ?? `User #${h.user_id}`}
                               </Text>
                               {!h.released_at && (
@@ -557,7 +560,7 @@ export function AssetDetailDrawer({
                             </HStack>
                             <HStack
                               gap={2}
-                              color={textSecondary}
+                              color="fg.muted"
                               fontSize="xs"
                             >
                               <Text>{fmtDate(h.assigned_at)}</Text>
@@ -569,7 +572,7 @@ export function AssetDetailDrawer({
                               </Text>
                             </HStack>
                             {h.note && (
-                              <Text color={textSecondary} mt={1}>
+                              <Text color="fg.muted" mt={1}>
                                 {h.note}
                               </Text>
                             )}
@@ -600,26 +603,14 @@ function ActionButton({
   onClick: () => void;
 }) {
   return (
-    <Box
-      as="button"
-      py={2}
-      px={4}
-      borderRadius="lg"
-      fontWeight="medium"
-      fontSize="sm"
-      bg="brand.500"
-      color="white"
-      onClick={disabled ? undefined : onClick}
-      aria-disabled={disabled}
-      opacity={disabled ? 0.6 : 1}
-      cursor={disabled ? "not-allowed" : "pointer"}
-      _hover={{ bg: disabled ? "brand.500" : "brand.600" }}
-      display="flex"
-      alignItems="center"
-      justifyContent="center"
-      gap={2}
+    <Button
+      size="sm"
+      colorPalette="brand"
+      onClick={onClick}
+      disabled={disabled}
+      loading={busy}
     >
-      {busy ? <Spinner size="sm" /> : label}
-    </Box>
+      {label}
+    </Button>
   );
 }

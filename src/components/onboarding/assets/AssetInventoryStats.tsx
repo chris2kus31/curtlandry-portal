@@ -1,27 +1,23 @@
 "use client";
 
 import { Box, HStack, SimpleGrid, Skeleton, Text } from "@chakra-ui/react";
-import { useColorModeValue } from "@/components/ui/color-mode";
 import type { IconType } from "react-icons";
 import { LuCircleCheck, LuPackage, LuUser } from "react-icons/lu";
-import type { AssetInventoryCounts } from "@/lib/api";
+import type { AssetInventoryCounts, AssetOptions } from "@/lib/api";
 
 interface AssetInventoryStatsProps {
   /** Inventory counters from /portal/onboarding/assets/stats (or people-ops stats). */
   stats: AssetInventoryCounts | null;
   loading: boolean;
+  /** When present, the assignable chip label comes from API status_filters. */
+  options?: AssetOptions | null;
 }
 
 export function AssetInventoryStats({
   stats,
   loading,
+  options,
 }: AssetInventoryStatsProps) {
-  const borderColor = useColorModeValue("gray.200", "gray.800");
-  const textPrimary = useColorModeValue("gray.900", "gray.50");
-  const textSecondary = useColorModeValue("gray.600", "gray.400");
-  const textMuted = useColorModeValue("gray.500", "gray.500");
-  const statBg = useColorModeValue("gray.50", "gray.800");
-
   if (loading) {
     return (
       <SimpleGrid columns={{ base: 1, sm: 3 }} gap={3}>
@@ -33,6 +29,10 @@ export function AssetInventoryStats({
   }
 
   if (!stats) return null;
+
+  const assignableLabel =
+    options?.status_filters?.find((f) => f.assignable)?.label ??
+    "Ready for new hires";
 
   const cards: {
     key: string;
@@ -46,18 +46,20 @@ export function AssetInventoryStats({
       label: "Total assets",
       value: stats.total,
       icon: LuPackage,
-      color: textMuted,
+      color: "fg.muted",
     },
     {
       key: "assignable",
-      label: "Ready for new hires",
+      label: assignableLabel,
       value: stats.assignable,
       icon: LuCircleCheck,
       color: "green.500",
     },
     {
       key: "assigned",
-      label: "Currently with staff",
+      label: options?.statuses?.assigned
+        ? `Currently ${options.statuses.assigned.toLowerCase()}`
+        : "Currently with staff",
       value: stats.by_status?.assigned ?? 0,
       icon: LuUser,
       color: "blue.500",
@@ -74,18 +76,18 @@ export function AssetInventoryStats({
             p={4}
             borderRadius="xl"
             border="1px solid"
-            borderColor={borderColor}
-            bg={statBg}
+            borderColor="border.primary"
+            bg="bg.secondary"
             gap={3}
           >
             <Box color={card.color}>
               <Icon size={20} />
             </Box>
             <Box>
-              <Text fontSize="xs" color={textSecondary}>
+              <Text fontSize="xs" color="fg.muted">
                 {card.label}
               </Text>
-              <Text fontSize="lg" fontWeight="bold" color={textPrimary}>
+              <Text fontSize="lg" fontWeight="bold" color="fg">
                 {card.value}
               </Text>
             </Box>

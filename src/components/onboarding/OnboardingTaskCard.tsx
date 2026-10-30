@@ -1,8 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Box, HStack, Text, Flex, Spinner, Input } from "@chakra-ui/react";
-import { useColorModeValue } from "@/components/ui/color-mode";
+import {
+  Box,
+  Button,
+  HStack,
+  Text,
+  Flex,
+  Spinner,
+  Input,
+} from "@chakra-ui/react";
 import {
   LuLock,
   LuPlay,
@@ -53,38 +60,17 @@ function TaskActionButton({
   saving: boolean;
   primary?: boolean;
 }) {
-  const borderColor = useColorModeValue("gray.200", "gray.800");
-  const textSecondary = useColorModeValue("gray.600", "gray.400");
-  const hoverBg = useColorModeValue("gray.100", "gray.700");
-
   return (
-    <Box
-      as="button"
-      onClick={saving ? undefined : onClick}
-      aria-disabled={saving}
-      display="inline-flex"
-      alignItems="center"
-      gap={2}
-      px={4}
-      py={2}
-      borderRadius="lg"
-      fontSize="sm"
-      fontWeight="medium"
-      border="1px solid"
-      borderColor={primary ? "brand.500" : borderColor}
-      bg={primary ? "brand.500" : "transparent"}
-      color={primary ? "white" : textSecondary}
-      opacity={saving ? 0.6 : 1}
-      cursor={saving ? "not-allowed" : "pointer"}
-      _hover={{
-        bg: primary ? "brand.600" : hoverBg,
-        borderColor: primary ? "brand.600" : "brand.300",
-      }}
-      transition="all 0.15s"
+    <Button
+      size="sm"
+      variant={primary ? "solid" : "outline"}
+      colorPalette={primary ? "brand" : "gray"}
+      onClick={onClick}
+      disabled={saving}
     >
       {icon}
       {label}
-    </Box>
+    </Button>
   );
 }
 
@@ -95,12 +81,6 @@ export function OnboardingTaskCard({
   onSetStatus,
   onSetWaitingOn,
 }: OnboardingTaskCardProps) {
-  const borderColor = useColorModeValue("gray.200", "gray.800");
-  const textPrimary = useColorModeValue("gray.900", "gray.50");
-  const textMuted = useColorModeValue("gray.500", "gray.500");
-  const subtleBg = useColorModeValue("gray.50", "gray.800");
-  const inputBg = useColorModeValue("white", "gray.900");
-
   const [confirmComplete, setConfirmComplete] = useState(false);
 
   const locked = task.is_locked;
@@ -127,17 +107,17 @@ export function OnboardingTaskCard({
       py={4}
       borderRadius="lg"
       border="1px solid"
-      borderColor={borderColor}
-      bg={subtleBg}
+      borderColor="border.primary"
+      bg="bg.secondary"
     >
       <Flex justify="space-between" align="center" gap={3} mb={3}>
         <HStack gap={2} minW={0}>
           {locked && (
-            <Box color={textMuted} flexShrink={0}>
+            <Box color="fg.muted" flexShrink={0}>
               <LuLock size={14} />
             </Box>
           )}
-          <Text fontWeight="semibold" color={textPrimary} truncate>
+          <Text fontWeight="semibold" color="fg" truncate>
             {task.title}
           </Text>
         </HStack>
@@ -156,10 +136,9 @@ export function OnboardingTaskCard({
         onToggle={toggleItem}
       />
 
-      {/* Waiting-on reason (editable while task is in "waiting on") */}
       {!locked && task.status === "waiting_on" && (
         <Box mb={3}>
-          <Text fontSize="xs" color={textMuted} mb={1}>
+          <Text fontSize="xs" color="fg.muted" mb={1}>
             Waiting on
           </Text>
           <Input
@@ -171,9 +150,9 @@ export function OnboardingTaskCard({
             }}
             placeholder="What's blocking this task?"
             size="sm"
-            bg={inputBg}
+            bg="bg.card"
             border="1px solid"
-            borderColor={borderColor}
+            borderColor="border.primary"
             borderRadius="lg"
             px={4}
             _focus={{ borderColor: "brand.500" }}
@@ -182,20 +161,18 @@ export function OnboardingTaskCard({
       )}
 
       {locked && task.waiting_on && (
-        <Text fontSize="xs" color={textMuted} mb={2}>
+        <Text fontSize="xs" color="fg.muted" mb={2}>
           Was waiting on: {task.waiting_on}
         </Text>
       )}
 
-      {/* Completion meta */}
       {task.completed_at && (
-        <Text fontSize="xs" color={textMuted} mb={3}>
+        <Text fontSize="xs" color="fg.muted" mb={3}>
           Completed {formatTimestamp(task.completed_at)}
           {task.completed_by_user ? ` by ${task.completed_by_user.name}` : ""}
         </Text>
       )}
 
-      {/* Actions */}
       <Flex gap={2} flexWrap="wrap">
         {locked ? (
           <TaskActionButton

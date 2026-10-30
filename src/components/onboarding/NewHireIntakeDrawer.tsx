@@ -3,6 +3,7 @@
 import { useState, useEffect, type ReactNode } from "react";
 import {
   Box,
+  Button,
   Drawer,
   Portal,
   VStack,
@@ -16,8 +17,9 @@ import {
   CloseButton,
   Badge,
   Image,
+  NativeSelect,
+  IconButton,
 } from "@chakra-ui/react";
-import { useColorModeValue } from "@/components/ui/color-mode";
 import { toaster } from "@/components/ui/toaster";
 import {
   LuX,
@@ -36,6 +38,7 @@ import {
   LuArrowLeft,
 } from "react-icons/lu";
 import { onboardingService } from "@/lib/api";
+import { apiErrorMessage, fieldErrorsFromApi } from "@/lib/api/api-error";
 import type {
   OnboardingFormOptions,
   IntakePayload,
@@ -87,20 +90,6 @@ export function NewHireIntakeDrawer({
   const [deviceCategory, setDeviceCategory] = useState<string | null>(null);
 
   // Colors — all hooks before any conditional return
-  const drawerBg = useColorModeValue("white", "gray.900");
-  const borderColor = useColorModeValue("gray.200", "gray.700");
-  const textPrimary = useColorModeValue("gray.900", "gray.50");
-  const textSecondary = useColorModeValue("gray.500", "gray.400");
-  const inputBg = useColorModeValue("gray.50", "gray.800");
-  const labelColor = useColorModeValue("gray.600", "gray.400");
-  const hoverBg = useColorModeValue("gray.100", "gray.800");
-  const headerBg = useColorModeValue("gray.50", "gray.800");
-  const footerBg = useColorModeValue("gray.50", "gray.800");
-  const errorColor = useColorModeValue("red.500", "red.400");
-  const cardBg = useColorModeValue("white", "gray.900");
-  const imageBg = useColorModeValue("gray.100", "gray.800");
-  const selectedCardBg = useColorModeValue("brand.50", "whiteAlpha.100");
-  const previewBackdrop = useColorModeValue("blackAlpha.700", "blackAlpha.800");
 
   // Start every session from a clean form.
   useEffect(() => {
@@ -216,14 +205,14 @@ export function NewHireIntakeDrawer({
       onCreated(created);
       onClose();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Please try again";
-      if (message.toLowerCase().includes("email")) {
-        setErrors({ email: "This email is already in use" });
+      // httpClient rejects with a plain ApiError — not an Error instance.
+      const nextErrors = fieldErrorsFromApi(error);
+      if (Object.keys(nextErrors).length > 0) {
+        setErrors(nextErrors);
       } else {
         toaster.create({
           title: "Failed to submit intake",
-          description: message,
+          description: apiErrorMessage(error),
           type: "error",
         });
       }
@@ -245,7 +234,7 @@ export function NewHireIntakeDrawer({
   }) => (
     <HStack gap={2} mb={1.5}>
       {icon}
-      <Text fontSize="sm" color={textSecondary}>
+      <Text fontSize="sm" color="fg.muted">
         {children}
         {required && (
           <Text as="span" color="red.500">
@@ -261,7 +250,7 @@ export function NewHireIntakeDrawer({
     <Text
       fontSize="xs"
       fontWeight="semibold"
-      color={labelColor}
+      color="fg.muted"
       mb={3}
       textTransform="uppercase"
       letterSpacing="wide"
@@ -279,53 +268,28 @@ export function NewHireIntakeDrawer({
     onChange: (value: string) => void;
     children: ReactNode;
   }) => (
-    <Box
-      position="relative"
-      bg={inputBg}
+    <NativeSelect.Root
+      size="md"
+      bg="bg.secondary"
       borderRadius="lg"
       border="1px solid"
-      borderColor={borderColor}
+      borderColor="border.primary"
       _focusWithin={{ borderColor: "brand.500" }}
     >
-      <select
+      <NativeSelect.Field
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        style={{
-          width: "100%",
-          padding: "10px 16px",
-          borderRadius: "8px",
-          border: "none",
-          backgroundColor: "transparent",
-          color: "inherit",
-          fontSize: "14px",
-          cursor: "pointer",
-          appearance: "none",
-          WebkitAppearance: "none",
-          outline: "none",
-        }}
+        ps={4}
+        pe={8}
+        py={2.5}
+        fontSize="sm"
+        border="none"
+        bg="transparent"
       >
         {children}
-      </select>
-      <Box
-        position="absolute"
-        right={3}
-        top="50%"
-        transform="translateY(-50%)"
-        pointerEvents="none"
-        color={textSecondary}
-      >
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-          <path
-            d="M2.5 4.5L6 8L9.5 4.5"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-        </svg>
-      </Box>
-    </Box>
+      </NativeSelect.Field>
+      <NativeSelect.Indicator color="fg.muted" />
+    </NativeSelect.Root>
   );
 
   const Check = ({
@@ -341,10 +305,10 @@ export function NewHireIntakeDrawer({
   }) => (
     <HStack
       p={3}
-      bg={inputBg}
+      bg="bg.secondary"
       borderRadius="lg"
       border="1px solid"
-      borderColor={borderColor}
+      borderColor="border.primary"
       cursor="pointer"
       onClick={onToggle}
       _hover={{ borderColor: "brand.400" }}
@@ -356,7 +320,7 @@ export function NewHireIntakeDrawer({
         h={5}
         borderRadius="md"
         border="2px solid"
-        borderColor={checked ? "brand.500" : borderColor}
+        borderColor={checked ? "brand.500" : "border.primary"}
         bg={checked ? "brand.500" : "transparent"}
         display="flex"
         alignItems="center"
@@ -378,11 +342,11 @@ export function NewHireIntakeDrawer({
         )}
       </Box>
       <Box flex={1}>
-        <Text fontSize="sm" fontWeight="medium" color={textPrimary}>
+        <Text fontSize="sm" fontWeight="medium" color="fg">
           {title}
         </Text>
         {subtitle && (
-          <Text fontSize="xs" color={textSecondary}>
+          <Text fontSize="xs" color="fg.muted">
             {subtitle}
           </Text>
         )}
@@ -391,14 +355,13 @@ export function NewHireIntakeDrawer({
   );
 
   const inputProps = {
-    bg: inputBg,
+    bg: "bg.secondary",
     border: "1px solid",
     borderRadius: "lg",
     px: 4,
     _focus: { borderColor: "brand.500" },
   } as const;
 
-  const iconColor = "var(--chakra-colors-gray-400)";
   const departments = options?.departments ?? {};
   const workLocations = options?.work_locations ?? {};
   const employmentTypes = options?.employment_types ?? [];
@@ -410,7 +373,7 @@ export function NewHireIntakeDrawer({
   const softwareCatalog = options?.software_catalog ?? [];
 
   const selectedCategoryMeta = deviceCategories.find(
-    (c) => c.value === deviceCategory,
+    (c) => String(c.value) === deviceCategory,
   );
 
   // Items offered for the chosen department: global (null department) + any
@@ -446,13 +409,13 @@ export function NewHireIntakeDrawer({
       <Portal>
         <Drawer.Backdrop />
         <Drawer.Positioner>
-          <Drawer.Content bg={drawerBg} maxW="480px" w="full">
+          <Drawer.Content bg="bg.card" maxW="480px" w="full">
             {/* Header */}
             <Box
               p={4}
               borderBottom="1px solid"
-              borderColor={borderColor}
-              bg={headerBg}
+              borderColor="border.primary"
+              bg="bg.secondary"
             >
               <Flex justify="space-between" align="center">
                 <HStack gap={3}>
@@ -460,24 +423,23 @@ export function NewHireIntakeDrawer({
                     <LuUserPlus size={18} />
                   </Box>
                   <Box>
-                    <Text fontWeight="semibold" color={textPrimary}>
+                    <Text fontWeight="semibold" color="fg">
                       New Hire Intake
                     </Text>
-                    <Text fontSize="sm" color={textSecondary}>
+                    <Text fontSize="sm" color="fg.muted">
                       Submit a new hire for HR &amp; IT setup
                     </Text>
                   </Box>
                 </HStack>
-                <Box
-                  as="button"
-                  p={2}
-                  borderRadius="lg"
-                  color={textSecondary}
-                  _hover={{ bg: hoverBg }}
+                <IconButton
+                  aria-label="Close"
+                  variant="ghost"
+                  size="sm"
+                  color="fg.muted"
                   onClick={onClose}
                 >
                   <LuX size={20} />
-                </Box>
+                </IconButton>
               </Flex>
             </Box>
 
@@ -495,7 +457,7 @@ export function NewHireIntakeDrawer({
                     <VStack gap={3}>
                       <Box w="full">
                         <FieldLabel
-                          icon={<LuMail size={14} color={iconColor} />}
+                          icon={<LuMail size={14} color="fg.muted" />}
                           required
                         >
                           Work Email
@@ -504,11 +466,11 @@ export function NewHireIntakeDrawer({
                           value={form.email}
                           onChange={(e) => setField("email", e.target.value)}
                           placeholder="newhire@company.com"
-                          borderColor={errors.email ? "red.500" : borderColor}
+                          borderColor={errors.email ? "red.500" : "border.primary"}
                           {...inputProps}
                         />
                         {errors.email && (
-                          <Text fontSize="xs" color={errorColor} mt={1}>
+                          <Text fontSize="xs" color="error.primary" mt={1}>
                             {errors.email}
                           </Text>
                         )}
@@ -523,12 +485,12 @@ export function NewHireIntakeDrawer({
                             }
                             placeholder="John"
                             borderColor={
-                              errors.first_name ? "red.500" : borderColor
+                              errors.first_name ? "red.500" : "border.primary"
                             }
                             {...inputProps}
                           />
                           {errors.first_name && (
-                            <Text fontSize="xs" color={errorColor} mt={1}>
+                            <Text fontSize="xs" color="error.primary" mt={1}>
                               {errors.first_name}
                             </Text>
                           )}
@@ -542,12 +504,12 @@ export function NewHireIntakeDrawer({
                             }
                             placeholder="Doe"
                             borderColor={
-                              errors.last_name ? "red.500" : borderColor
+                              errors.last_name ? "red.500" : "border.primary"
                             }
                             {...inputProps}
                           />
                           {errors.last_name && (
-                            <Text fontSize="xs" color={errorColor} mt={1}>
+                            <Text fontSize="xs" color="error.primary" mt={1}>
                               {errors.last_name}
                             </Text>
                           )}
@@ -555,7 +517,7 @@ export function NewHireIntakeDrawer({
                       </HStack>
                       <Box w="full">
                         <FieldLabel
-                          icon={<LuBriefcase size={14} color={iconColor} />}
+                          icon={<LuBriefcase size={14} color="fg.muted" />}
                         >
                           Job Title
                         </FieldLabel>
@@ -565,7 +527,7 @@ export function NewHireIntakeDrawer({
                             setField("job_title", e.target.value)
                           }
                           placeholder="e.g., Media Producer"
-                          borderColor={borderColor}
+                          borderColor="border.primary"
                           {...inputProps}
                         />
                       </Box>
@@ -578,7 +540,7 @@ export function NewHireIntakeDrawer({
                     <VStack gap={3}>
                       <Box w="full">
                         <FieldLabel
-                          icon={<LuBuilding size={14} color={iconColor} />}
+                          icon={<LuBuilding size={14} color="fg.muted" />}
                         >
                           Department
                         </FieldLabel>
@@ -596,7 +558,7 @@ export function NewHireIntakeDrawer({
                       </Box>
                       <Box w="full">
                         <FieldLabel
-                          icon={<LuMapPin size={14} color={iconColor} />}
+                          icon={<LuMapPin size={14} color="fg.muted" />}
                         >
                           Work Location
                         </FieldLabel>
@@ -616,7 +578,7 @@ export function NewHireIntakeDrawer({
                       </Box>
                       <Box w="full">
                         <FieldLabel
-                          icon={<LuUsers size={14} color={iconColor} />}
+                          icon={<LuUsers size={14} color="fg.muted" />}
                         >
                           Reports To
                         </FieldLabel>
@@ -652,7 +614,7 @@ export function NewHireIntakeDrawer({
                         </Box>
                         <Box flex={1}>
                           <FieldLabel
-                            icon={<LuClock size={14} color={iconColor} />}
+                            icon={<LuClock size={14} color="fg.muted" />}
                           >
                             Weekly Hours
                           </FieldLabel>
@@ -666,12 +628,12 @@ export function NewHireIntakeDrawer({
                             min="0"
                             max="80"
                             borderColor={
-                              errors.weekly_hours ? "red.500" : borderColor
+                              errors.weekly_hours ? "red.500" : "border.primary"
                             }
                             {...inputProps}
                           />
                           {errors.weekly_hours && (
-                            <Text fontSize="xs" color={errorColor} mt={1}>
+                            <Text fontSize="xs" color="error.primary" mt={1}>
                               {errors.weekly_hours}
                             </Text>
                           )}
@@ -679,7 +641,7 @@ export function NewHireIntakeDrawer({
                       </HStack>
                       <Box w="full">
                         <FieldLabel
-                          icon={<LuCalendar size={14} color={iconColor} />}
+                          icon={<LuCalendar size={14} color="fg.muted" />}
                           required
                         >
                           Start Date
@@ -691,16 +653,16 @@ export function NewHireIntakeDrawer({
                             setField("start_date", e.target.value)
                           }
                           borderColor={
-                            errors.start_date ? "red.500" : borderColor
+                            errors.start_date ? "red.500" : "border.primary"
                           }
                           {...inputProps}
                         />
                         {errors.start_date && (
-                          <Text fontSize="xs" color={errorColor} mt={1}>
+                          <Text fontSize="xs" color="error.primary" mt={1}>
                             {errors.start_date}
                           </Text>
                         )}
-                        <Text fontSize="xs" color={textSecondary} mt={1}>
+                        <Text fontSize="xs" color="fg.muted" mt={1}>
                           PTO accrual and account activation are anchored to
                           this date.
                         </Text>
@@ -733,7 +695,7 @@ export function NewHireIntakeDrawer({
                               <>
                                 <FieldLabel
                                   icon={
-                                    <LuLaptop size={14} color={iconColor} />
+                                    <LuLaptop size={14} color="fg.muted" />
                                   }
                                 >
                                   What kind of device?
@@ -756,30 +718,28 @@ export function NewHireIntakeDrawer({
                                     icon={(() => {
                                       const Icon = selectedCategoryMeta
                                         ? categoryIcon(
-                                            selectedCategoryMeta.label,
+                                            selectedCategoryMeta.icon_key,
                                           )
                                         : LuLaptop;
                                       return (
-                                        <Icon size={14} color={iconColor} />
+                                        <Icon size={14} color="fg.muted" />
                                       );
                                     })()}
                                   >
                                     {selectedCategoryMeta?.label ?? "Devices"}
                                   </FieldLabel>
-                                  <Box
-                                    as="button"
+                                  <Button
+                                    variant="ghost"
+                                    size="xs"
                                     onClick={clearDeviceCategory}
-                                    display="flex"
-                                    alignItems="center"
-                                    gap={1}
-                                    fontSize="xs"
                                     color="brand.500"
                                     fontWeight="medium"
-                                    _hover={{ color: "brand.600" }}
+                                    px={1}
+                                    _hover={{ color: "brand.600", bg: "transparent" }}
                                   >
                                     <LuArrowLeft size={12} />
                                     Change type
-                                  </Box>
+                                  </Button>
                                 </Flex>
 
                                 {selectedCategoryMeta && (
@@ -815,19 +775,19 @@ export function NewHireIntakeDrawer({
                               borderRadius="xl"
                               border="1.5px solid"
                               borderColor="brand.400"
-                              bg={selectedCardBg}
+                              bg="brand.muted"
                             >
                               <Text
                                 fontSize="sm"
                                 fontWeight="semibold"
-                                color={textPrimary}
+                                color="fg"
                                 mb={1}
                               >
                                 What should IT purchase?
                               </Text>
                               <Text
                                 fontSize="xs"
-                                color={textSecondary}
+                                color="fg.muted"
                                 mb={3}
                               >
                                 Be specific — model, size, accessories, and any
@@ -844,9 +804,9 @@ export function NewHireIntakeDrawer({
                                 placeholder={
                                   "Example:\n• MacBook Pro 14\" M3, 16GB RAM\n• Needs Adobe-capable machine\n• Include USB-C hub + laptop sleeve"
                                 }
-                                bg={cardBg}
+                                bg="bg.secondary"
                                 border="1px solid"
-                                borderColor={borderColor}
+                                borderColor="border.primary"
                                 borderRadius="lg"
                                 px={4}
                                 py={3}
@@ -868,9 +828,9 @@ export function NewHireIntakeDrawer({
                                   )
                                 }
                                 placeholder="Any specifics — e.g. preferred setup notes for an existing device"
-                                bg={inputBg}
+                                bg="bg.secondary"
                                 border="1px solid"
-                                borderColor={borderColor}
+                                borderColor="border.primary"
                                 borderRadius="lg"
                                 px={4}
                                 py={2}
@@ -888,13 +848,13 @@ export function NewHireIntakeDrawer({
                   <Box>
                     <SectionTitle>Software</SectionTitle>
                     {availableSoftware.length === 0 ? (
-                      <Text fontSize="sm" color={textSecondary}>
+                      <Text fontSize="sm" color="fg.muted">
                         No catalog software{" "}
                         {form.department ? "for this department" : ""} yet.
                       </Text>
                     ) : (
                       <VStack gap={2} align="stretch">
-                        <Text fontSize="xs" color={textSecondary} mb={1}>
+                        <Text fontSize="xs" color="fg.muted" mb={1}>
                           Pick the apps this hire needs. Items marked{" "}
                           <Text as="span" color="orange.500" fontWeight="medium">
                             Approval
@@ -907,10 +867,10 @@ export function NewHireIntakeDrawer({
                             <HStack
                               key={sw.id}
                               p={3}
-                              bg={inputBg}
+                              bg="bg.secondary"
                               borderRadius="lg"
                               border="1px solid"
-                              borderColor={checked ? "brand.400" : borderColor}
+                              borderColor={checked ? "brand.400" : "border.primary"}
                               cursor="pointer"
                               onClick={() => toggleSoftware(sw.id)}
                               _hover={{ borderColor: "brand.400" }}
@@ -922,7 +882,7 @@ export function NewHireIntakeDrawer({
                                 h={5}
                                 borderRadius="md"
                                 border="2px solid"
-                                borderColor={checked ? "brand.500" : borderColor}
+                                borderColor={checked ? "brand.500" : "border.primary"}
                                 bg={checked ? "brand.500" : "transparent"}
                                 display="flex"
                                 alignItems="center"
@@ -948,14 +908,14 @@ export function NewHireIntakeDrawer({
                                   </svg>
                                 )}
                               </Box>
-                              <Box color={iconColor} flexShrink={0}>
+                              <Box color="fg.muted" flexShrink={0}>
                                 <LuPackage size={16} />
                               </Box>
                               <Text
                                 flex={1}
                                 fontSize="sm"
                                 fontWeight="medium"
-                                color={textPrimary}
+                                color="fg"
                               >
                                 {sw.name}
                               </Text>
@@ -989,54 +949,28 @@ export function NewHireIntakeDrawer({
             <Box
               p={4}
               borderTop="1px solid"
-              borderColor={borderColor}
-              bg={footerBg}
+              borderColor="border.primary"
+              bg="bg.secondary"
             >
               <HStack gap={3}>
-                <Box
-                  as="button"
+                <Button
                   flex={1}
-                  py={2.5}
-                  px={4}
-                  borderRadius="lg"
-                  fontWeight="medium"
-                  border="1px solid"
-                  borderColor={borderColor}
-                  color={textPrimary}
-                  bg="transparent"
+                  variant="outline"
                   onClick={onClose}
-                  _hover={{ bg: hoverBg }}
+                  disabled={isSaving}
                 >
                   Cancel
-                </Box>
-                <Box
-                  as="button"
+                </Button>
+                <Button
                   flex={1}
-                  py={2.5}
-                  px={4}
-                  borderRadius="lg"
-                  fontWeight="medium"
-                  bg="brand.500"
-                  color="white"
-                  onClick={isSaving ? undefined : handleSubmit}
-                  aria-disabled={isSaving}
-                  opacity={isSaving ? 0.7 : 1}
-                  cursor={isSaving ? "not-allowed" : "pointer"}
-                  _hover={{ bg: isSaving ? "brand.500" : "brand.600" }}
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
-                  gap={2}
+                  colorPalette="brand"
+                  onClick={handleSubmit}
+                  disabled={isSaving}
+                  loading={isSaving}
                 >
-                  {isSaving ? (
-                    <Spinner size="sm" />
-                  ) : (
-                    <>
-                      <LuSave size={16} />
-                      Submit Intake
-                    </>
-                  )}
-                </Box>
+                  <LuSave size={16} />
+                  Submit Intake
+                </Button>
               </HStack>
             </Box>
           </Drawer.Content>
@@ -1054,7 +988,7 @@ export function NewHireIntakeDrawer({
       motionPreset="scale"
     >
       <Portal>
-        <Dialog.Backdrop bg={previewBackdrop} />
+        <Dialog.Backdrop bg="blackAlpha.700" />
         <Dialog.Positioner padding={4}>
           <Dialog.Content
             maxW="720px"
@@ -1062,7 +996,7 @@ export function NewHireIntakeDrawer({
             mx={4}
             borderRadius="2xl"
             overflow="hidden"
-            bg={drawerBg}
+            bg="bg.card"
           >
             <Dialog.Header px={5} pt={5} pb={2}>
               <Dialog.Title fontSize="lg" fontWeight="semibold">
@@ -1082,9 +1016,9 @@ export function NewHireIntakeDrawer({
                 <Box
                   borderRadius="xl"
                   overflow="hidden"
-                  bg={imageBg}
+                  bg="bg.tertiary"
                   border="1px solid"
-                  borderColor={borderColor}
+                  borderColor="border.primary"
                 >
                   <Image
                     src={previewAsset.image_url}
@@ -1108,7 +1042,7 @@ export function NewHireIntakeDrawer({
                     </Badge>
                   )}
                 </HStack>
-                <Text fontSize="sm" color={textSecondary}>
+                <Text fontSize="sm" color="fg.muted">
                   {[
                     previewAsset?.asset_tag,
                     previewAsset?.serial_number
@@ -1119,26 +1053,19 @@ export function NewHireIntakeDrawer({
                     .join(" · ")}
                 </Text>
                 {previewAsset && (
-                  <Box
-                    as="button"
+                  <Button
                     mt={3}
-                    px={4}
-                    py={2}
-                    borderRadius="lg"
-                    bg="brand.500"
-                    color="white"
-                    fontWeight="medium"
-                    fontSize="sm"
+                    colorPalette="brand"
+                    size="sm"
                     onClick={() => {
                       selectAsset(String(previewAsset.id));
                       setPreviewAsset(null);
                     }}
-                    _hover={{ bg: "brand.600" }}
                   >
                     {form.requested_asset_id === String(previewAsset.id)
                       ? "Selected"
                       : "Select this device"}
-                  </Box>
+                  </Button>
                 )}
               </VStack>
             </Dialog.Body>

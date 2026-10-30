@@ -5,12 +5,12 @@ import {
   Box,
   Flex,
   HStack,
+  IconButton,
   Image,
   Text,
   VStack,
 } from "@chakra-ui/react";
-import { useColorModeValue } from "@/components/ui/color-mode";
-import { LuLaptop, LuTrash2, LuWrench } from "react-icons/lu";
+import { LuLaptop, LuTrash2, LuTriangleAlert } from "react-icons/lu";
 import type { Asset } from "@/lib/api";
 
 interface AssetInventoryRowProps {
@@ -26,13 +26,6 @@ export function AssetInventoryRow({
   onOpen,
   onDelete,
 }: AssetInventoryRowProps) {
-  const borderColor = useColorModeValue("gray.200", "gray.800");
-  const textPrimary = useColorModeValue("gray.900", "gray.50");
-  const textSecondary = useColorModeValue("gray.600", "gray.400");
-  const textMuted = useColorModeValue("gray.500", "gray.500");
-  const rowHoverBg = useColorModeValue("gray.50", "gray.800");
-  const imageBg = useColorModeValue("gray.100", "gray.800");
-
   const identifiers =
     [
       asset.asset_tag ? `Tag ${asset.asset_tag}` : null,
@@ -42,6 +35,9 @@ export function AssetInventoryRow({
       .filter(Boolean)
       .join(" · ") || "No tag or serial yet";
 
+  // Capability comes from the API — never invent delete rules in the UI.
+  const canDelete = asset.can_delete === true;
+
   return (
     <Flex
       align="center"
@@ -50,20 +46,21 @@ export function AssetInventoryRow({
       py={3}
       borderRadius="xl"
       border="1px solid"
-      borderColor={borderColor}
+      borderColor={asset.is_out_of_sync ? "orange.300" : "border.primary"}
       cursor="pointer"
       onClick={() => onOpen(asset)}
-      _hover={{ bg: rowHoverBg }}
+      _hover={{ bg: "bg.secondary" }}
       transition="all 0.15s"
+      bg="bg.card"
     >
       <Box
         w="52px"
         h="52px"
         borderRadius="lg"
         overflow="hidden"
-        bg={imageBg}
+        bg="bg.tertiary"
         border="1px solid"
-        borderColor={borderColor}
+        borderColor="border.primary"
         flexShrink={0}
         display="flex"
         alignItems="center"
@@ -78,12 +75,8 @@ export function AssetInventoryRow({
             fit="cover"
             referrerPolicy="no-referrer"
           />
-        ) : asset.status === "repair" ? (
-          <Box color={textMuted}>
-            <LuWrench size={18} />
-          </Box>
         ) : (
-          <Box color={textMuted}>
+          <Box color="fg.muted">
             <LuLaptop size={18} />
           </Box>
         )}
@@ -91,20 +84,28 @@ export function AssetInventoryRow({
 
       <Box flex={1} minW={0}>
         <HStack gap={2} flexWrap="wrap">
-          <Text fontWeight="semibold" color={textPrimary} truncate>
+          <Text fontWeight="semibold" color="fg" truncate>
             {asset.name}
           </Text>
-          <Text fontSize="sm" color={textSecondary}>
+          <Text fontSize="sm" color="fg.muted">
             {asset.asset_category_name ?? asset.type_label}
           </Text>
         </HStack>
-        <Text fontSize="xs" color={textMuted} mt={0.5} truncate>
+        <Text fontSize="xs" color="fg.muted" mt={0.5} truncate>
           {identifiers}
         </Text>
         {asset.holder_label && (
-          <Text fontSize="xs" color={textSecondary} mt={1}>
+          <Text fontSize="xs" color="fg.muted" mt={1}>
             {asset.holder_label}
           </Text>
+        )}
+        {asset.is_out_of_sync && (
+          <HStack gap={1} mt={1} color="orange.500">
+            <LuTriangleAlert size={12} />
+            <Text fontSize="xs" fontWeight="medium">
+              Out of sync with Asset Tiger
+            </Text>
+          </HStack>
         )}
       </Box>
 
@@ -124,24 +125,22 @@ export function AssetInventoryRow({
         )}
       </VStack>
 
-      <Box
-        as="button"
-        p={2}
-        borderRadius="md"
-        color={deleting ? textMuted : "red.400"}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (!deleting) onDelete(asset);
-        }}
-        aria-disabled={deleting}
-        cursor={deleting ? "not-allowed" : "pointer"}
-        _hover={{ bg: "red.500/10" }}
-        transition="all 0.15s"
-        title="Remove from inventory"
-        flexShrink={0}
-      >
-        <LuTrash2 size={16} />
-      </Box>
+      {canDelete && (
+        <IconButton
+          aria-label="Remove from inventory"
+          size="sm"
+          variant="ghost"
+          colorPalette="red"
+          flexShrink={0}
+          disabled={deleting}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!deleting) onDelete(asset);
+          }}
+        >
+          <LuTrash2 size={16} />
+        </IconButton>
+      )}
     </Flex>
   );
 }

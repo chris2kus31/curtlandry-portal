@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   Box,
+  Button,
   Drawer,
   Portal,
   VStack,
@@ -12,11 +13,13 @@ import {
   Textarea,
   Flex,
   Spinner,
+  NativeSelect,
+  IconButton,
 } from "@chakra-ui/react";
-import { useColorModeValue } from "@/components/ui/color-mode";
 import { toaster } from "@/components/ui/toaster";
 import { LuX, LuPackage, LuBuilding, LuSave, LuShieldCheck } from "react-icons/lu";
 import { softwareService } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/api/api-error";
 import type { SoftwareCatalogItem } from "@/lib/api";
 
 interface SoftwareCatalogDrawerProps {
@@ -56,16 +59,6 @@ export function SoftwareCatalogDrawer({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
 
-  const drawerBg = useColorModeValue("white", "gray.900");
-  const borderColor = useColorModeValue("gray.200", "gray.700");
-  const textPrimary = useColorModeValue("gray.900", "gray.50");
-  const textSecondary = useColorModeValue("gray.500", "gray.400");
-  const labelColor = useColorModeValue("gray.600", "gray.400");
-  const inputBg = useColorModeValue("gray.50", "gray.800");
-  const hoverBg = useColorModeValue("gray.100", "gray.800");
-  const headerBg = useColorModeValue("gray.50", "gray.800");
-  const footerBg = useColorModeValue("gray.50", "gray.800");
-  const errorColor = useColorModeValue("red.500", "red.400");
 
   useEffect(() => {
     if (isOpen) {
@@ -124,7 +117,7 @@ export function SoftwareCatalogDrawer({
     } catch (error) {
       toaster.create({
         title: item ? "Failed to update" : "Failed to add",
-        description: error instanceof Error ? error.message : "Please try again",
+        description: apiErrorMessage(error),
         type: "error",
       });
     } finally {
@@ -143,7 +136,7 @@ export function SoftwareCatalogDrawer({
   }) => (
     <HStack gap={2} mb={1.5}>
       {icon}
-      <Text fontSize="sm" color={textSecondary}>
+      <Text fontSize="sm" color="fg.muted">
         {children}
         {required && (
           <Text as="span" color="red.500">
@@ -168,10 +161,10 @@ export function SoftwareCatalogDrawer({
   }) => (
     <HStack
       p={3}
-      bg={inputBg}
+      bg="bg.secondary"
       borderRadius="lg"
       border="1px solid"
-      borderColor={borderColor}
+      borderColor="border.primary"
       cursor="pointer"
       onClick={onToggle}
       _hover={{ borderColor: "brand.400" }}
@@ -183,7 +176,7 @@ export function SoftwareCatalogDrawer({
         h={5}
         borderRadius="md"
         border="2px solid"
-        borderColor={checked ? "brand.500" : borderColor}
+        borderColor={checked ? "brand.500" : "border.primary"}
         bg={checked ? "brand.500" : "transparent"}
         display="flex"
         alignItems="center"
@@ -205,11 +198,11 @@ export function SoftwareCatalogDrawer({
         )}
       </Box>
       <Box flex={1}>
-        <Text fontSize="sm" fontWeight="medium" color={textPrimary}>
+        <Text fontSize="sm" fontWeight="medium" color="fg">
           {title}
         </Text>
         {subtitle && (
-          <Text fontSize="xs" color={textSecondary}>
+          <Text fontSize="xs" color="fg.muted">
             {subtitle}
           </Text>
         )}
@@ -218,14 +211,13 @@ export function SoftwareCatalogDrawer({
   );
 
   const inputProps = {
-    bg: inputBg,
+    bg: "bg.secondary",
     border: "1px solid",
     borderRadius: "lg",
     px: 4,
     _focus: { borderColor: "brand.500" },
   } as const;
 
-  const iconColor = "var(--chakra-colors-gray-400)";
 
   return (
     <Drawer.Root
@@ -236,13 +228,13 @@ export function SoftwareCatalogDrawer({
       <Portal>
         <Drawer.Backdrop />
         <Drawer.Positioner>
-          <Drawer.Content bg={drawerBg} maxW="440px" w="full">
+          <Drawer.Content bg="bg.card" maxW="440px" w="full">
             {/* Header */}
             <Box
               p={4}
               borderBottom="1px solid"
-              borderColor={borderColor}
-              bg={headerBg}
+              borderColor="border.primary"
+              bg="bg.secondary"
             >
               <Flex justify="space-between" align="center">
                 <HStack gap={3}>
@@ -250,24 +242,23 @@ export function SoftwareCatalogDrawer({
                     <LuPackage size={18} />
                   </Box>
                   <Box>
-                    <Text fontWeight="semibold" color={textPrimary}>
+                    <Text fontWeight="semibold" color="fg">
                       {item ? "Edit Software" : "Add Software"}
                     </Text>
-                    <Text fontSize="sm" color={textSecondary}>
+                    <Text fontSize="sm" color="fg.muted">
                       Manage the intake software catalog
                     </Text>
                   </Box>
                 </HStack>
-                <Box
-                  as="button"
-                  p={2}
-                  borderRadius="lg"
-                  color={textSecondary}
-                  _hover={{ bg: hoverBg }}
+                <IconButton
+                  aria-label="Close"
+                  variant="ghost"
+                  size="sm"
+                  color="fg.muted"
                   onClick={onClose}
                 >
                   <LuX size={20} />
-                </Box>
+                </IconButton>
               </Flex>
             </Box>
 
@@ -280,44 +271,37 @@ export function SoftwareCatalogDrawer({
                     value={form.name}
                     onChange={(e) => setField("name", e.target.value)}
                     placeholder="e.g., Adobe Creative Cloud"
-                    borderColor={errors.name ? "red.500" : borderColor}
+                    borderColor={errors.name ? "red.500" : "border.primary"}
                     {...inputProps}
                   />
                   {errors.name && (
-                    <Text fontSize="xs" color={errorColor} mt={1}>
+                    <Text fontSize="xs" color="error.primary" mt={1}>
                       {errors.name}
                     </Text>
                   )}
                 </Box>
 
                 <Box w="full">
-                  <FieldLabel icon={<LuBuilding size={14} color={iconColor} />}>
+                  <FieldLabel icon={<LuBuilding size={14} color="fg.muted" />}>
                     Department
                   </FieldLabel>
-                  <Box
-                    position="relative"
-                    bg={inputBg}
+                  <NativeSelect.Root
+                    size="md"
+                    bg="bg.secondary"
                     borderRadius="lg"
                     border="1px solid"
-                    borderColor={borderColor}
+                    borderColor="border.primary"
                     _focusWithin={{ borderColor: "brand.500" }}
                   >
-                    <select
+                    <NativeSelect.Field
                       value={form.department}
                       onChange={(e) => setField("department", e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "10px 16px",
-                        borderRadius: "8px",
-                        border: "none",
-                        backgroundColor: "transparent",
-                        color: "inherit",
-                        fontSize: "14px",
-                        cursor: "pointer",
-                        appearance: "none",
-                        WebkitAppearance: "none",
-                        outline: "none",
-                      }}
+                      ps={4}
+                      pe={8}
+                      py={2.5}
+                      fontSize="sm"
+                      border="none"
+                      bg="transparent"
                     >
                       <option value="">All departments</option>
                       {Object.entries(departments).map(([value, label]) => (
@@ -325,33 +309,10 @@ export function SoftwareCatalogDrawer({
                           {label}
                         </option>
                       ))}
-                    </select>
-                    <Box
-                      position="absolute"
-                      right={3}
-                      top="50%"
-                      transform="translateY(-50%)"
-                      pointerEvents="none"
-                      color={textSecondary}
-                    >
-                      <svg
-                        width="12"
-                        height="12"
-                        viewBox="0 0 12 12"
-                        fill="currentColor"
-                      >
-                        <path
-                          d="M2.5 4.5L6 8L9.5 4.5"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          fill="none"
-                        />
-                      </svg>
-                    </Box>
-                  </Box>
-                  <Text fontSize="xs" color={labelColor} mt={1}>
+                    </NativeSelect.Field>
+                    <NativeSelect.Indicator color="fg.muted" />
+                  </NativeSelect.Root>
+                  <Text fontSize="xs" color="fg.muted" mt={1}>
                     Leave as “All departments” to offer it to every new hire.
                   </Text>
                 </Box>
@@ -378,9 +339,9 @@ export function SoftwareCatalogDrawer({
                     value={form.notes}
                     onChange={(e) => setField("notes", e.target.value)}
                     placeholder="Internal notes — license details, install steps, etc."
-                    bg={inputBg}
+                    bg="bg.secondary"
                     border="1px solid"
-                    borderColor={borderColor}
+                    borderColor="border.primary"
                     borderRadius="lg"
                     px={4}
                     py={2}
@@ -395,54 +356,28 @@ export function SoftwareCatalogDrawer({
             <Box
               p={4}
               borderTop="1px solid"
-              borderColor={borderColor}
-              bg={footerBg}
+              borderColor="border.primary"
+              bg="bg.secondary"
             >
               <HStack gap={3}>
-                <Box
-                  as="button"
+                <Button
                   flex={1}
-                  py={2.5}
-                  px={4}
-                  borderRadius="lg"
-                  fontWeight="medium"
-                  border="1px solid"
-                  borderColor={borderColor}
-                  color={textPrimary}
-                  bg="transparent"
+                  variant="outline"
                   onClick={onClose}
-                  _hover={{ bg: hoverBg }}
+                  disabled={isSaving}
                 >
                   Cancel
-                </Box>
-                <Box
-                  as="button"
+                </Button>
+                <Button
                   flex={1}
-                  py={2.5}
-                  px={4}
-                  borderRadius="lg"
-                  fontWeight="medium"
-                  bg="brand.500"
-                  color="white"
-                  onClick={isSaving ? undefined : handleSubmit}
-                  aria-disabled={isSaving}
-                  opacity={isSaving ? 0.7 : 1}
-                  cursor={isSaving ? "not-allowed" : "pointer"}
-                  _hover={{ bg: isSaving ? "brand.500" : "brand.600" }}
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
-                  gap={2}
+                  colorPalette="brand"
+                  onClick={handleSubmit}
+                  disabled={isSaving}
+                  loading={isSaving}
                 >
-                  {isSaving ? (
-                    <Spinner size="sm" />
-                  ) : (
-                    <>
-                      {item ? <LuSave size={16} /> : <LuShieldCheck size={16} />}
-                      {item ? "Save Changes" : "Add Software"}
-                    </>
-                  )}
-                </Box>
+                  {item ? <LuSave size={16} /> : <LuShieldCheck size={16} />}
+                  {item ? "Save Changes" : "Add Software"}
+                </Button>
               </HStack>
             </Box>
           </Drawer.Content>

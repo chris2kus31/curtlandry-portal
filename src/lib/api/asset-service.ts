@@ -31,12 +31,13 @@ export interface Asset {
   status_label: string | null;
   status_color: string | null;
   is_assignable: boolean;
+  /** Portal-only assets may be hard-deleted; AT-linked must be retired. */
+  can_delete?: boolean;
   /** Server-rendered "who has this" line (assignee, Asset Tiger holder, or status help). */
   holder_label: string | null;
   image_url?: string | null;
   asset_tiger_ref_id?: number | null;
-  at_ready_for_reassignment?: boolean;
-  at_assigned_person_name?: string | null;
+  is_out_of_sync?: boolean;
   assigned_user_id: number | null;
   purchase_date: string | null;
   cost: number | null;
@@ -51,15 +52,26 @@ export interface Asset {
  * A device category offered in the new-hire picker, driven by
  * `asset_categories.show_in_intake` on the API.
  *
- * `value` is the stringified asset_categories id, so it matches an asset's
- * `asset_category_id` exactly — never compare labels or asset types.
+ * `value` is the asset_categories id. `icon_key` is resolved server-side so
+ * renaming a category in Asset Tiger does not break portal icons.
  */
 export interface DeviceCategoryOption {
-  value: string;
+  /** asset_categories.id — integer from the API. */
+  value: number;
   label: string;
+  icon_key?: string;
   asset_tiger_ref_id: number | null;
   /** Assignable devices in this category at the time options were fetched. */
   assignable_count: number;
+}
+
+/** Status / assignable filter chip supplied by GET assets/options. */
+export interface AssetStatusFilterOption {
+  value: string;
+  label: string;
+  description?: string;
+  /** When true, list with assignable=1 instead of status=. */
+  assignable?: boolean;
 }
 
 /** An Asset Tiger category plus the portal-owned settings People Ops controls. */
@@ -98,6 +110,8 @@ export interface AssetOptions {
   status_descriptions: Record<string, string>;
   transitions: Record<string, string[]>;
   assignable_statuses: string[];
+  /** Preferred filter list from the API (includes assignable pool). */
+  status_filters?: AssetStatusFilterOption[];
   device_categories: DeviceCategoryOption[];
 }
 
@@ -121,6 +135,7 @@ export interface AssetListFilters {
   sort_by?: string;
   sort_dir?: "asc" | "desc";
   per_page?: number;
+  page?: number;
 }
 
 interface ApiResponse<T> {
@@ -152,6 +167,7 @@ export const assetService = {
     if (filters.sort_by) params.append("sort_by", filters.sort_by);
     if (filters.sort_dir) params.append("sort_dir", filters.sort_dir);
     if (filters.per_page) params.append("per_page", String(filters.per_page));
+    if (filters.page) params.append("page", String(filters.page));
 
     const qs = params.toString();
     return await httpClient.get<PaginatedResponse<Asset>>(

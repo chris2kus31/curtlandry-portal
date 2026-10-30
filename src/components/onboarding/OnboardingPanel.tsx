@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Box,
+  Button,
   Card,
   HStack,
   Text,
@@ -12,7 +13,6 @@ import {
   Input,
   Skeleton,
 } from "@chakra-ui/react";
-import { useColorModeValue } from "@/components/ui/color-mode";
 import {
   LuUserPlus,
   LuSearch,
@@ -62,15 +62,6 @@ export function OnboardingPanel() {
   const [filter, setFilter] = useState<QueueFilter>("active");
   const [search, setSearch] = useState("");
 
-  const cardBg = useColorModeValue("white", "gray.900");
-  const borderColor = useColorModeValue("gray.200", "gray.800");
-  const textPrimary = useColorModeValue("gray.900", "gray.50");
-  const textSecondary = useColorModeValue("gray.600", "gray.400");
-  const textMuted = useColorModeValue("gray.500", "gray.500");
-  const rowHoverBg = useColorModeValue("gray.50", "gray.800");
-  const inputBg = useColorModeValue("gray.50", "gray.800");
-  const segBg = useColorModeValue("gray.100", "gray.800");
-  const segHoverBg = useColorModeValue("gray.200", "gray.700");
 
   const loadOptions = useCallback(async () => {
     setOptionsLoading(true);
@@ -140,80 +131,40 @@ export function OnboardingPanel() {
         direction={{ base: "column", md: "row" }}
         gap={4}
       >
-        <Text color={textSecondary}>
+        <Text color="fg.muted">
           {canManage
             ? "Submit new hires and track their setup through HR & IT."
             : "Submit a new hire and HR & IT will take it from there."}
         </Text>
         <HStack gap={3} flexShrink={0}>
           {canManageAssets && (
-            <Box
-              as="button"
+            <Button
+              variant="outline"
               onClick={() => router.push("/people-ops/assets")}
-              px={4}
-              py={2.5}
-              borderRadius="lg"
-              fontWeight="medium"
-              border="1px solid"
-              borderColor={borderColor}
-              color={textPrimary}
-              bg="transparent"
-              display="flex"
-              alignItems="center"
-              gap={2}
-              _hover={{ bg: rowHoverBg }}
-              transition="all 0.15s"
             >
               <LuLaptop size={18} />
               Asset Inventory
-            </Box>
+            </Button>
           )}
           {canManageSoftware && (
-            <Box
-              as="button"
+            <Button
+              variant="outline"
               onClick={() => router.push("/people-ops/software")}
-              px={4}
-              py={2.5}
-              borderRadius="lg"
-              fontWeight="medium"
-              border="1px solid"
-              borderColor={borderColor}
-              color={textPrimary}
-              bg="transparent"
-              display="flex"
-              alignItems="center"
-              gap={2}
-              _hover={{ bg: rowHoverBg }}
-              transition="all 0.15s"
             >
               <LuPackage size={18} />
               Software Catalog
-            </Box>
+            </Button>
           )}
-          <Box
-            as="button"
-            onClick={() => setDrawerOpen(true)}
-            bg="brand.500"
-            color="white"
-            px={4}
-            py={2.5}
-            borderRadius="lg"
-            fontWeight="medium"
-            display="flex"
-            alignItems="center"
-            gap={2}
-            _hover={{ bg: "brand.600" }}
-            transition="all 0.15s"
-          >
+          <Button colorPalette="brand" onClick={() => setDrawerOpen(true)}>
             <LuUserPlus size={18} />
             New Hire
-          </Box>
+          </Button>
         </HStack>
       </Flex>
 
       {/* Manager-only quick explainer */}
       {!canManage && (
-        <Card.Root bg={cardBg} borderColor={borderColor} borderWidth="1px">
+        <Card.Root bg="bg.card" borderColor="border.primary" borderWidth="1px">
           <Card.Body>
             <HStack gap={4} align="flex-start">
               <Box
@@ -226,10 +177,10 @@ export function OnboardingPanel() {
                 <LuClipboardList size={22} />
               </Box>
               <Box>
-                <Text fontWeight="semibold" color={textPrimary}>
+                <Text fontWeight="semibold" color="fg">
                   How new hire intake works
                 </Text>
-                <Text color={textSecondary} fontSize="sm" mt={1}>
+                <Text color="fg.muted" fontSize="sm" mt={1}>
                   Submit the new hire&apos;s details and device needs. We create
                   their (inactive) account, set up PTO anchored to their start
                   date, and notify HR &amp; IT to finish provisioning. Their
@@ -243,7 +194,7 @@ export function OnboardingPanel() {
 
       {/* Cases queue (HR/IT + super admin) */}
       {canManage && (
-        <Card.Root bg={cardBg} borderColor={borderColor} borderWidth="1px">
+        <Card.Root bg="bg.card" borderColor="border.primary" borderWidth="1px">
           <Card.Body>
             <Flex
               justify="space-between"
@@ -252,29 +203,21 @@ export function OnboardingPanel() {
               gap={3}
               mb={5}
             >
-              <HStack gap={1} bg={segBg} p={1} borderRadius="lg" w="fit-content">
+              <HStack gap={1} bg="bg.tertiary" p={1} borderRadius="lg" w="fit-content">
                 {(["active", "completed", "all"] as QueueFilter[]).map((key) => {
                   const active = filter === key;
                   return (
-                    <Box
+                    <Button
                       key={key}
-                      as="button"
-                      px={4}
-                      py={1.5}
-                      borderRadius="md"
-                      fontSize="sm"
-                      fontWeight="medium"
+                      size="sm"
+                      variant={active ? "solid" : "ghost"}
+                      colorPalette="gray"
                       textTransform="capitalize"
-                      bg={active ? cardBg : "transparent"}
-                      color={active ? textPrimary : textSecondary}
-                      boxShadow={active ? "sm" : "none"}
                       onClick={() => setFilter(key)}
-                      cursor="pointer"
-                      _hover={active ? undefined : { bg: segHoverBg, color: textPrimary }}
-                      transition="all 0.15s"
+                      boxShadow={active ? "sm" : "none"}
                     >
                       {key}
-                    </Box>
+                    </Button>
                   );
                 })}
               </HStack>
@@ -285,7 +228,7 @@ export function OnboardingPanel() {
                   left={3}
                   top="50%"
                   transform="translateY(-50%)"
-                  color={textMuted}
+                  color="fg.muted"
                   pointerEvents="none"
                 >
                   <LuSearch size={16} />
@@ -294,9 +237,9 @@ export function OnboardingPanel() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search by name, email, dept…"
-                  bg={inputBg}
+                  bg="bg.secondary"
                   border="1px solid"
-                  borderColor={borderColor}
+                  borderColor="border.primary"
                   borderRadius="lg"
                   pl={9}
                   px={4}
@@ -313,13 +256,13 @@ export function OnboardingPanel() {
               </VStack>
             ) : filteredCases.length === 0 ? (
               <VStack gap={3} py={12} textAlign="center">
-                <Box color={textMuted}>
+                <Box color="fg.muted">
                   <LuInbox size={40} />
                 </Box>
-                <Text color={textPrimary} fontWeight="medium">
+                <Text color="fg" fontWeight="medium">
                   No onboarding cases
                 </Text>
-                <Text color={textSecondary} fontSize="sm">
+                <Text color="fg.muted" fontSize="sm">
                   {filter === "active"
                     ? "There are no active cases right now."
                     : filter === "completed"
@@ -338,17 +281,17 @@ export function OnboardingPanel() {
                     py={3}
                     borderRadius="lg"
                     border="1px solid"
-                    borderColor={borderColor}
+                    borderColor="border.primary"
                     cursor="pointer"
                     onClick={() => router.push(`/people-ops/onboarding/${c.id}`)}
-                    _hover={{ bg: rowHoverBg, borderColor: "brand.300" }}
+                    _hover={{ bg: "bg.secondary", borderColor: "brand.300" }}
                     transition="all 0.15s"
                   >
                     <Box flex={1} minW={0}>
-                      <Text fontWeight="semibold" color={textPrimary} truncate>
+                      <Text fontWeight="semibold" color="fg" truncate>
                         {c.new_hire?.name ?? "New hire"}
                       </Text>
-                      <Text fontSize="sm" color={textSecondary} truncate>
+                      <Text fontSize="sm" color="fg.muted" truncate>
                         {c.new_hire?.email ?? ""}
                         {c.department ? ` · ${c.department}` : ""}
                       </Text>
@@ -359,10 +302,10 @@ export function OnboardingPanel() {
                       textAlign="right"
                       minW="110px"
                     >
-                      <Text fontSize="xs" color={textMuted}>
+                      <Text fontSize="xs" color="fg.muted">
                         Start date
                       </Text>
-                      <Text fontSize="sm" color={textPrimary} fontWeight="medium">
+                      <Text fontSize="sm" color="fg" fontWeight="medium">
                         {formatStartDate(c.start_date)}
                       </Text>
                     </Box>
@@ -370,7 +313,7 @@ export function OnboardingPanel() {
                     {c.device_needed && (
                       <Box
                         display={{ base: "none", md: "flex" }}
-                        color={textMuted}
+                        color="fg.muted"
                         title="Device requested"
                       >
                         <LuLaptop size={18} />
@@ -382,7 +325,7 @@ export function OnboardingPanel() {
                       color={c.status_color}
                     />
 
-                    <Box color={textMuted}>
+                    <Box color="fg.muted">
                       <LuChevronRight size={18} />
                     </Box>
                   </Flex>

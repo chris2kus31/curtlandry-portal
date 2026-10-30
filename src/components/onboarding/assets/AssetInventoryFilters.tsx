@@ -1,25 +1,8 @@
 "use client";
 
-import { Box, Flex, HStack, Input } from "@chakra-ui/react";
-import { useColorModeValue } from "@/components/ui/color-mode";
+import { Box, Flex, HStack, Input, NativeSelect } from "@chakra-ui/react";
 import { LuSearch } from "react-icons/lu";
-import type { AssetOptions } from "@/lib/api";
-
-/** Pseudo-status filter that maps to the API's `assignable=1` flag. */
-export const ASSIGNABLE_FILTER = "assignable";
-
-const selectStyle: React.CSSProperties = {
-  padding: "8px 14px",
-  borderRadius: "8px",
-  border: "none",
-  backgroundColor: "transparent",
-  color: "inherit",
-  fontSize: "14px",
-  cursor: "pointer",
-  appearance: "none",
-  WebkitAppearance: "none",
-  outline: "none",
-};
+import type { AssetOptions, AssetStatusFilterOption } from "@/lib/api";
 
 function FilterSelect({
   value,
@@ -32,21 +15,26 @@ function FilterSelect({
   placeholder: string;
   entries: [string, string][];
 }) {
-  const borderColor = useColorModeValue("gray.200", "gray.800");
-  const inputBg = useColorModeValue("gray.50", "gray.800");
-
   return (
-    <Box
-      bg={inputBg}
+    <NativeSelect.Root
+      size="sm"
+      bg="bg.secondary"
       borderRadius="lg"
       border="1px solid"
-      borderColor={borderColor}
+      borderColor="border.primary"
       _focusWithin={{ borderColor: "brand.500" }}
+      w="auto"
+      minW="160px"
     >
-      <select
+      <NativeSelect.Field
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        style={selectStyle}
+        ps={3.5}
+        pe={8}
+        py={2}
+        fontSize="sm"
+        border="none"
+        bg="transparent"
       >
         <option value="">{placeholder}</option>
         {entries.map(([entryValue, label]) => (
@@ -54,9 +42,31 @@ function FilterSelect({
             {label}
           </option>
         ))}
-      </select>
-    </Box>
+      </NativeSelect.Field>
+      <NativeSelect.Indicator />
+    </NativeSelect.Root>
   );
+}
+
+function statusFilterEntries(
+  options: AssetOptions | null,
+): [string, string][] {
+  const fromApi = options?.status_filters;
+  if (fromApi && fromApi.length > 0) {
+    return fromApi.map((filter: AssetStatusFilterOption) => [
+      filter.value,
+      filter.description
+        ? `${filter.label} — ${filter.description}`
+        : filter.label,
+    ]);
+  }
+
+  // Fallback if an older API build has not shipped status_filters yet.
+  const descriptions = options?.status_descriptions ?? {};
+  return Object.entries(options?.statuses ?? {}).map(([value, label]) => [
+    value,
+    descriptions[value] ? `${label} — ${descriptions[value]}` : label,
+  ]);
 }
 
 interface AssetInventoryFiltersProps {
@@ -78,22 +88,6 @@ export function AssetInventoryFilters({
   search,
   onSearchChange,
 }: AssetInventoryFiltersProps) {
-  const borderColor = useColorModeValue("gray.200", "gray.800");
-  const textMuted = useColorModeValue("gray.500", "gray.500");
-  const inputBg = useColorModeValue("gray.50", "gray.800");
-
-  const descriptions = options?.status_descriptions ?? {};
-  const statusEntries: [string, string][] = [
-    [ASSIGNABLE_FILTER, "Ready for new hires — can be offered during intake"],
-    ...Object.entries(options?.statuses ?? {}).map(
-      ([value, label]) =>
-        [
-          value,
-          descriptions[value] ? `${label} — ${descriptions[value]}` : label,
-        ] as [string, string],
-    ),
-  ];
-
   return (
     <Flex
       justify="space-between"
@@ -107,7 +101,7 @@ export function AssetInventoryFilters({
           value={statusFilter}
           onChange={onStatusFilterChange}
           placeholder="All statuses"
-          entries={statusEntries}
+          entries={statusFilterEntries(options)}
         />
         <FilterSelect
           value={typeFilter}
@@ -123,7 +117,7 @@ export function AssetInventoryFilters({
           left={3}
           top="50%"
           transform="translateY(-50%)"
-          color={textMuted}
+          color="fg.muted"
           pointerEvents="none"
         >
           <LuSearch size={16} />
@@ -132,9 +126,9 @@ export function AssetInventoryFilters({
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search by name, tag, or serial…"
-          bg={inputBg}
+          bg="bg.secondary"
           border="1px solid"
-          borderColor={borderColor}
+          borderColor="border.primary"
           borderRadius="lg"
           pl={9}
           px={4}
